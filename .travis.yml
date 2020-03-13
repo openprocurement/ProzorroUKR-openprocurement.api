@@ -1,0 +1,161 @@
+language: minimal
+dist: xenial
+services: docker
+addons:
+  hosts:
+    - couchdb
+    - localhost
+
+git:
+  depth: 1
+
+stages:
+  - build
+  - test
+
+branches:
+  only:
+  - master
+  - /^feature/.*$/
+
+env:
+  global:
+    - TZ=Europe/Kiev
+    - COUCHDB_USER=op   
+    - COUCHDB_PASSWORD=op
+  
+jobs:
+  include:
+    - stage: build
+      name: build
+      script:
+         - docker info
+         - docker login -u $USER -p $PASS docker.pkg.github.com
+         - docker build -t docker.pkg.github.com/$TRAVIS_REPO_SLUG/$IMAGE:$TRAVIS_BRANCH .
+         - docker push docker.pkg.github.com/$TRAVIS_REPO_SLUG/$IMAGE:$TRAVIS_BRANCH
+    - stage: test
+      name: test_relocation_api
+      env: 
+        - TESTS_PATH: src/openprocurement/relocation/api/tests
+        - COV_PATH: src/openprocurement/relocation/api
+        - COV_FILE: .coveragerc
+    - stage: test
+      name: test_tender_esco
+      env: 
+         - TESTS_PATH: src/openprocurement/tender/esco/tests
+         - COV_PATH: src/openprocurement/tender/esco
+         - COV_FILE: .coveragerc
+    - stage: test
+      name: test_tender_openeu
+      env: 
+         - TESTS_PATH: src/openprocurement/tender/openeu/tests
+         - COV_PATH: src/openprocurement/tender/openeu
+         - COV_FILE: .coveragerc   
+    - stage: test
+      name: test_tender_cfaua
+      env: 
+         - TESTS_PATH: src/openprocurement/tender/cfaua/tests
+         - COV_PATH: src/openprocurement/tender/cfaua
+         - COV_FILE: .coveragerc   
+    - stage: test
+      name: test_tender_comp_stage2
+      env: 
+         - TESTS_PATH: src/openprocurement/tender/competitivedialogue/tests/stage2
+         - COV_PATH: src/openprocurement/tender/competitivedialogue/
+         - COV_FILE: src/openprocurement/tender/competitivedialogue/tests/stage2/.coveragerc
+    - stage: test
+      name: test_tender_core
+      env: 
+         - TESTS_PATH: src/openprocurement/tender/core/tests
+         - COV_PATH: src/openprocurement/tender/core
+         - COV_FILE: .coveragerc
+    - stage: test
+      name: test_api
+      env: 
+         - TESTS_PATH: src/openprocurement/api/tests
+         - COV_PATH: src/openprocurement/api
+         - COV_FILE: .coveragerc
+    - stage: test
+      name: test_agreement_core
+      env: 
+         - TESTS_PATH: src/openprocurement/agreement/core/tests
+         - COV_PATH: src/openprocurement/agreement/core
+         - COV_FILE: .coveragerc
+    - stage: test
+      name: test_agreement_cfaua
+      env: 
+         - TESTS_PATH: src/openprocurement/agreement/cfaua/tests
+         - COV_PATH: src/openprocurement/agreement/cfaua
+         - COV_FILE: .coveragerc
+    - stage: test
+      name: test_contracting_api
+      env: 
+         - TESTS_PATH: src/openprocurement/contracting/api/tests
+         - COV_PATH: src/openprocurement/contracting/api
+         - COV_FILE: .coveragerc
+    - stage: test
+      name: test_planning_api
+      env: 
+         - TESTS_PATH: src/openprocurement/planning/api/tests
+         - COV_PATH: src/openprocurement/planning/api
+         - COV_FILE: .coveragerc
+    - stage: test
+      name: test_historical_core
+      env: 
+         - TESTS_PATH: src/openprocurement/historical/core/tests
+         - COV_PATH: src/openprocurement/historical/core
+         - COV_FILE: .coveragerc
+    - stage: test
+      name: test_historical_tender
+      env: 
+         - TESTS_PATH: src/openprocurement/historical/tender/tests
+         - COV_PATH: src/openprocurement/historical/tender
+         - COV_FILE: .coveragerc
+    - stage: test
+      name: test_tender_comp_stage1
+      env: 
+         - TESTS_PATH: src/openprocurement/tender/competitivedialogue/tests/stage1
+         - COV_PATH: src/openprocurement/tender/competitivedialogue/
+         - COV_FILE: src/openprocurement/tender/competitivedialogue/tests/stage1/.coveragerc
+    - stage: test
+      name: test_tender_limited
+      env: 
+         - TESTS_PATH: src/openprocurement/tender/limited/tests
+         - COV_PATH: src/openprocurement/tender/limited
+         - COV_FILE: .coveragerc
+    - stage: test
+      name: test_tender_openua
+      env: 
+         - TESTS_PATH: src/openprocurement/tender/openua/tests
+         - COV_PATH: src/openprocurement/tender/openua
+         - COV_FILE: .coveragerc
+    - stage: test
+      name: test_tender_belowthreshold
+      env: 
+         - TESTS_PATH: src/openprocurement/tender/belowthreshold/tests
+         - COV_PATH: src/openprocurement/tender/belowthreshold
+         - COV_FILE: .coveragerc
+    - stage: test
+      name: test_tender_openuadefense
+      env: 
+         - TESTS_PATH: src/openprocurement/tender/openuadefense/tests
+         - COV_PATH: src/openprocurement/tender/openuadefense
+         - COV_FILE: .coveragerc
+    - stage: test
+      name: test_tender_cfaselectionua
+      env: 
+         - TESTS_PATH: src/openprocurement/tender/cfaselectionua/tests
+         - COV_PATH: src/openprocurement/tender/cfaselectionua
+         - COV_FILE: .coveragerc
+script:
+  - mkdir -p /dev/shm/couch
+  - docker run -d -v /dev/shm/couch:/usr/local/var/lib/couchdb -e COUCHDB_USER=$COUCHDB_USER -e COUCHDB_PASSWORD=$COUCHDB_PASSWORD --net=host couchdb:1.7
+  - docker login -u $USER -p $PASS docker.pkg.github.com
+  - | 
+      docker run -it --add-host=couchdb:127.0.0.1 -e TZ=$TZ -e TESTS_PATH=$TESTS_PATH -e COV_PATH=$COV_PATH -e COV_FILE=$COV_FILE \
+      --net=host docker.pkg.github.com/$TRAVIS_REPO_SLUG/$IMAGE:$TRAVIS_BRANCH sh -c 'cd /app && 
+      py.test $TESTS_PATH --cov=$COV_PATH --cov-config=$COV_FILE -v --color=yes --dist=each \
+      --tx=popen//id=sand//env:DB_NAME=test_sandbox//env:SANDBOX_MODE=1//env:SINGLE_APP=1 \
+      --tx=popen//id=prod//env:DB_NAME=test_prod//env:SANDBOX_MODE=//env:SINGLE_APP=1 \
+      --tx=popen//id=sand_relsease_2020_04_19//env:DB_NAME=test_sandbox_2020_04_19//env:SANDBOX_MODE=1//env:SINGLE_APP=1//env:DEFAULT_RELEASE_2020_04_19=2020-01-01 \
+      --tx=popen//id=prod_relsease_2020_04_19//env:DB_NAME=test_prod_2020_04_19//env:SANDBOX_MODE=//env:SINGLE_APP=1//env:DEFAULT_RELEASE_2020_04_19=2020-01-01 > /proc/1/fd/1'
