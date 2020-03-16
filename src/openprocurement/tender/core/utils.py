@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import jmespath
 from decimal import Decimal
 from re import compile
 
@@ -426,3 +427,15 @@ def block_tender(request):
         and (any([i.status not in ["active", "unsuccessful"] for i in tender.cancellations if not i.relatedLot])
              or not accept_tender)
     )
+
+
+def get_contract_supplier_roles(contract):
+    roles = {}
+    if 'bids' not in contract.__parent__:
+        return roles
+    bid_id = jmespath.search("awards[?id=='{}'].bid_id".format(contract.awardID), contract.__parent__)[0]
+    tokens = jmespath.search("bids[?id=='{}'].[owner,owner_token]".format(bid_id), contract.__parent__)
+    if tokens:
+        for item in tokens:
+            roles['_'.join(item)] = 'contract_supplier'
+    return roles
