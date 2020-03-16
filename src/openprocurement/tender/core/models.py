@@ -57,9 +57,7 @@ from openprocurement.tender.core.constants import (
 )
 from openprocurement.tender.core.utils import (
     calc_auction_end_time, rounding_shouldStartAfter,
-    restrict_value_to_bounds, round_up_to_ten,
-    get_contract_supplier_roles, get_contract_supplier_permissions,
-    calculate_tender_business_date,
+    restrict_value_to_bounds, round_up_to_ten, get_contract_supplier_roles,
 )
 from openprocurement.tender.core.validation import (
     validate_lotvalue_value,
@@ -426,18 +424,6 @@ class Contract(BaseContract):
     value = ModelType(ContractValue)
     awardID = StringType(required=True)
     documents = ListType(ModelType(Document, required=True), default=list())
-
-    def __acl__(self):
-        return get_contract_supplier_permissions(self)
-
-    def get_role(self):
-        root = self.get_root()
-        request = root.request
-        if request.authenticated_role in ("tender_owner", "contract_supplier"):
-            role = "edit_{}".format(request.authenticated_role)
-        else:
-            role = request.authenticated_role
-        return role
 
     def __local_roles__(self):
         roles = {}
