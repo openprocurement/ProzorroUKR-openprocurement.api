@@ -33,15 +33,6 @@ from openprocurement.tender.belowthreshold.tests.contract_blanks import (
     patch_tender_contract_status_by_owner,
     patch_tender_contract_status_by_supplier,
     patch_tender_contract_status_by_others,
-    create_tender_contract_document_by_supplier,
-    create_tender_contract_document_by_others,
-    put_tender_contract_document_by_supplier,
-    put_tender_contract_document_by_others,
-    patch_tender_contract_document_by_supplier,
-    lot2_create_tender_contract_document_by_supplier,
-    lot2_create_tender_contract_document_by_others,
-    lot2_put_tender_contract_document_by_supplier,
-    lot2_patch_tender_contract_document_by_supplier,
 )
 
 
