@@ -31,8 +31,8 @@ jobs:
       script:
          - docker info
          - docker login -u $USER -p $PASS docker.pkg.github.com
-         - docker build -t docker.pkg.github.com/$TRAVIS_REPO_SLUG/$IMAGE:$TRAVIS_BRANCH .
-         - docker push docker.pkg.github.com/$TRAVIS_REPO_SLUG/$IMAGE:$TRAVIS_BRANCH
+         - docker build -t docker.pkg.github.com/$REPO/$IMAGE:$TRAVIS_BRANCH .
+         - docker push docker.pkg.github.com/$REPO/$IMAGE:$TRAVIS_BRANCH
     - stage: test
       name: test_relocation_api
       env: 
@@ -153,7 +153,7 @@ script:
   - docker login -u $USER -p $PASS docker.pkg.github.com
   - | 
       docker run -it --add-host=couchdb:127.0.0.1 -e TZ=$TZ -e TESTS_PATH=$TESTS_PATH -e COV_PATH=$COV_PATH -e COV_FILE=$COV_FILE \
-      --net=host docker.pkg.github.com/$TRAVIS_REPO_SLUG/$IMAGE:$TRAVIS_BRANCH sh -c 'cd /app && 
+      --net=host docker.pkg.github.com/$REPO/$IMAGE:$TRAVIS_BRANCH sh -c 'cd /app && 
       py.test $TESTS_PATH --cov=$COV_PATH --cov-config=$COV_FILE -v --color=yes --dist=each \
       --tx=popen//id=sand//env:DB_NAME=test_sandbox//env:SANDBOX_MODE=1//env:SINGLE_APP=1 \
       --tx=popen//id=prod//env:DB_NAME=test_prod//env:SANDBOX_MODE=//env:SINGLE_APP=1 \
