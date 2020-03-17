@@ -577,6 +577,22 @@ def check_complaint_statuses_at_complaint_period_end(tender, now):
             check_complaints(award.complaints)
 
 
+def get_contract_supplier_permissions(tender):
+    """
+    Set `upload_contract_document` permissions for award in `active` status owners
+    """
+    suppliers_permissions = []
+    if tender.get('bids', []) and tender.get('awards', []):
+        win_bids = jmespath.search("awards[?status=='active'].bid_id", tender._data) or []
+        for bid in tender.bids:
+            if bid.status == "active" and bid.id in win_bids:
+                suppliers_permissions.append(
+                    (Allow, "{}_{}".format(bid.owner, bid.owner_token), "upload_contract_documents")
+                )
+                suppliers_permissions.append((Allow, "{}_{}".format(bid.owner, bid.owner_token), "edit_contract"))
+    return suppliers_permissions
+
+
 def get_contract_supplier_roles(contract):
     roles = {}
     if 'bids' not in contract.__parent__:
