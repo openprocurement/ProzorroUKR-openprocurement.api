@@ -11,6 +11,7 @@ from logging import getLogger
 from time import sleep
 from pyramid.exceptions import URLDecodeError
 from pyramid.compat import decode_path_info
+from pyramid.security import Allow
 from cornice.resource import resource
 from couchdb.http import ResourceConflict
 from openprocurement.api.constants import (
@@ -427,6 +428,22 @@ def block_tender(request):
         and (any([i.status not in ["active", "unsuccessful"] for i in tender.cancellations if not i.relatedLot])
              or not accept_tender)
     )
+
+
+def get_contract_supplier_permissions(tender):
+    """
+    Set `upload_contract_document` permissions for award in `active` status owners
+    """
+    suppliers_permissions = []
+    if tender.get('bids', []) and tender.get('awards', []):
+        win_bids = jmespath.search("awards[?status=='active'].bid_id", tender._data) or []
+        for bid in tender.bids:
+            if bid.status == "active" and bid.id in win_bids:
+                suppliers_permissions.append(
+                    (Allow, "{}_{}".format(bid.owner, bid.owner_token), "upload_contract_documents")
+                )
+                suppliers_permissions.append((Allow, "{}_{}".format(bid.owner, bid.owner_token), "edit_contract"))
+    return suppliers_permissions
 
 
 def get_contract_supplier_roles(contract):
