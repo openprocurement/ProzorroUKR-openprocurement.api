@@ -55,6 +55,7 @@ from openprocurement.tender.core.utils import (
     calculate_clarifications_business_date,
 )
 from openprocurement.tender.core.constants import CPV_ITEMS_CLASS_FROM
+from openprocurement.tender.core.utils import get_contract_supplier_permissions
 from openprocurement.tender.openua.models import Tender as OpenUATender
 from openprocurement.tender.openua.constants import COMPLAINT_SUBMIT_TIME, ENQUIRY_STAND_STILL_TIME, AUCTION_PERIOD_TIME
 from openprocurement.tender.openeu.models import (
@@ -654,10 +655,16 @@ class Tender(BaseTender):
         acl.extend(
             [
                 (Allow, "{}_{}".format(self.owner, self.owner_token), "edit_complaint"),
+                (Allow, "{}_{}".format(self.owner, self.owner_token), "edit_contract"),
+                (Allow, "{}_{}".format(self.owner, self.owner_token), "upload_contract_documents"),
             ]
         )
 
         self._acl_cancellation_complaint(acl)
+
+        suppliers_permissions = get_contract_supplier_permissions(self)
+        if suppliers_permissions:
+            acl.extend(suppliers_permissions)
         return acl
 
     @serializable(serialized_name="enquiryPeriod", type=ModelType(EnquiryPeriod))

@@ -53,8 +53,12 @@ from openprocurement.tender.core.constants import (
     COMPLAINT_ENHANCED_AMOUNT_RATE, COMPLAINT_ENHANCED_MIN_AMOUNT, COMPLAINT_ENHANCED_MAX_AMOUNT,
 )
 from openprocurement.tender.core.utils import (
-    calc_auction_end_time, rounding_shouldStartAfter,
-    restrict_value_to_bounds, round_up_to_ten
+    calc_auction_end_time,
+    rounding_shouldStartAfter,
+    restrict_value_to_bounds,
+    round_up_to_ten,
+    get_contract_supplier_roles,
+    get_contract_supplier_permissions,
 )
 from openprocurement.tender.core.validation import (
     validate_lotvalue_value,
@@ -369,7 +373,9 @@ class Contract(BaseContract):
     class Options:
         roles = {
             "create": blacklist("id", "status", "date", "documents", "dateSigned"),
-            "edit": blacklist("id", "documents", "date", "awardID", "suppliers", "items", "contractID"),
+            "admins": blacklist("id", "documents", "date", "awardID", "suppliers", "items", "contractID"),
+            "edit_tender_owner": blacklist("id", "documents", "date", "awardID", "suppliers", "items", "contractID"),
+            "edit_contract_supplier": whitelist("status"),
             "embedded": schematics_embedded_role,
             "view": schematics_default_role,
         }
@@ -377,6 +383,20 @@ class Contract(BaseContract):
     value = ModelType(ContractValue)
     awardID = StringType(required=True)
     documents = ListType(ModelType(Document, required=True), default=list())
+
+    def get_role(self):
+        root = self.get_root()
+        request = root.request
+        if request.authenticated_role in ("tender_owner", "contract_supplier"):
+            role = "edit_{}".format(request.authenticated_role)
+        else:
+            role = request.authenticated_role
+        return role
+
+    def __local_roles__(self):
+        roles = {}
+        roles.update(get_contract_supplier_roles(self))
+        return roles
 
     def validate_awardID(self, data, awardID):
         parent = data["__parent__"]
@@ -734,13 +754,15 @@ class Complaint(Model):
         root = self.get_root()
         request = root.request
         data = request.json_body["data"]
-        if request.authenticated_role == "complaint_owner" and data.get("status", self.status) == "cancelled":
+        auth_role = request.authenticated_role
+        status = data.get("status", self.status)
+        if auth_role == "complaint_owner" and status == "cancelled":
             role = "cancellation"
-        elif request.authenticated_role == "complaint_owner" and self.status == "draft":
+        elif auth_role == "complaint_owner" and self.status == "draft":
             role = "draft"
-        elif request.authenticated_role == "tender_owner" and self.status == "claim":
+        elif auth_role == "tender_owner" and self.status == "claim":
             role = "answer"
-        elif request.authenticated_role == "complaint_owner" and self.status == "answered":
+        elif auth_role== "complaint_owner" and self.status == "answered":
             role = "satisfy"
         else:
             role = "invalid"
@@ -776,7 +798,7 @@ class Complaint(Model):
         parent = data["__parent__"]
         if relatedLot and isinstance(parent, Model):
             validate_relatedlot(get_tender(parent), relatedLot)
-            
+
     def get_related_lot_obj(self, tender):
         lot_id = self.get("relatedLot") or self.get("__parent__").get("lotID")
         if lot_id:
@@ -790,6 +812,7 @@ class CancellationComplaint(Complaint):
         roles = {
             "create": whitelist("author", "title", "description", "status", "relatedLot"),
             "draft": whitelist("author", "title", "description", "status"),
+            "bot": whitelist("rejectReason", "status"),
             "cancellation": whitelist("cancellationReason", "status"),
             "satisfy": whitelist("satisfied", "status"),
             "resolve": whitelist("status", "tendererAction"),
@@ -804,24 +827,24 @@ class CancellationComplaint(Complaint):
         root = self.get_root()
         request = root.request
         data = request.json_body["data"]
+        auth_role = request.authenticated_role
+        status = data.get("status", self.status)
 
-        if request.authenticated_role == "complaint_owner" and data.get("status", self.status) == "cancelled":
+        if auth_role == "complaint_owner" and status == "cancelled":
             role = "cancellation"
-        elif (
-                request.authenticated_role == "complaint_owner"
-                and self.status in ["pending", "accepted"]
-                and data.get("status", self.status) == "stopping"
-        ):
+        elif auth_role == "complaint_owner" and self.status in ["pending", "accepted"] and status == "stopping":
             role = "cancellation"
-        elif request.authenticated_role == "complaint_owner" and self.status == "draft":
+        elif auth_role == "complaint_owner" and self.status == "draft":
             role = "draft"
-        elif request.authenticated_role == "tender_owner" and self.status == "pending":
+        elif auth_role == "bots" and self.status == "draft":
+            role = "bot"
+        elif auth_role == "tender_owner" and self.status == "pending":
             role = "action"
-        elif request.authenticated_role == "tender_owner" and self.status == "satisfied":
+        elif auth_role == "tender_owner" and self.status == "satisfied":
             role = "resolve"
-        elif request.authenticated_role == "aboveThresholdReviewers" and self.status == "pending":
+        elif auth_role == "aboveThresholdReviewers" and self.status == "pending":
             role = "pending"
-        elif request.authenticated_role == "aboveThresholdReviewers" and self.status in ["accepted", "stopping"]:
+        elif auth_role == "aboveThresholdReviewers" and self.status in ["accepted", "stopping"]:
             role = "review"
         else:
             role = "invalid"
@@ -829,6 +852,7 @@ class CancellationComplaint(Complaint):
 
     def __acl__(self):
         return [
+            (Allow, "g:bots", "edit_complaint"),
             (Allow, "g:aboveThresholdReviewers", "edit_complaint"),
             (Allow, "{}_{}".format(self.owner, self.owner_token), "edit_complaint"),
             (Allow, "{}_{}".format(self.owner, self.owner_token), "upload_complaint_documents"),
@@ -1456,9 +1480,14 @@ class Tender(BaseTender):
 
     def __acl__(self):
         acl = [(Allow, "{}_{}".format(i.owner, i.owner_token), "create_award_complaint") for i in self.bids]
+        suppliers_permissions = get_contract_supplier_permissions(self)
+        if suppliers_permissions:
+            acl.extend(suppliers_permissions)
         acl.extend(
             [
                 (Allow, "{}_{}".format(self.owner, self.owner_token), "edit_complaint"),
+                (Allow, "{}_{}".format(self.owner, self.owner_token), "edit_contract"),
+                (Allow, "{}_{}".format(self.owner, self.owner_token), "upload_contract_documents"),
             ]
         )
         self._acl_cancellation_complaint(acl)
