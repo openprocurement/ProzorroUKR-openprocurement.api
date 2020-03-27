@@ -3,7 +3,9 @@ from email.header import Header
 
 # TenderDocumentResourceTest
 from mock import patch
+from copy import deepcopy
 from openprocurement.tender.core.tests.base import bad_rs_request, srequest
+from openprocurement.tender.belowthreshold.tests.base import test_tender_document_data
 
 
 def not_found(self):
@@ -888,3 +890,60 @@ def lot_patch_tender_document_json_items_none(self):
 
     errors = {error["name"]: error["description"] for error in response.json["errors"]}
     self.assertEqual(errors["documents"][0], {"relatedItem": ["relatedItem should be one of items"]})
+
+
+def put_tender_json_document_of_document(self):
+    document_data = deepcopy(test_tender_document_data)
+    document_data["url"] = self.generate_docservice_url()
+    document_data["hash"] = "md5:" + "0" * 32
+    document_data["documentType"] = "tenderNotice"
+    
+    response = self.app.post_json("/tenders/{}/documents?acc_token={}".format(
+            self.tender_id, self.tender_token),{"data":document_data}, status=201)
+
+    self.assertEqual(response.status, "201 Created")
+    self.assertEqual(response.content_type, "application/json")
+    document_id = response.json["data"]["id"]
+    
+    response = self.app.post_json(
+        "/tenders/{}/documents?acc_token={}".format(self.tender_id, self.tender_token),
+        {
+            "data": {
+                "title": u"укр.doc",
+                "url": self.generate_docservice_url(),
+                "hash": "md5:" + "0" * 32,
+                "format": "application/msword",
+                "documentOf": "document",
+                "relatedItem": document_id,
+            }
+        },
+    )
+    self.assertEqual(response.status, "201 Created")
+    self.assertEqual(response.content_type, "application/json")
+
+    response = self.app.post_json(
+        "/tenders/{}/documents?acc_token={}".format(self.tender_id, self.tender_token), 
+        {"data": {
+                "title": u"укр.doc",
+                "url": self.generate_docservice_url(),
+                "hash": "md5:" + "0" * 32,
+                "format": "application/msword",
+                "documentOf": "document",
+                "relatedItem": "0"*32,
+            }}, status=422
+    )
+    self.assertEqual(response.status, "422 Unprocessable Entity")
+    self.assertEqual(response.content_type, "application/json")
+    self.assertEqual(
+        response.json["errors"],
+        [
+            {
+                u"location": u"body",
+                u"name": u"relatedItem",
+                u"description": [
+                    
+                    u'relatedItem should be one of documents'
+                ]
+            }
+        ]
+    )
