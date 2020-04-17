@@ -16,12 +16,45 @@ from openprocurement.tender.core.validation import (
     validate_complaint_operation_not_in_active_tendering,
     validate_submit_complaint_time,
     validate_complaint_type_change,
+    validate_complaint_update_with_cancellation_lot_pending,
+    validate_add_complaint_with_tender_cancellation_in_pending,
+    validate_add_complaint_with_lot_cancellation_in_pending,
+    validate_operation_with_lot_cancellation_in_pending,
 )
 from openprocurement.tender.belowthreshold.utils import check_tender_status
 from openprocurement.tender.core.utils import save_tender, apply_patch
 
 
-class BaseTenderComplaintResource(APIResource):
+class ComplaintAdminPatchMixin(object):
+    def patch_as_administrator(self, *_):
+        apply_patch(self.request, save=False, src=self.context.serialize())
+
+
+class ComplaintBotPatchMixin(object):
+    def patch_as_bots(self, data):
+        request = self.request
+        context = self.context
+
+        status = context.status
+        new_status = data.get("status", status)
+
+        tender = request.validated["tender"]
+        new_rules = get_first_revision_date(tender, default=get_now()) > RELEASE_2020_04_19
+
+        if new_rules and status == "draft" and new_status in ["pending", "mistaken"]:
+            if new_status == "mistaken":
+                context.rejectReason = "incorrectPayment"
+            elif new_status == "pending":
+                context.dateSubmitted = get_now()
+            apply_patch(request, save=False, src=context.serialize())
+        else:
+            raise_operation_error(
+                request,
+                "Can't update complaint from {} to {} status".format(status, new_status)
+            )
+
+
+class BaseTenderComplaintResource(ComplaintBotPatchMixin, ComplaintAdminPatchMixin, APIResource):
     patch_check_tender_excluded_statuses = (
         "draft", "claim", "answered", 
         "pending", "accepted", "satisfied", "stopping",
@@ -42,12 +75,15 @@ class BaseTenderComplaintResource(APIResource):
         raise NotImplementedError
     
     def pre_create(self):
+        tender = self.request.validated["tender"]
+        old_rules = get_first_revision_date(tender) < RELEASE_2020_04_19
+
         complaint = self.request.validated["complaint"]
         complaint.date = get_now()
         if complaint.status == "claim":
             self.validate_submit_claim_time_method(self.request)
             complaint.dateSubmitted = get_now()
-        elif complaint.status == "pending":
+        elif old_rules and complaint.status == "pending":
             validate_submit_complaint_time(self.request)
             complaint.dateSubmitted = get_now()
             complaint.type = "complaint"
@@ -69,7 +105,12 @@ class BaseTenderComplaintResource(APIResource):
 
     @json_view(
         content_type="application/json",
-        validators=(validate_complaint_data, validate_complaint_operation_not_in_active_tendering),
+        validators=(
+            validate_complaint_data,
+            validate_complaint_operation_not_in_active_tendering,
+            validate_add_complaint_with_tender_cancellation_in_pending,
+            validate_add_complaint_with_lot_cancellation_in_pending("complaint"),
+        ),
         permission="create_complaint",
     )
     def collection_post(self):
@@ -102,8 +143,10 @@ class BaseTenderComplaintResource(APIResource):
         permission="edit_complaint",
         validators=(
             validate_patch_complaint_data,
+            validate_complaint_update_with_cancellation_lot_pending,
             validate_complaint_operation_not_in_active_tendering,
             validate_update_complaint_not_in_allowed_complaint_status,
+            validate_operation_with_lot_cancellation_in_pending("complaint"),
         ),
     )
     def patch(self):
@@ -149,6 +192,7 @@ class BaseTenderComplaintResource(APIResource):
             and context.type == "complaint"
             and new_status == "mistaken"
         ):
+            context.rejectReason = "cancelledByComplainant"
             apply_patch(self.request, save=False, src=context.serialize())
         
         elif status in ["pending", "accepted"] and new_status == "stopping":
@@ -172,6 +216,7 @@ class BaseTenderComplaintResource(APIResource):
             tender.status == "active.tendering"
             and status in ["draft", "claim"]
             and new_status == "pending"
+            and not new_rules
         ):
             validate_submit_complaint_time(self.request)
             validate_complaint_type_change(self.request)
@@ -274,7 +319,8 @@ class BaseTenderComplaintResource(APIResource):
             apply_patch(self.request, save=False, src=context.serialize())
             context.dateDecision = get_now()
         elif (
-            status in ["pending", "accepted", "stopping"]
+            (old_rules and status in ["pending", "accepted", "stopping"])
+            or (not old_rules and status in ["accepted", "stopping"])
             and new_status == "stopped"
         ):
             apply_patch(self.request, save=False, src=context.serialize())

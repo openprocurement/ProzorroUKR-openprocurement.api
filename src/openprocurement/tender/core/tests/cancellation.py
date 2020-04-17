@@ -2,6 +2,18 @@ import mock
 from datetime import timedelta
 
 from openprocurement.api.utils import get_now
+from openprocurement.api.constants import RELEASE_2020_04_19
+
+
+def skip_complaint_period_2020_04_19(func):
+    def wrapper(self):
+
+        set_complaint_period_end = getattr(self, "set_complaint_period_end", None)
+
+        if RELEASE_2020_04_19 < get_now() and set_complaint_period_end:
+            set_complaint_period_end()
+        return func(self)
+    return wrapper
 
 
 def activate_cancellation_after_2020_04_19(self, cancellation_id, tender_id=None, tender_token=None):
@@ -11,16 +23,24 @@ def activate_cancellation_after_2020_04_19(self, cancellation_id, tender_id=None
     if not tender_token:
         tender_token = self.tender_token
 
-    response = self.app.get("/tenders/{}".format(tender_id))
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    tender = response.json["data"]
+    tender = self.db.get(self.tender_id)
 
-    without_complaints = ["reporting", "belowThreshold", "closeFrameworkAgreementSelectionUA"]
-    if tender["procurementMethodType"] in without_complaints:
-        activate_cancellation_without_complaints_after_2020_04_19(self, cancellation_id, tender_id, tender_token)
-    else:
+    without_complaints = [
+        "reporting",
+        "belowThreshold",
+        "closeFrameworkAgreementSelectionUA",
+        "negotiation",
+        "negotiation.quick",
+    ]
+    tender_type = tender["procurementMethodType"]
+
+    active_award = any(i for i in tender.get("awards", []) if i.get("status") == "active")
+    negotiation_with_active_award = tender_type.startswith("negotiation") and active_award
+
+    if (tender_type not in without_complaints) or negotiation_with_active_award:
         activate_cancellation_with_complaints_after_2020_04_19(self, cancellation_id, tender_id, tender_token)
+    else:
+        activate_cancellation_without_complaints_after_2020_04_19(self, cancellation_id, tender_id, tender_token)
 
 
 def activate_cancellation_with_complaints_after_2020_04_19(self, cancellation_id, tender_id=None, tender_token=None):
@@ -29,6 +49,9 @@ def activate_cancellation_with_complaints_after_2020_04_19(self, cancellation_id
 
     if not tender_token:
         tender_token = self.tender_token
+
+    auth = self.app.authorization
+    self.app.authorization = ("Basic", ("token", ""))
 
     response = self.app.post(
         "/tenders/{}/cancellations/{}/documents?acc_token={}".format(
@@ -59,6 +82,8 @@ def activate_cancellation_with_complaints_after_2020_04_19(self, cancellation_id
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["data"]["status"], "active")
 
+    self.app.authorization = auth
+
 
 def activate_cancellation_without_complaints_after_2020_04_19(self, cancellation_id, tender_id=None, tender_token=None):
     if not tender_id:
@@ -67,9 +92,9 @@ def activate_cancellation_without_complaints_after_2020_04_19(self, cancellation
     if not tender_token:
         tender_token = self.tender_token
 
-    response = self.app.get(
-        "/tenders/{}/cancellations/{}?acc_token={}".format(tender_id, cancellation_id, tender_token),
-    )
+    auth = self.app.authorization
+    self.app.authorization = ("Basic", ("token", ""))
+
     response = self.app.post(
         "/tenders/{}/cancellations/{}/documents?acc_token={}".format(
             tender_id, cancellation_id, tender_token
@@ -89,3 +114,5 @@ def activate_cancellation_without_complaints_after_2020_04_19(self, cancellation
     self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["data"]["status"], "active")
+
+    self.app.authorization = auth

@@ -3,6 +3,10 @@ from copy import deepcopy
 from datetime import timedelta
 
 from openprocurement.api.utils import get_now
+from openprocurement.api.constants import RELEASE_2020_04_19
+from openprocurement.tender.core.tests.cancellation import (
+    activate_cancellation_with_complaints_after_2020_04_19,
+)
 from openprocurement.tender.belowthreshold.tests.base import test_organization, test_cancellation
 
 
@@ -1863,6 +1867,11 @@ def two_lot_0bid(self):
 def two_lot_2can(self):
     """ Create tender with 2 lots, later cancel both """
     self.create_tender(self.test_lots_data * 2)
+
+    set_complaint_period_end = getattr(self, "set_complaint_period_end", None)
+    if RELEASE_2020_04_19 < get_now() and set_complaint_period_end:
+        set_complaint_period_end()
+
     # cancel every lot
     for lot in self.initial_lots:
         cancellation = dict(**test_cancellation)
@@ -1871,10 +1880,14 @@ def two_lot_2can(self):
             "cancellationOf": "lot",
             "relatedLot": lot["id"],
         })
-        self.app.post_json(
+        response = self.app.post_json(
             "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),
         {"data": cancellation},
         )
+        cancellation_id = response.json["data"]["id"]
+        if RELEASE_2020_04_19 < get_now():
+            activate_cancellation_with_complaints_after_2020_04_19(self, cancellation_id)
+
     response = self.app.get("/tenders/{}".format(self.tender_id))
     self.assertTrue(all([i["status"] == "cancelled" for i in response.json["data"]["lots"]]))
     self.assertEqual(response.json["data"]["status"], "cancelled")
@@ -1883,6 +1896,11 @@ def two_lot_2can(self):
 def two_lot_1can(self):
     """ Create tender with 2 lots, later 1 cancel """
     self.create_tender(initial_lots=self.test_lots_data * 2)
+
+    set_complaint_period_end = getattr(self, "set_complaint_period_end", None)
+    if RELEASE_2020_04_19 < get_now() and set_complaint_period_end:
+        set_complaint_period_end()
+
     # cancel first lot
     cancellation = dict(**test_cancellation)
     cancellation.update({
@@ -1890,10 +1908,14 @@ def two_lot_1can(self):
         "cancellationOf": "lot",
         "relatedLot": self.initial_lots[0]["id"],
     })
-    self.app.post_json(
+    response = self.app.post_json(
         "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),
         {"data": cancellation},
     )
+
+    cancellation_id = response.json["data"]["id"]
+    if RELEASE_2020_04_19 < get_now():
+        activate_cancellation_with_complaints_after_2020_04_19(self, cancellation_id)
 
     response = self.app.get("/tenders/{}".format(self.tender_id))
     self.assertFalse(all([i["status"] == "cancelled" for i in response.json["data"]["lots"]]))
@@ -1937,6 +1959,12 @@ def two_lot_1can(self):
 def two_lot_2bid_0com_1can(self):
     """ Create tender with 2 lots and 2 bids """
     self.create_tender(self.test_lots_data * 2)
+
+    set_complaint_period_end = getattr(self, "set_complaint_period_end", None)
+
+    if RELEASE_2020_04_19 < get_now() and set_complaint_period_end:
+        set_complaint_period_end()
+
     tenderers = self.create_tenderers(2)
     # create bid
     self.app.authorization = ("Basic", ("broker", ""))
@@ -1971,10 +1999,13 @@ def two_lot_2bid_0com_1can(self):
         "cancellationOf": "lot",
         "relatedLot": self.initial_lots[0]["id"],
     })
-    self.app.post_json(
+    response = self.app.post_json(
         "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),
         {"data": cancellation},
     )
+    cancellation_id = response.json["data"]["id"]
+    if RELEASE_2020_04_19 < get_now():
+        activate_cancellation_with_complaints_after_2020_04_19(self, cancellation_id)
     response = self.app.get("/tenders/{}?acc_token={}".format(self.tender_id, self.tender_token))
     self.assertEqual(response.status, "200 OK")
     # active.pre-qualification

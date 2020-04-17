@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import unittest
-import mock
+from mock import patch
 from datetime import timedelta
 
 from openprocurement.api.utils import get_now
@@ -33,7 +33,12 @@ from openprocurement.tender.openua.tests.cancellation import (
     TenderCancellationResourceNewReleaseTestMixin,
     TenderCancellationComplaintResourceTestMixin,
 )
-from openprocurement.tender.openua.tests.cancellation_blanks import activate_cancellation
+from openprocurement.tender.openua.tests.cancellation_blanks import (
+    activate_cancellation,
+    create_cancellation_in_tender_complaint_period,
+    create_tender_cancellation_with_cancellation_lots
+)
+from openprocurement.api.constants import RELEASE_2020_04_19
 
 
 class CompetitiveDialogUACancellationResourceTest(
@@ -60,6 +65,7 @@ class CompetitiveDialogUALotsCancellationResourceTest(BaseCompetitiveDialogUACon
     test_create_tender_cancellation = snitch(create_tender_lots_cancellation)
     test_patch_tender_cancellation = snitch(patch_tender_lots_cancellation)
     test_cancellation_active_qualification_j1427 = snitch(cancellation_active_qualification_j1427)
+    test_create_tender_cancellation_with_cancellation_lots = snitch(create_tender_cancellation_with_cancellation_lots)
 
 
 class CompetitiveDialogUACancellationComplaintResourceTest(
@@ -68,14 +74,14 @@ class CompetitiveDialogUACancellationComplaintResourceTest(
 
     initial_bids = test_bids
 
-    @mock.patch("openprocurement.tender.core.models.RELEASE_2020_04_19",
-                get_now() - timedelta(days=1))
-    @mock.patch("openprocurement.tender.core.views.cancellation.RELEASE_2020_04_19",
-                get_now() - timedelta(days=1))
-    @mock.patch("openprocurement.tender.core.validation.RELEASE_2020_04_19",
-                get_now() - timedelta(days=1))
+    @patch("openprocurement.tender.core.models.RELEASE_2020_04_19", get_now() - timedelta(days=1))
+    @patch("openprocurement.tender.core.views.cancellation.RELEASE_2020_04_19", get_now() - timedelta(days=1))
+    @patch("openprocurement.tender.core.validation.RELEASE_2020_04_19", get_now() - timedelta(days=1))
     def setUp(self):
         super(CompetitiveDialogUACancellationComplaintResourceTest, self).setUp()
+
+        set_complaint_period_end = getattr(self, "set_complaint_period_end", None)
+        set_complaint_period_end()
 
         # Create cancellation
         cancellation = dict(**test_cancellation)
@@ -96,6 +102,10 @@ class CompetitiveDialogUACancellationDocumentResourceTest(
     def setUp(self):
         super(CompetitiveDialogUACancellationDocumentResourceTest, self).setUp()
         # Create cancellation
+        set_complaint_period_end = getattr(self, "set_complaint_period_end", None)
+        if RELEASE_2020_04_19 < get_now() and set_complaint_period_end:
+            set_complaint_period_end()
+
         response = self.app.post_json(
             "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),
             {"data": test_cancellation},
@@ -111,6 +121,7 @@ class CompetitiveDialogEUCancellationResourceTest(
 ):
     initial_auth = ("Basic", ("broker", ""))
     test_activate_cancellation = snitch(activate_cancellation)
+    test_create_cancellation_in_tender_complaint_period = snitch(create_cancellation_in_tender_complaint_period)
 
 
 class CompetitiveDialogEULotCancellationResourceTest(BaseCompetitiveDialogEUContentWebTest):
@@ -142,6 +153,10 @@ class CompetitiveDialogEUCancellationDocumentResourceTest(
 
     def setUp(self):
         super(CompetitiveDialogEUCancellationDocumentResourceTest, self).setUp()
+        set_complaint_period_end = getattr(self, "set_complaint_period_end", None)
+        if RELEASE_2020_04_19 < get_now() and set_complaint_period_end:
+            set_complaint_period_end()
+
         # Create cancellation
         response = self.app.post_json(
             "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),

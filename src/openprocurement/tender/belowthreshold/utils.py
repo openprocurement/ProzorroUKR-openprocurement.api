@@ -9,14 +9,22 @@ from openprocurement.tender.core.utils import (
     remove_draft_bids,
 )
 from openprocurement.tender.core.constants import COMPLAINT_STAND_STILL_TIME
-from openprocurement.tender.core.utils import check_cancellation_status, get_first_revision_date
+from openprocurement.tender.core.utils import (
+    check_cancellation_status,
+    get_first_revision_date,
+    CancelTenderLot as BaseCancelTenderLot
+)
 
 LOGGER = getLogger("openprocurement.tender.belowthreshold")
 
 
+class CancelTenderLot(BaseCancelTenderLot):
+    def add_next_award_method(request):
+        return add_next_award(request)
+
+
 def check_bids(request):
     tender = request.validated["tender"]
-    new_rules = get_first_revision_date(tender, default=get_now()) > RELEASE_2020_04_19
 
     if tender.lots:
         [
@@ -24,15 +32,17 @@ def check_bids(request):
             for i in tender.lots
             if i.numberOfBids < 2 and i.auctionPeriod and i.auctionPeriod.startDate
         ]
-        [setattr(i, "status", "unsuccessful") for i in tender.lots if i.numberOfBids == 0 and i.status == "active"]
+        [
+            setattr(i, "status", "unsuccessful")
+            for i in tender.lots
+            if i.numberOfBids == 0 and i.status == "active"
+        ]
         cleanup_bids_for_cancelled_lots(tender)
         if not set([i.status for i in tender.lots]).difference(set(["unsuccessful", "cancelled"])):
             tender.status = "unsuccessful"
         elif max([i.numberOfBids for i in tender.lots if i.status == "active"]) < 2:
             add_next_award(request)
     else:
-        if new_rules and any([i.status not in ["active", "unsuccessful"] for i in tender.cancellations]):
-            return
         if tender.numberOfBids < 2 and tender.auctionPeriod and tender.auctionPeriod.startDate:
             tender.auctionPeriod.startDate = None
         if tender.numberOfBids == 0:
@@ -97,11 +107,6 @@ def check_status(request):
     tender = request.validated["tender"]
     now = get_now()
 
-    excluded_procedures = ["belowThreshold", "closeFrameworkAgreementSelectionUA"]
-
-    if tender.procurementMethodType not in excluded_procedures:
-        check_cancellation_status(request)
-
     for complaint in tender.complaints:
         check_complaint_status(request, complaint, now)
     for award in tender.awards:
@@ -143,7 +148,11 @@ def check_status(request):
         if tender.numberOfBids < 2 and tender.auctionPeriod:
             tender.auctionPeriod.startDate = None
         return
-    elif tender.lots and tender.status == "active.tendering" and tender.tenderPeriod.endDate <= now:
+    elif (
+            tender.lots
+            and tender.status == "active.tendering"
+            and tender.tenderPeriod.endDate <= now
+    ):
         LOGGER.info(
             "Switched tender {} to {}".format(tender["id"], "active.auction"),
             extra=context_unpack(request, {"MESSAGE_ID": "switched_tender_active.auction"}),

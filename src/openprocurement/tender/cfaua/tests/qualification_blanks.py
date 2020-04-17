@@ -1,6 +1,8 @@
 from iso8601 import parse_date
 from openprocurement.tender.belowthreshold.tests.base import test_complaint, test_draft_claim
 from openprocurement.api.constants import SANDBOX_MODE, RELEASE_2020_04_19
+from openprocurement.tender.core.tests.cancellation import skip_complaint_period_2020_04_19
+from openprocurement.tender.core.tests.base import change_auth
 from math import ceil
 
 from openprocurement.api.utils import get_now
@@ -18,14 +20,29 @@ def create_tender_lot_qualification_complaint(self):
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.content_type, "application/json")
     complaint = response.json["data"]
-    self.assertEqual(complaint["author"]["name"], self.author_data["name"])
+    complaint_token = response.json["access"]["token"]
     self.assertIn("id", complaint)
     self.assertIn(complaint["id"], response.headers["Location"])
+
+    if RELEASE_2020_04_19 > get_now():
+        self.assertEqual(complaint["author"]["name"], self.author_data["name"])
+
+    else:
+        self.assertEqual(response.json["data"]["status"], "draft")
+        with change_auth(self.app, ("Basic", ("bot", ""))):
+            response = self.app.patch_json(
+                 "/tenders/{}/qualifications/{}/complaints/{}".format(
+                     self.tender_id, self.qualification_id, complaint["id"]),
+                {"data": {"status": "pending"}},
+            )
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(response.content_type, "application/json")
+        self.assertEqual(response.json["data"]["status"], "pending")
 
     # set complaint status stopping to be able to cancel the lot
     response = self.app.patch_json(
         "/tenders/{}/qualifications/{}/complaints/{}?acc_token={}".format(
-            self.tender_id, self.qualification_id, complaint["id"], response.json["access"]["token"]
+            self.tender_id, self.qualification_id, complaint["id"], complaint_token
         ),
         {"data": {
             "status": "stopping",
@@ -34,22 +51,26 @@ def create_tender_lot_qualification_complaint(self):
     )
     assert response.status_code == 200
 
-    self.cancel_tender()
+    if RELEASE_2020_04_19 > get_now():
+        # Test for old rules
+        # In new rules there will be 403 error
+        self.cancel_tender()
 
-    response = self.app.post_json(
-        "/tenders/{}/qualifications/{}/complaints?acc_token={}".format(
-            self.tender_id, self.qualification_id, self.initial_bids_tokens.values()[0]
-        ),
-        {"data": test_draft_claim},
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(
-        response.json["errors"][0]["description"], "Can't add complaint in current (cancelled) tender status"
-    )
+        response = self.app.post_json(
+            "/tenders/{}/qualifications/{}/complaints?acc_token={}".format(
+                self.tender_id, self.qualification_id, self.initial_bids_tokens.values()[0]
+            ),
+            {"data": test_draft_claim},
+            status=403,
+        )
+        self.assertEqual(response.status, "403 Forbidden")
+        self.assertEqual(response.content_type, "application/json")
+        self.assertEqual(
+            response.json["errors"][0]["description"], "Can't add complaint in current (cancelled) tender status"
+        )
 
 
+@skip_complaint_period_2020_04_19
 def create_tender_qualification_complaint(self):
     response = self.app.post_json(
         "/tenders/{}/qualifications/{}/complaints?acc_token={}".format(
@@ -62,14 +83,28 @@ def create_tender_qualification_complaint(self):
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.content_type, "application/json")
     complaint = response.json["data"]
-    self.assertEqual(complaint["author"]["name"], self.author_data["name"])
+    complaint_token = response.json["access"]["token"]
     self.assertIn("id", complaint)
     self.assertIn(complaint["id"], response.headers["Location"])
+    if RELEASE_2020_04_19 > get_now():
+        self.assertEqual(complaint["author"]["name"], self.author_data["name"])
+
+    if RELEASE_2020_04_19 < get_now():
+        self.assertEqual(response.json["data"]["status"], "draft")
+        with change_auth(self.app, ("Basic", ("bot", ""))):
+            response = self.app.patch_json(
+                 "/tenders/{}/qualifications/{}/complaints/{}".format(
+                     self.tender_id, self.qualification_id, complaint["id"]),
+                {"data": {"status": "pending"}},
+            )
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(response.content_type, "application/json")
+        self.assertEqual(response.json["data"]["status"], "pending")
 
     # set complaint status stopping to be able to cancel the lot
     response = self.app.patch_json(
         "/tenders/{}/qualifications/{}/complaints/{}?acc_token={}".format(
-            self.tender_id, self.qualification_id, complaint["id"], response.json["access"]["token"]
+            self.tender_id, self.qualification_id, complaint["id"], complaint_token
         ),
         {"data": {
             "status": "stopping",
@@ -78,20 +113,23 @@ def create_tender_qualification_complaint(self):
     )
     assert response.status_code == 200
 
-    self.cancel_tender()
+    if RELEASE_2020_04_19 > get_now():
+        # Test for old rules
+        # In new rules there will be 403 error
+        self.cancel_tender()
 
-    response = self.app.post_json(
-        "/tenders/{}/qualifications/{}/complaints?acc_token={}".format(
-            self.tender_id, self.qualification_id, self.initial_bids_tokens.values()[0]
-        ),
-        {"data": test_draft_claim},
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(
-        response.json["errors"][0]["description"], "Can't add complaint in current (cancelled) tender status"
-    )
+        response = self.app.post_json(
+            "/tenders/{}/qualifications/{}/complaints?acc_token={}".format(
+                self.tender_id, self.qualification_id, self.initial_bids_tokens.values()[0]
+            ),
+            {"data": test_draft_claim},
+            status=403,
+        )
+        self.assertEqual(response.status, "403 Forbidden")
+        self.assertEqual(response.content_type, "application/json")
+        self.assertEqual(
+            response.json["errors"][0]["description"], "Can't add complaint in current (cancelled) tender status"
+        )
 
 
 def switch_bid_status_unsuccessul_to_active(self):
@@ -136,6 +174,19 @@ def switch_bid_status_unsuccessul_to_active(self):
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.content_type, "application/json")
     complaint = response.json["data"]
+    complaint_token = response.json["access"]["token"]
+
+    if RELEASE_2020_04_19 < get_now():
+        self.assertEqual(response.json["data"]["status"], "draft")
+        with change_auth(self.app, ("Basic", ("bot", ""))):
+            response = self.app.patch_json(
+                 "/tenders/{}/qualifications/{}/complaints/{}".format(
+                     self.tender_id, qualification_id, complaint["id"]),
+                {"data": {"status": "pending"}},
+            )
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(response.content_type, "application/json")
+        self.assertEqual(response.json["data"]["status"], "pending")
 
     self.app.authorization = ("Basic", ("reviewer", ""))
     now = get_now()

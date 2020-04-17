@@ -26,7 +26,6 @@ from openprocurement.tender.core.models import (
     ITender,
     Bid as BaseBid,
     Contract as BaseContract,
-    Cancellation as BaseCancellation,
     Lot as BaseLot,
     EUConfidentialDocument,
     EUDocument,
@@ -54,6 +53,7 @@ from openprocurement.tender.core.utils import (
     has_unanswered_complaints,
     calculate_complaint_business_date,
     calculate_clarifications_business_date,
+    extend_next_check_by_complaint_period_ends,
 )
 from openprocurement.tender.belowthreshold.models import Tender as BaseTender
 from openprocurement.tender.core.validation import validate_lotvalue_value, validate_relatedlot
@@ -62,6 +62,7 @@ from openprocurement.tender.openua.models import (
     Award as BaseAward,
     Item as BaseItem,
     Tender as OpenUATender,
+    Cancellation as BaseCancellation,
     Parameter,
 )
 from openprocurement.tender.openua.constants import COMPLAINT_SUBMIT_TIME, ENQUIRY_STAND_STILL_TIME, AUCTION_PERIOD_TIME
@@ -166,9 +167,6 @@ class Contract(BaseContract):
 
 
 class Complaint(BaseComplaint):
-    class Options:
-        roles = {"active.pre-qualification": view_bid_role, "active.pre-qualification.stand-still": view_bid_role}
-
     documents = ListType(ModelType(EUDocument, required=True), default=list())
 
     def serialize(self, role=None, context=None):
@@ -648,8 +646,11 @@ class Tender(BaseTender):
         acl.extend(
             [
                 (Allow, "{}_{}".format(self.owner, self.owner_token), "edit_complaint"),
+                (Allow, "{}_{}".format(self.owner, self.owner_token), "edit_contract"),
+                (Allow, "{}_{}".format(self.owner, self.owner_token), "upload_contract_documents"),
             ]
         )
+
         self._acl_cancellation_complaint(acl)
         return acl
 
@@ -763,6 +764,9 @@ class Tender(BaseTender):
             for award in self.awards:
                 if award.status == "active" and not any([i.awardID == award.id for i in self.contracts]):
                     checks.append(award.date)
+
+        extend_next_check_by_complaint_period_ends(self, checks)
+
         return min(checks).isoformat() if checks else None
 
     def validate_tenderPeriod(self, data, period):

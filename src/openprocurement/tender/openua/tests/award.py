@@ -50,6 +50,7 @@ from openprocurement.tender.openua.tests.award_blanks import (
     # TenderAwardComplaintResourceTest
     create_tender_award_claim,
     create_tender_award_complaint_not_active,
+    create_tender_award_complaint_after_2020_04_19,
     create_tender_award_complaint,
     patch_tender_award_complaint,
     review_tender_award_complaint,
@@ -67,18 +68,23 @@ from openprocurement.tender.openua.tests.award_blanks import (
     put_tender_lots_award_complaint_document,
     patch_tender_lots_award_complaint_document,
     tender_award_complaint_period,
+    bot_patch_tender_award_complaint,
+    bot_patch_tender_award_complaint_forbidden,
 )
 
 
 class TenderUAAwardComplaintResourceTestMixin(object):
     test_create_tender_award_claim = snitch(create_tender_award_claim)
     test_create_tender_award_complaint_not_active = snitch(create_tender_award_complaint_not_active)
+    test_create_tender_award_complaint_after_2020_04_19 = snitch(create_tender_award_complaint_after_2020_04_19)
     test_create_tender_award_complaint = snitch(create_tender_award_complaint)
     test_patch_tender_award_complaint = snitch(patch_tender_award_complaint)
     test_review_tender_award_complaint = snitch(review_tender_award_complaint)
     test_review_tender_award_claim = snitch(review_tender_award_claim)
     test_review_tender_award_stopping_complaint = snitch(review_tender_award_stopping_complaint)
     test_create_tender_award_no_scale_invalid = snitch(create_tender_award_no_scale_invalid)
+    test_bot_patch_tender_award_complaint = snitch(bot_patch_tender_award_complaint)
+    test_bot_patch_tender_award_complaint_forbidden = snitch(bot_patch_tender_award_complaint_forbidden)
 
 
 class TenderAwardResourceTest(BaseTenderUAContentWebTest, TenderAwardResourceTestMixin):

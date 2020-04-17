@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 from datetime import timedelta
-
 from decimal import Decimal
-
 from openprocurement.api.constants import RELEASE_2020_04_19
 from openprocurement.tender.belowthreshold.tests.base import test_draft_complaint
+from openprocurement.tender.core.tests.base import change_auth
 from openprocurement.api.utils import get_now
 
 # TenderContractResourceTest
@@ -101,12 +100,22 @@ def patch_tender_contract(self):
     complaint = response.json["data"]
     owner_token = response.json["access"]["token"]
 
-    response = self.app.patch_json(
-        "/tenders/{}/awards/{}/complaints/{}?acc_token={}".format(
-            self.tender_id, self.award_id, complaint["id"], owner_token
-        ),
-        {"data": {"status": "pending"}},
-    )
+    if get_now() < RELEASE_2020_04_19:
+        response = self.app.patch_json(
+            "/tenders/{}/awards/{}/complaints/{}?acc_token={}".format(
+                self.tender_id, self.award_id, complaint["id"], owner_token
+            ),
+            {"data": {"status": "pending"}},
+        )
+    else:
+        with change_auth(self.app, ("Basic", ("bot", ""))):
+            response = self.app.patch_json(
+                "/tenders/{}/awards/{}/complaints/{}".format(
+                    self.tender_id, self.award_id, complaint["id"]
+                ),
+                {"data": {"status": "pending"}},
+            )
+
     self.assertEqual(response.status, "200 OK")
 
     tender = self.db.get(self.tender_id)
@@ -185,15 +194,17 @@ def patch_tender_contract(self):
     data = {"status": "stopped"}
     if RELEASE_2020_04_19 < now:
         data.update({
+            "status": "declined",
             "rejectReason": "tenderCancelled",
             "rejectReasonDescription": "reject reason description"
         })
+
     response = self.app.patch_json(
         "/tenders/{}/awards/{}/complaints/{}".format(self.tender_id, self.award_id, complaint["id"]),
         {"data": data},
     )
     self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "stopped")
+    self.assertEqual(response.json["data"]["status"], data["status"])
 
     self.app.authorization = authorization
     response = self.app.patch_json(

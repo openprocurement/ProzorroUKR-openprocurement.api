@@ -53,6 +53,7 @@ from openprocurement.tender.core.utils import (
     has_unanswered_complaints,
     calculate_complaint_business_date,
     calculate_clarifications_business_date,
+    extend_next_check_by_complaint_period_ends,
 )
 from openprocurement.tender.core.constants import CPV_ITEMS_CLASS_FROM
 from openprocurement.tender.openua.models import Tender as OpenUATender
@@ -654,10 +655,13 @@ class Tender(BaseTender):
         acl.extend(
             [
                 (Allow, "{}_{}".format(self.owner, self.owner_token), "edit_complaint"),
+                (Allow, "{}_{}".format(self.owner, self.owner_token), "edit_contract"),
+                (Allow, "{}_{}".format(self.owner, self.owner_token), "upload_contract_documents"),
             ]
         )
 
         self._acl_cancellation_complaint(acl)
+
         return acl
 
     @serializable(serialized_name="enquiryPeriod", type=ModelType(EnquiryPeriod))
@@ -770,6 +774,9 @@ class Tender(BaseTender):
             for award in self.awards:
                 if award.status == "active" and not any([i.awardID == award.id for i in self.contracts]):
                     checks.append(award.date)
+
+        extend_next_check_by_complaint_period_ends(self, checks)
+
         return min(checks).isoformat() if checks else None
 
     @serializable

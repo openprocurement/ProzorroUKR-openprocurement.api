@@ -41,23 +41,13 @@ class Complaint(BaseComplaint):
         _embedded = _open_view - whitelist('bid_id')  # "-bid_id" looks like a typo in the original csv
         roles = {
             "view_claim": _view_claim,
-            "active.enquiries": _open_view,
-            "active.tendering": _open_view,
-            "active.pre-qualification": _open_view,
-            "active.pre-qualification.stand-still": _open_view,
-            "active.auction": _open_view,
-            "active.qualification": _open_view,
-            "active.qualification.stand-still": _open_view,
-            "active.awarded": _open_view,
-            "complete": _open_view,
-            "unsuccessful": _open_view,
-            "cancelled": _open_view,
             "embedded": _embedded,
             "view": _embedded,
             "default": _open_view + whitelist('owner', 'owner_token'),
 
             "create": _base_roles["create"],
-            "draft": whitelist('author', 'description', 'status', 'title'),
+            "draft": whitelist('author', 'description', 'title', 'status'),
+            "bot": whitelist("rejectReason", "status"),
             "answer": whitelist('resolution', 'resolutionType', 'status', 'tendererAction'),
             "review": whitelist(
                 "decision", "status",
@@ -92,12 +82,6 @@ class Complaint(BaseComplaint):
     )
     acceptance = BooleanType()
     dateAccepted = IsoDateTimeType()
-    rejectReason = StringType(choices=[
-        "buyerViolationsCorrected",
-        "lawNonCompliance",
-        "alreadyExists",
-        "tenderCancelled"
-    ])
     rejectReasonDescription = StringType()
     reviewDate = IsoDateTimeType()
     reviewPlace = StringType()
@@ -106,6 +90,7 @@ class Complaint(BaseComplaint):
 
     def __acl__(self):
         return [
+            (Allow, "g:bots", "edit_complaint"),
             (Allow, "g:aboveThresholdReviewers", "edit_complaint"),
             (Allow, "{}_{}".format(self.owner, self.owner_token), "edit_complaint"),
             (Allow, "{}_{}".format(self.owner, self.owner_token), "upload_complaint_documents"),
@@ -117,7 +102,9 @@ class Complaint(BaseComplaint):
         data = request.json_body["data"]
         auth_role = request.authenticated_role
         status = data.get("status", self.status)
-        if auth_role == "complaint_owner" and self.status != "mistaken" and status == "cancelled":
+        if auth_role == "Administrator":
+            role = auth_role
+        elif auth_role == "complaint_owner" and self.status != "mistaken" and status == "cancelled":
             role = "cancellation"
         elif auth_role == "complaint_owner" and self.status in ["pending", "accepted"] and status == "stopping":
             role = "cancellation"
@@ -125,6 +112,8 @@ class Complaint(BaseComplaint):
             role = "draft"
         elif auth_role == "complaint_owner" and self.status == "claim":
             role = "escalate"
+        elif auth_role == "bots" and self.status == "draft":
+            role = "bot"
         elif auth_role == "tender_owner" and self.status == "claim":
             role = "answer"
         elif auth_role == "tender_owner" and self.status in ["pending", "accepted"]:

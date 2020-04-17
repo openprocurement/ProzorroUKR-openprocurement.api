@@ -18,12 +18,15 @@ from openprocurement.tender.openua.tests.complaint_blanks import (
     patch_tender_complaint,
     review_tender_complaint,
     review_tender_stopping_complaint,
+    mistaken_status_tender_complaint,
+    bot_patch_tender_complaint,
+    bot_patch_tender_complaint_mistaken,
+    bot_patch_tender_complaint_forbidden,
     # TenderComplaintDocumentResourceTest
     patch_tender_complaint_document,
     put_tender_complaint_document,
     # TenderLotAwardComplaintResourceTest
     create_tender_lot_complaint,
-    mistaken_status_tender_complaint,
 )
 
 
@@ -33,6 +36,10 @@ class TenderUAComplaintResourceTestMixin(object):
     test_review_tender_complaint = snitch(review_tender_complaint)
     test_review_tender_stopping_complaint = snitch(review_tender_stopping_complaint)
     test_mistaken_status_tender_complaint = snitch(mistaken_status_tender_complaint)
+    test_bot_patch_tender_complaint = snitch(bot_patch_tender_complaint)
+    test_bot_patch_tender_complaint_mistaken = snitch(bot_patch_tender_complaint_mistaken)
+    test_bot_patch_tender_complaint_forbidden = snitch(bot_patch_tender_complaint_forbidden)
+
 
 class TenderComplaintResourceTest(
     BaseTenderUAContentWebTest, TenderComplaintResourceTestMixin, TenderUAComplaintResourceTestMixin

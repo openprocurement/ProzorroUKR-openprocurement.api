@@ -2,6 +2,7 @@
 from iso8601 import parse_date
 from datetime import timedelta
 
+from openprocurement.api.constants import RELEASE_2020_04_19
 from openprocurement.api.utils import (
     get_now,
     context_unpack,
@@ -9,8 +10,8 @@ from openprocurement.api.utils import (
     set_ownership,
     APIResource,
     raise_operation_error,
+    get_first_revision_date,
 )
-from openprocurement.tender.core.utils import calculate_tender_business_date
 from openprocurement.tender.core.validation import (
     validate_complaint_data,
     validate_patch_complaint_data,
@@ -19,19 +20,14 @@ from openprocurement.tender.core.validation import (
     validate_cancellation_complaint_resolved,
     validate_update_cancellation_complaint_not_in_allowed_complaint_status,
 )
-from openprocurement.tender.core.utils import calculate_total_complaints
 from openprocurement.tender.belowthreshold.utils import check_tender_status
-from openprocurement.tender.core.utils import save_tender, optendersresource, apply_patch
-
-
-@optendersresource(
-    name="belowThreshold:Tender Cancellation Complaints",
-    collection_path="/tenders/{tender_id}/cancellations/{cancellation_id}/complaints",
-    path="/tenders/{tender_id}/cancellations/{cancellation_id}/complaints/{complaint_id}",
-    procurementMethodType="belowThreshold",
-    description="Tender cancellation complaints",
+from openprocurement.tender.core.views.complaint import ComplaintAdminPatchMixin, ComplaintBotPatchMixin
+from openprocurement.tender.core.utils import (
+    save_tender, apply_patch, calculate_total_complaints, calculate_tender_business_date
 )
-class TenderCancellationComplaintResource(APIResource):
+
+
+class TenderCancellationComplaintResource(ComplaintBotPatchMixin, ComplaintAdminPatchMixin, APIResource):
     patch_check_tender_excluded_statuses = (
         "draft", "pending", "accepted", "satisfied", "stopping",
     )
@@ -50,14 +46,9 @@ class TenderCancellationComplaintResource(APIResource):
         """Post a complaint for cancellation
         """
         tender = self.request.validated["tender"]
-        complaint = self.request.validated["cancellationcomplaint"]
+        complaint = self.request.validated["complaint"]
 
         complaint.date = get_now()
-
-        if complaint.status == "pending":
-            complaint.dateSubmitted = get_now()
-        else:
-            complaint.status = "draft"
 
         complaint.complaintID = "{}.{}{}".format(
             tender.tenderID,
@@ -150,15 +141,16 @@ class TenderCancellationComplaintResource(APIResource):
             )
 
     def patch_draft_as_complaint_owner(self, data):
+        tender = self.request.validated["tender"]
         context = self.context
         status = context.status
         new_status = data.get("status", self.context.status)
-
         if new_status == self.context.status:
             apply_patch(self.request, save=False, src=context.serialize())
         elif status == "draft" and new_status == "mistaken":
+            context.rejectReason = "cancelledByComplainant"
             apply_patch(self.request, save=False, src=context.serialize())
-        elif new_status == "pending":
+        elif new_status == "pending" and get_first_revision_date(tender, get_now()) < RELEASE_2020_04_19:
             apply_patch(self.request, save=False, src=context.serialize())
             context.dateSubmitted = get_now()
         else:
@@ -204,8 +196,7 @@ class TenderCancellationComplaintResource(APIResource):
             context.dateDecision = get_now()
             if new_status == "satisfied":
                 self.on_satisfy_complaint_by_reviewer()
-
-        elif status in ["pending", "accepted", "stopping"] and new_status == "stopped":
+        elif status == "accepted" and new_status == "stopped":
             apply_patch(self.request, save=False, src=context.serialize())
             context.dateDecision = get_now()
             context.dateCanceled = context.dateCanceled or get_now()
@@ -222,12 +213,17 @@ class TenderCancellationComplaintResource(APIResource):
         tenderer_action_date = self.context.tendererActionDate
 
         enquiry_period = tender.enquiryPeriod
-        complaint_period = tender.complaintPeriod
         tender_period = tender.tenderPeriod
         auction_period = tender.auctionPeriod
 
         date = cancellation.complaintPeriod.startDate
-        delta = timedelta(days=1 if not (tenderer_action_date - date).days else (tenderer_action_date - date).days)
+
+        delta = (tenderer_action_date - date).days
+        delta_plus = 1 if (tenderer_action_date - date).seconds > 3599 else 0
+
+        delta += delta_plus
+
+        delta = timedelta(days=1 if not delta else delta)
 
         if tender.status == "active.tendering" and tender.enquiryPeriod:
 
@@ -239,9 +235,6 @@ class TenderCancellationComplaintResource(APIResource):
                 if enquiry_period.clarificationsUntil:
                     enquiry_period.clarificationsUntil = calculate_tender_business_date(
                         enquiry_period.clarificationsUntil, delta, tender)
-                if complaint_period.endDate:
-                    complaint_period.endDate = calculate_tender_business_date(
-                        complaint_period.endDate, delta, tender)
 
                 if tender_period.endDate:
                     tender_period.endDate = calculate_tender_business_date(
@@ -262,23 +255,3 @@ class TenderCancellationComplaintResource(APIResource):
                     auction_period.shouldStartAfter, delta, tender)
                 auction_period.startDate = calculate_tender_business_date(
                     auction_period.startDate, delta, tender)
-
-        elif tender.status.startswith("active.pre-qualification"):
-            qualify_period = tender.qualificationPeriod
-            if qualify_period and qualify_period.startDate and qualify_period.endDate \
-                    and qualify_period.startDate < date <= qualify_period.endDate:
-
-                tender.qualificationPeriod.endDate = calculate_tender_business_date(
-                    tender.qualificationPeriod.endDate, delta, tender)
-
-                if auction_period.startDate:
-                    auction_period.startDate = calculate_tender_business_date(
-                        auction_period.startDate, delta, tender)
-
-        elif tender.status in ["active.qualification", "active.awarded"]:
-            for award in tender.awards:
-                complaint_period = award.complaintPeriod
-                if complaint_period and complaint_period.startDate and complaint_period.endDate \
-                        and award.complaintPeriod.startDate < date < award.complaintPeriod.endDate:
-                    award.complaintPeriod.endDate = calculate_tender_business_date(
-                        award.complaintPeriod.endDate, delta, tender)

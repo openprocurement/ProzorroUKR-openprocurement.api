@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
+import jmespath
 from decimal import Decimal
 from re import compile
 
-from dateorro import calc_datetime, calc_working_datetime, calc_normalized_datetime
+from dateorro import (
+    calc_datetime,
+    calc_working_datetime,
+    calc_normalized_datetime,
+)
+from dateorro.calculations import check_working_datetime
 from jsonpointer import resolve_pointer
 from functools import partial
 from datetime import datetime, time, timedelta
@@ -10,6 +16,7 @@ from logging import getLogger
 from time import sleep
 from pyramid.exceptions import URLDecodeError
 from pyramid.compat import decode_path_info
+from pyramid.security import Allow
 from cornice.resource import resource
 from couchdb.http import ResourceConflict
 from openprocurement.api.constants import (
@@ -339,6 +346,23 @@ def calculate_clarifications_business_date(date_obj, timedelta_obj, tender=None,
     return calculate_tender_date(source_date_obj, timedelta_obj, tender, working_days, calendar)
 
 
+def calculate_date_diff(dt1, dt2, working_days=True, calendar=WORKING_DAYS):
+    if not working_days:
+        return dt1 - dt2
+
+    date2 = dt2
+
+    days = 0
+    while dt1 > date2:
+        date2 += timedelta(days=1)
+        if check_working_datetime(date2, calendar=calendar):
+            days += 1
+
+    diff = dt1 - date2
+
+    return timedelta(days) + diff
+
+
 def requested_fields_changes(request, fieldnames):
     changed_fields = request.validated["json_data"].keys()
     return set(fieldnames) & set(changed_fields)
@@ -387,42 +411,191 @@ def calculate_total_complaints(tender):
     return total_complaints
 
 
-def cancel_tender(request):
-    tender = request.validated["tender"]
-    if tender.status in ["active.tendering", "active.auction"]:
-        tender.bids = []
-    tender.status = "cancelled"
+from openprocurement.tender.core.validation import validate_absence_of_pending_accepted_satisfied_complaints
 
 
-def check_cancellation_status(request, cancel_tender_method=cancel_tender):
+class CancelTenderLot(object):
+
+    def __call__(self, request, cancellation):
+        if cancellation.status == "active":
+            validate_absence_of_pending_accepted_satisfied_complaints(request, cancellation)
+            if cancellation.relatedLot:
+                self.cancel_lot(request, cancellation)
+            else:
+                self.cancel_tender(request)
+
+    @staticmethod
+    def add_next_award_method(request):
+        raise NotImplementedError
+
+    def cancel_tender(self, request):
+        tender = request.validated["tender"]
+        if tender.status in ["active.tendering", "active.auction"]:
+            tender.bids = []
+        tender.status = "cancelled"
+
+    def cancel_lot(self, request, cancellation):
+        tender = request.validated["tender"]
+        self._cancel_lots(tender, cancellation)
+        self._lot_update_check_tender_status(request, tender)
+
+        if tender.status == "active.auction" and all(
+                i.auctionPeriod and i.auctionPeriod.endDate
+                for i in tender.lots
+                if i.numberOfBids > 1 and i.status == "active"
+        ):
+            self.add_next_award_method(request)
+
+    def _lot_update_check_tender_status(self, request, tender):
+        lot_statuses = {lot.status for lot in tender.lots}
+        if lot_statuses == {"cancelled"}:
+            self.cancel_tender(request)
+        elif not lot_statuses.difference({"unsuccessful", "cancelled"}):
+            tender.status = "unsuccessful"
+        elif not lot_statuses.difference({"complete", "unsuccessful", "cancelled"}):
+            tender.status = "complete"
+
+    @staticmethod
+    def _cancel_lots(tender, cancellation):
+        for lot in tender.lots:
+            if lot.id == cancellation.relatedLot:
+                lot.status = "cancelled"
+
+
+def check_cancellation_status(request, cancel_class=CancelTenderLot):
+
     tender = request.validated["tender"]
     cancellations = tender.cancellations
-    complaint_statuses = ["invalid", "declined", "stopped", "mistaken"]
+    complaint_statuses = ["invalid", "declined", "stopped", "mistaken", "draft"]
+
+    cancel_tender_lot = cancel_class()
 
     for cancellation in cancellations:
+        complaint_period = cancellation.complaintPeriod
         if (
             cancellation.status == "pending"
-            and cancellation.complaintPeriod
-            and cancellation.complaintPeriod.endDate <= get_now()
+            and complaint_period
+            and complaint_period.endDate.astimezone(TZ) <= get_now()
             and all([i.status in complaint_statuses for i in cancellation.complaints])
         ):
             cancellation.status = "active"
-            if cancellation.cancellationOf == "tender":
-                cancel_tender_method(request)
+            cancel_tender_lot(request, cancellation)
 
 
 def block_tender(request):
     tender = request.validated["tender"]
     new_rules = get_first_revision_date(tender, default=get_now()) > RELEASE_2020_04_19
 
-    accept_tender = all([
-        any([j.status == "resolved" for j in i.complaints])
-        for i in tender.cancellations
-        if i.status == "unsuccessful" and getattr(i, "complaints", None) and not i.relatedLot
-    ])
+    if not new_rules:
+        return False
 
-    return (
-        new_rules
-        and (any([i.status not in ["active", "unsuccessful"] for i in tender.cancellations if not i.relatedLot])
-             or not accept_tender)
+    if any(i.status == "pending" for i in tender.cancellations):
+        return True
+
+    accept_tender = all(
+        any(j.status == "resolved" for j in i.complaints)
+        for i in tender.cancellations
+        if i.status == "unsuccessful" and getattr(i, "complaints", None)
     )
+
+    return not accept_tender
+
+
+def extend_next_check_by_complaint_period_ends(tender, checks):
+    """
+    should be added to next_check tender methods
+    to schedule switching complaints draft-mistaken and others
+    """
+    # no need to check procedures that don't have cancellation complaints
+    excluded = ("belowThreshold", "closeFrameworkAgreementSelectionUA")
+    for cancellation in tender.cancellations:
+        if cancellation.status == "pending":
+            # adding check
+            complaint_period = getattr(cancellation, "complaintPeriod", None)
+            if complaint_period and complaint_period.endDate and tender.procurementMethodType not in excluded:
+                # this check can switch complaint statuses to mistaken + switch cancellation to active
+                checks.append(cancellation.complaintPeriod.endDate.astimezone(TZ))
+
+    # all the checks below only supposed to trigger complaint draft->mistaken switches
+    # if any object contains a draft complaint, it's complaint end period is added to the checks
+    # periods can be in the past, then the check expected to run once and immediately fix the complaint
+    def has_draft_complaints(item):
+        return any(c.status == "draft" and c.type == "complaint" for c in item.complaints)
+
+    complaint_period = getattr(tender, "complaintPeriod", None)
+    if complaint_period and complaint_period.endDate and has_draft_complaints(tender):
+        checks.append(complaint_period.endDate.astimezone(TZ))
+
+    qualification_period = getattr(tender, "qualificationPeriod", None)
+    if qualification_period and qualification_period.endDate \
+       and any(has_draft_complaints(q) for q in tender.qualifications):
+        checks.append(tender.qualificationPeriod.endDate.astimezone(TZ))
+
+    for award in tender.awards:
+        complaint_period = getattr(award, "complaintPeriod", None)
+        if complaint_period and complaint_period.endDate and has_draft_complaints(award):
+            checks.append(award.complaintPeriod.endDate.astimezone(TZ))
+
+
+def check_complaint_statuses_at_complaint_period_end(tender, now):
+    """
+    this one probably should run before "check_cancellation_status" (that switch pending cancellation to active)
+    so that draft complaints will remain the status
+    also cancellation complaint changes will be able to affect statuses of cancellations
+    """
+    if get_first_revision_date(tender, default=now) < RELEASE_2020_04_19:
+        return
+    # only for tenders from RELEASE_2020_04_19
+
+    def check_complaints(complaints):
+        for complaint in complaints:
+            if complaint.status == "draft" and complaint.type == "complaint":
+                complaint.status = "mistaken"
+                complaint.rejectReason = "complaintPeriodEnded"
+
+    # cancellation complaints
+    for cancellation in tender.cancellations:
+        complaint_period = getattr(cancellation, "complaintPeriod", None)
+        if complaint_period and complaint_period.endDate and cancellation.complaintPeriod.endDate < now:
+            check_complaints(cancellation.complaints)
+
+    # tender complaints
+    complaint_period = getattr(tender, "complaintPeriod", None)
+    if complaint_period and complaint_period.endDate and complaint_period.endDate < now:
+        check_complaints(tender.complaints)
+
+    # tender qualification complaints
+    qualification_period = getattr(tender, "qualificationPeriod", None)
+    if qualification_period and qualification_period.endDate and qualification_period.endDate < now:
+        for qualification in tender.qualifications:
+            check_complaints(qualification.complaints)
+
+    # tender award complaints
+    for award in tender.awards:
+        complaint_period = getattr(award, "complaintPeriod", None)
+        if complaint_period and complaint_period.endDate and complaint_period.endDate < now:
+            check_complaints(award.complaints)
+
+
+def get_contract_supplier_permissions(contract):
+    """
+    Set `upload_contract_document` permissions for award in `active` status owners
+    """
+    suppliers_permissions = []
+    if not hasattr(contract, "__parent__") or 'bids' not in contract.__parent__:
+        return suppliers_permissions
+    win_bid_id = jmespath.search("awards[?id=='{}'].bid_id".format(contract.awardID), contract.__parent__._data)[0]
+    win_bid = jmespath.search("bids[?id=='{}'].[owner,owner_token]".format(win_bid_id), contract.__parent__._data)[0]
+    bid_acl = "_".join(win_bid)
+    suppliers_permissions.extend([(Allow, bid_acl, "upload_contract_documents"), (Allow, bid_acl, "edit_contract")])
+    return suppliers_permissions
+
+
+def get_contract_supplier_roles(contract):
+    roles = {}
+    if 'bids' not in contract.__parent__:
+        return roles
+    bid_id = jmespath.search("awards[?id=='{}'].bid_id".format(contract.awardID), contract.__parent__)[0]
+    bid_data = jmespath.search("bids[?id=='{}'].[owner,owner_token]".format(bid_id), contract.__parent__)[0]
+    roles['_'.join(bid_data)] = 'contract_supplier'
+    return roles

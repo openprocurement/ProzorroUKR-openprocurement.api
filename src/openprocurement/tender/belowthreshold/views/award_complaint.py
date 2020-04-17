@@ -69,9 +69,9 @@ class TenderAwardComplaintResource(BaseTenderAwardComplaintResource):
     def patch_as_complaint_owner(self, data):
         complaint_period = self.request.validated["award"].complaintPeriod
         is_complaint_period = (
-            complaint_period.startDate < get_now() < complaint_period.endDate
+            complaint_period.startDate <= get_now() <= complaint_period.endDate
             if complaint_period.endDate
-            else complaint_period.startDate < get_now()
+            else complaint_period.startDate <= get_now()
         )
 
         tender = self.request.validated["tender"]
@@ -93,6 +93,7 @@ class TenderAwardComplaintResource(BaseTenderAwardComplaintResource):
                 get_first_revision_date(tender, get_now()) > RELEASE_2020_04_19
                 and new_status == "mistaken"
             ):
+                context.rejectReason = "cancelledByComplainant"
                 apply_patch(self.request, save=False, src=context.serialize())
             elif new_status == "claim":
                 apply_patch(self.request, save=False, src=context.serialize())

@@ -19,25 +19,25 @@ from openprocurement.api.models import Value as BaseValue
 from openprocurement.api.models import Unit as BaseUnit
 from openprocurement.api.validation import validate_cpv_group, validate_items_uniq, validate_classification_id
 from openprocurement.tender.core.models import (
-    view_bid_role,
     embedded_lot_role,
     default_lot_role,
     validate_lots_uniq,
     BaseLot,
     BaseAward,
-)
-
-from openprocurement.tender.core.models import (
     Document,
     BaseTender,
     ITender,
-    Cancellation as BaseCancellation,
     Contract as BaseContract,
     ProcuringEntity as BaseProcuringEntity,
 )
-from openprocurement.tender.openua.models import Complaint as BaseComplaint
-from openprocurement.tender.openua.models import Item
-from openprocurement.tender.openua.models import Tender as OpenUATender
+
+from openprocurement.tender.core.utils import extend_next_check_by_complaint_period_ends
+from openprocurement.tender.openua.models import (
+    Complaint as BaseComplaint,
+    Item,
+    Tender as OpenUATender,
+    Cancellation as BaseCancellation
+)
 
 
 class IReportingTender(ITender):
@@ -103,8 +103,7 @@ class Item(BaseItem):
 
 
 class Complaint(BaseComplaint):
-    class Options:
-        roles = {"active": view_bid_role}
+    pass
 
 
 class Contract(BaseContract):
@@ -459,13 +458,7 @@ class NegotiationTender(ReportingTender):
     @serializable(serialize_when_none=False)
     def next_check(self):
         checks = []
-        if (
-                self.cancellations
-                and self.cancellations[-1].status == "pending"
-                and self.cancellations[-1].complaintPeriod
-        ):
-            cancellation = self.cancellations[-1]
-            checks.append(cancellation.complaintPeriod.endDate.astimezone(TZ))
+        extend_next_check_by_complaint_period_ends(self, checks)
         return min(checks).isoformat() if checks else None
 
 

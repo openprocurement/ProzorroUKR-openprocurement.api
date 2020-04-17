@@ -11,7 +11,9 @@ from openprocurement.api.utils import (
 )  # XXX tender context
 from openprocurement.tender.core.utils import apply_patch
 from openprocurement.tender.core.validation import (
-    validate_complaint_accreditation_level
+    validate_complaint_accreditation_level,
+    validate_cancellation_status_with_complaints,
+    validate_cancellation_status_without_complaints,
 )
 
 
@@ -95,7 +97,14 @@ def validate_create_new_award(request):
 
 
 def validate_lot_cancellation(request):
+
     tender = request.validated["tender"]
+
+    new_rules = get_first_revision_date(tender, default=get_now()) > RELEASE_2020_04_19
+
+    if new_rules:
+        return
+
     award = request.validated["award"]
     if (
         tender.get("lots")
@@ -167,6 +176,21 @@ def validate_absence_complete_lots_on_tender_cancel(request):
                 )
 
 
+def validate_cancellation_status(request):
+    tender = request.validated["tender"]
+    cancellation = request.validated["cancellation"]
+
+    lotID = cancellation.get("relatedLot")
+
+    if (
+        (not lotID and any(i for i in tender.awards if i.status == "active"))
+        or (lotID and any(i for i in tender.awards if i.status == "active" and i.get("lotID") == lotID))
+    ):
+        validate_cancellation_status_with_complaints(request)
+    else:
+        validate_cancellation_status_without_complaints(request)
+
+
 # contract
 def validate_contract_operation_not_in_active(request):
     if request.validated["tender_status"] not in ["active"]:
@@ -185,8 +209,11 @@ def validate_contract_update_in_cancelled(request):
 
 def validate_contract_with_cancellations_and_contract_signing(request):
     data = request.validated["data"]
+    tender = request.validated["tender"]
+    new_rules = get_first_revision_date(tender, default=get_now()) > RELEASE_2020_04_19
+
     if request.context.status != "active" and "status" in data and data["status"] == "active":
-        tender = request.validated["tender"]
+
         award = [a for a in tender.awards if a.id == request.context.awardID][0]
         if (
             tender.get("lots")
@@ -194,7 +221,10 @@ def validate_contract_with_cancellations_and_contract_signing(request):
             and [
                 cancellation
                 for cancellation in tender.get("cancellations")
-                if cancellation.get("relatedLot") == award.lotID
+                if (
+                    cancellation.get("relatedLot") == award.lotID
+                    and cancellation.status not in ["unsuccessful"]
+                )
             ]
         ):
             raise_operation_error(request, "Can't update contract while cancellation for corresponding lot exists")
@@ -203,12 +233,22 @@ def validate_contract_with_cancellations_and_contract_signing(request):
             raise_operation_error(
                 request, "Can't sign contract before stand-still period end ({})".format(stand_still_end.isoformat())
             )
-        if any(
-            [
-                i.status in tender.block_complaint_status and a.lotID == award.lotID
-                for a in tender.awards
-                for i in a.complaints
-            ]
+        if (
+            any(
+                [
+                    i.status in tender.block_complaint_status and a.lotID == award.lotID
+                    for a in tender.awards
+                    for i in a.complaints
+                ]
+            )
+            or (
+                new_rules
+                and any([
+                    i.status in tender.block_complaint_status and c.relatedLot == award.lotID
+                    for c in tender.cancellations
+                    for i in c.get("complaints")
+                ])
+            )
         ):
             raise_operation_error(request, "Can't sign contract before reviewing all complaints")
 

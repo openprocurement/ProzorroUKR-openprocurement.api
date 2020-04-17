@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from barbecue import chef
-from copy import deepcopy
 from logging import getLogger
 from zope.component import queryUtility
 from openprocurement.api.constants import TZ
@@ -23,6 +22,7 @@ from openprocurement.tender.core.utils import (
     remove_draft_bids,
     calculate_tender_business_date,
     get_first_revision_date,
+    CancelTenderLot as BaseCancelTenderLot,
 )
 from functools import partial
 from cornice.resource import resource
@@ -33,13 +33,17 @@ LOGGER = getLogger("openprocurement.tender.cfaselectionua")
 agreement_resource = partial(resource, error_handler=error_handler, factory=agreement_factory)
 
 
+class CancelTenderLot(BaseCancelTenderLot):
+    def add_next_award_method(request):
+        return add_next_award(request)
+
+
 def get_change_class(instance, data):
     return queryUtility(ICFASelectionUAChange, data["rationaleType"])
 
 
 def check_bids(request):
     tender = request.validated["tender"]
-    new_rules = get_first_revision_date(tender, default=get_now()) > RELEASE_2020_04_19
 
     if tender.lots:
         [
@@ -54,8 +58,6 @@ def check_bids(request):
         elif max([i.numberOfBids for i in tender.lots if i.status == "active"]) < 2:
             add_next_award(request)
     else:
-        if new_rules and any([i.status not in ["active", "unsuccessful"] for i in tender.cancellations]):
-            return
         if tender.numberOfBids < 2 and tender.auctionPeriod and tender.auctionPeriod.startDate:
             tender.auctionPeriod.startDate = None
         if tender.numberOfBids == 0:

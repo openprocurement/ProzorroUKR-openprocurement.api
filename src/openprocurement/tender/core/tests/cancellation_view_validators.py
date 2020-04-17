@@ -80,12 +80,12 @@ def test_post_cancellation(app, tender_data):
     """
     tender, tender_token = post_tender(app, tender_data)
 
-    def mock_validate(request):
+    def mock_validate(request, cancellation=None):
         raise_operation_error(request, "hello")
 
     if get_now() < RELEASE_2020_04_19:
         with mock.patch(
-            "openprocurement.tender.core.views.cancellation.validate_absence_of_pending_accepted_satisfied_complaints",
+            "openprocurement.tender.core.utils.validate_absence_of_pending_accepted_satisfied_complaints",
             mock_validate
         ):
             cancellation = dict(**test_cancellation)
@@ -106,15 +106,11 @@ def test_patch_cancellation(app, tender_data):
     """
     tender, tender_token = post_tender(app, tender_data)
 
-    def mock_validate(request):
+    def mock_validate(request, cancellation=None):
         raise_operation_error(request, "hello")
 
     def patch(data):
-        excl_procedures = ["belowThreshold", "reporting", "closeFrameworkAgreementSelectionUA"]
-        if data["procurementMethodType"] not in excl_procedures:
-            return "openprocurement.tender.core.views.cancellation.validate_absence_of_pending_accepted_satisfied_complaints"
-        else:
-            return "openprocurement.tender.belowthreshold.views.cancellation.validate_absence_of_pending_accepted_satisfied_complaints"
+        return "openprocurement.tender.core.utils.validate_absence_of_pending_accepted_satisfied_complaints"
 
     with mock.patch(patch(tender_data), mock_validate):
         if get_now() < RELEASE_2020_04_19:
@@ -150,6 +146,11 @@ def test_post_cancellation_openeu(app):
     """
     tender, tender_token = post_tender(app, eu_tender_data)
     tender_data = app.app.registry.db.get(tender["id"])
+    app.tender_id = tender["id"]
+
+    set_complaint_period_end = getattr(app, "set_complaint_period_end", None)
+    if RELEASE_2020_04_19 < get_now() and set_complaint_period_end:
+        set_complaint_period_end()
 
     # award complaint
     complaint = deepcopy(test_complaint)
@@ -177,15 +178,15 @@ def test_post_cancellation_openeu(app):
                 status=403
             )
         assert response.json == {u'status': u'error', u'errors': [
-            {u'description': u"Can't perform operation for there is an award complaint in pending status",
+            {u'description': u"Cancellation can't be add when exists active complaint period",
              u'location': u'body', u'name': u'data'}]}
 
         # qualification complaints
         complaint = deepcopy(test_complaint)
         complaint.update(
             status="accepted",
-            resolutionType= "resolved",
-            cancellationReason= "whatever",
+            resolutionType="resolved",
+            cancellationReason="whatever",
         )
         tender_data["qualifications"] = [
             {
@@ -204,7 +205,7 @@ def test_post_cancellation_openeu(app):
                 status=403
             )
         assert response.json == {u'status': u'error', u'errors': [
-            {u'description': u"Can't perform operation for there is a qualification complaint in accepted status",
+            {u'description': u"Cancellation can't be add when exists active complaint period",
              u'location': u'body', u'name': u'data'}]}
 
         # tender complaint
@@ -226,5 +227,5 @@ def test_post_cancellation_openeu(app):
                 status=403
             )
         assert response.json == {u'status': u'error', u'errors': [
-            {u'description': u"Can't perform operation for there is a tender complaint in satisfied status",
+            {u'description': u"Cancellation can't be add when exists active complaint period",
              u'location': u'body', u'name': u'data'}]}

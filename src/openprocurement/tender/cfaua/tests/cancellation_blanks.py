@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
+from datetime import timedelta
+from mock import patch
+
+from openprocurement.tender.core.tests.base import change_auth
 from openprocurement.tender.belowthreshold.tests.base import test_complaint, test_claim
 import jmespath
 
 from openprocurement.api.constants import RELEASE_2020_04_19
 from openprocurement.api.utils import get_now
+from openprocurement.tender.cfaua.tests.base import test_cancellation
 
 
 def assert_statuses(self, rules={}):
@@ -28,6 +33,17 @@ def add_tender_complaints(self, statuses):
         complaint = response.json["data"]
         owner_token = response.json["access"]["token"]
         url_patch_complaint = "/tenders/{}/complaints/{}".format(self.tender_id, complaint["id"])
+
+        if RELEASE_2020_04_19 < get_now():
+            with change_auth(self.app, ("Basic", ("bot", ""))):
+                response = self.app.patch_json(
+                    url_patch_complaint,
+                    {"data": {"status": "pending"}},
+                )
+            self.assertEqual(response.status, "200 OK")
+            self.assertEqual(response.content_type, "application/json")
+            self.assertEqual(response.json["data"]["status"], "pending")
+
         response = self.app.patch_json(
             "{}?acc_token={}".format(url_patch_complaint, owner_token),
             {"data": {"status": "stopping", "cancellationReason": "reason"}},
@@ -64,6 +80,10 @@ def cancellation_tender_active_tendering(self):
         },
     )
     self.assertEqual(response.status, "201 Created")
+
+    if RELEASE_2020_04_19 < get_now():
+        self.set_complaint_period_end()
+
     self.cancel_tender()
     assert_statuses(
         self,
@@ -81,7 +101,7 @@ def cancellation_tender_active_tendering(self):
 
 def cancellation_tender_active_pre_qualification(self):
     now = get_now()
-    statuses = ["invalid", "stopped", "mistaken"] if RELEASE_2020_04_19 > now else ["invalid", "stopped"]
+    statuses = ["invalid", "stopped", "mistaken"] if RELEASE_2020_04_19 > now else ["invalid"]
     add_tender_complaints(self, statuses)
     self.set_status("active.tendering", "end")
     self.check_chronograph()
@@ -117,6 +137,19 @@ def cancellation_tender_active_pre_qualification_stand_still(self):
     )
     self.assertEqual(response.status, "201 Created")
     complaint_id = response.json["data"]["id"]
+    complaint_token = response.json["access"]["token"]
+
+    if RELEASE_2020_04_19 < get_now():
+        with change_auth(self.app, ("Basic", ("bot", ""))):
+            response = self.app.patch_json(
+                 "/tenders/{}/complaints/{}".format(
+                     self.tender_id, complaint_id),
+                {"data": {"status": "pending"}},
+            )
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(response.content_type, "application/json")
+        self.assertEqual(response.json["data"]["status"], "pending")
+
     self.set_status("active.tendering", "end")
     self.app.authorization = ("Basic", ("reviewer", ""))
     now = get_now()
@@ -139,28 +172,32 @@ def cancellation_tender_active_pre_qualification_stand_still(self):
     self.assertEqual(response.json["data"]["status"], "active.pre-qualification.stand-still")
 
     self.app.authorization = ("Basic", ("broker", ""))
-    self.cancel_tender()
-    assert_statuses(
-        self,
-        rules={
-            "data.status": "cancelled",
-            "data.lots[*].status": ["active"],
-            "data.bids[*].status": [
-                "invalid.pre-qualification",
-                "invalid.pre-qualification",
-                "invalid.pre-qualification",
-            ],
-            "data.qualifications[*].status": ["active", "active", "active"],
-            "data.awards[*].status": None,
-            "data.agreements[*].status": None,
-            "data.complaints[*].status": ["invalid"],
-        },
-    )
+
+    if RELEASE_2020_04_19 > get_now():
+        # Test for old rules
+        # In new rules there will be 403 error
+        self.cancel_tender()
+        assert_statuses(
+            self,
+            rules={
+                "data.status": "cancelled",
+                "data.lots[*].status": ["active"],
+                "data.bids[*].status": [
+                    "invalid.pre-qualification",
+                    "invalid.pre-qualification",
+                    "invalid.pre-qualification",
+                ],
+                "data.qualifications[*].status": ["active", "active", "active"],
+                "data.awards[*].status": None,
+                "data.agreements[*].status": None,
+                "data.complaints[*].status": ["invalid"],
+            },
+        )
 
 
 def cancellation_tender_active_auction(self):
     now = get_now()
-    statuses = ["invalid", "stopped", "mistaken"] if RELEASE_2020_04_19 > now else ["invalid", "stopped"]
+    statuses = ["invalid", "stopped", "mistaken"] if RELEASE_2020_04_19 > now else ["invalid"]
     add_tender_complaints(self, statuses)
     self.set_status("active.auction")
     response = self.app.get("/tenders/{}".format(self.tender_id))
@@ -189,7 +226,7 @@ def cancellation_tender_active_auction(self):
 
 def cancellation_tender_active_qualification(self):
     now = get_now()
-    statuses = ["invalid", "stopped", "mistaken"] if RELEASE_2020_04_19 > now else ["invalid", "stopped"]
+    statuses = ["invalid", "stopped", "mistaken"] if RELEASE_2020_04_19 > now else ["invalid"]
     add_tender_complaints(self, statuses)
     self.set_status("active.qualification")
     response = self.get_tender(role="broker")
@@ -211,7 +248,7 @@ def cancellation_tender_active_qualification(self):
 
 def cancellation_tender_active_qualification_stand_still(self):
     now = get_now()
-    statuses = ["invalid", "stopped", "mistaken"] if RELEASE_2020_04_19 > now else ["invalid", "stopped"]
+    statuses = ["invalid", "stopped", "mistaken"] if RELEASE_2020_04_19 > now else ["invalid"]
     add_tender_complaints(self, statuses)
     self.set_status("active.qualification.stand-still")
     response = self.get_tender(role="broker")
@@ -225,10 +262,24 @@ def cancellation_tender_active_qualification_stand_still(self):
         },
     )
     self.assertEqual(response.status, "201 Created")
+    complaint = response.json["data"]
+    complaint_token = response.json["access"]["token"]
+
+    if RELEASE_2020_04_19 < get_now():
+        with change_auth(self.app, ("Basic", ("bot", ""))):
+            response = self.app.patch_json(
+                 "/tenders/{}/awards/{}/complaints/{}".format(
+                     self.tender_id, award_id, complaint["id"]),
+                {"data": {"status": "pending"}},
+            )
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(response.content_type, "application/json")
+        self.assertEqual(response.json["data"]["status"], "pending")
+
     # set complaint status stopping to be able to cancel the lot
     response = self.app.patch_json(
         "/tenders/{}/awards/{}/complaints/{}?acc_token={}".format(
-            self.tender_id, award_id, response.json["data"]["id"], response.json["access"]["token"]
+            self.tender_id, award_id, complaint["id"], complaint_token
         ),
         {"data": {
             "status": "stopping",
@@ -258,7 +309,7 @@ def cancellation_tender_active_qualification_stand_still(self):
 
 def cancellation_tender_active_awarded(self):
     now = get_now()
-    statuses = ["invalid", "stopped", "mistaken"] if RELEASE_2020_04_19 > now else ["invalid", "stopped"]
+    statuses = ["invalid", "stopped", "mistaken"] if RELEASE_2020_04_19 > now else ["invalid"]
     add_tender_complaints(self, statuses)
     self.set_status("active.awarded")
     response = self.get_tender(role="broker")
@@ -281,29 +332,32 @@ def cancellation_tender_active_awarded(self):
 # Cancellation lot
 def cancel_lot_active_tendering(self):
     now = get_now()
-    statuses = ["invalid", "stopped", "mistaken"] if RELEASE_2020_04_19 > now else ["invalid", "stopped"]
+    statuses = ["invalid", "stopped", "mistaken"] if RELEASE_2020_04_19 > now else ["invalid"]
     add_tender_complaints(self, statuses)
     response = self.get_tender(role="broker")
     self.assertEqual(response.json["data"]["status"], "active.tendering")
     lot_id = response.json["data"]["lots"][0]["id"]
-    self.cancel_tender(lot_id=lot_id)
-    assert_statuses(
-        self,
-        rules={
-            "data.status": "cancelled",
-            "data.lots[*].status": ["cancelled"],
-            "data.bids[*].status": None,
-            "data.qualifications[*].status": None,
-            "data.awards[*].status": None,
-            "data.agreements[*].status": None,
-            "data.complaints[*].status": statuses,
-        },
-    )
+    if RELEASE_2020_04_19 > get_now():
+        # Test for old rules
+        # In new rules there will be 403 error
+        self.cancel_tender(lot_id=lot_id)
+        assert_statuses(
+            self,
+            rules={
+                "data.status": "cancelled",
+                "data.lots[*].status": ["cancelled"],
+                "data.bids[*].status": None,
+                "data.qualifications[*].status": None,
+                "data.awards[*].status": None,
+                "data.agreements[*].status": None,
+                "data.complaints[*].status": statuses,
+            },
+        )
 
 
 def cancel_lot_active_pre_qualification(self):
     now = get_now()
-    statuses = ["invalid", "stopped", "mistaken"] if RELEASE_2020_04_19 > now else ["invalid", "stopped"]
+    statuses = ["invalid", "stopped", "mistaken"] if RELEASE_2020_04_19 > now else ["invalid"]
     add_tender_complaints(self, statuses)
     self.set_status("active.pre-qualification")
     response = self.get_tender(role="broker")
@@ -330,56 +384,71 @@ def cancel_lot_active_pre_qualification(self):
 
 def cancel_lot_active_pre_qualification_stand_still(self):
     now = get_now()
-    statuses = ["invalid", "stopped", "mistaken"] if RELEASE_2020_04_19 > now else ["invalid", "stopped"]
+    statuses = ["invalid", "stopped", "mistaken"] if RELEASE_2020_04_19 > now else ["invalid"]
     add_tender_complaints(self, statuses)
     self.set_status("active.pre-qualification.stand-still")
     response = self.get_tender(role="broker")
     self.assertEqual(response.json["data"]["status"], "active.pre-qualification.stand-still")
     lot_id = response.json["data"]["lots"][0]["id"]
-    self.cancel_tender(lot_id=lot_id)
-    assert_statuses(
-        self,
-        rules={
-            "data.status": "cancelled",
-            "data.lots[*].status": ["cancelled"],
-            "data.bids[*].status": [
-                "invalid.pre-qualification",
-                "invalid.pre-qualification",
-                "invalid.pre-qualification",
-            ],
-            "data.qualifications[*].status": ["cancelled", "cancelled", "cancelled"],
-            "data.awards[*].status": None,
-            "data.agreements[*].status": None,
-            "data.complaints[*].status": statuses,
-        },
-    )
+    if RELEASE_2020_04_19 > get_now():
+        # Test for old rules
+        # In new rules there will be 403 error
+        self.cancel_tender(lot_id=lot_id)
+        assert_statuses(
+            self,
+            rules={
+                "data.status": "cancelled",
+                "data.lots[*].status": ["cancelled"],
+                "data.bids[*].status": [
+                    "invalid.pre-qualification",
+                    "invalid.pre-qualification",
+                    "invalid.pre-qualification",
+                ],
+                "data.qualifications[*].status": ["cancelled", "cancelled", "cancelled"],
+                "data.awards[*].status": None,
+                "data.agreements[*].status": None,
+                "data.complaints[*].status": statuses,
+            },
+        )
 
 
 def cancel_lot_active_auction(self):
     now = get_now()
-    statuses = ["invalid", "stopped", "mistaken"] if RELEASE_2020_04_19 > now else ["invalid", "stopped"]
+    statuses = ["invalid", "stopped", "mistaken"] if RELEASE_2020_04_19 > now else ["invalid"]
     add_tender_complaints(self, statuses)
     self.set_status("active.auction")
     response = self.get_tender(role="broker")
     self.assertEqual(response.json["data"]["status"], "active.auction")
     lot_id = response.json["data"]["lots"][0]["id"]
-    self.cancel_tender(lot_id=lot_id)
-    assert_statuses(
-        self,
-        rules={
-            "data.status": "cancelled",
-            "data.lots[*].status": ["cancelled"],
-            "data.bids[*].status": [
-                "invalid.pre-qualification",
-                "invalid.pre-qualification",
-                "invalid.pre-qualification",
-            ],
-            "data.qualifications[*].status": ["cancelled", "cancelled", "cancelled"],
-            "data.awards[*].status": None,
-            "data.agreements[*].status": None,
-            "data.complaints[*].status": statuses,
-        },
-    )
+    if RELEASE_2020_04_19 > get_now():
+        self.cancel_tender(lot_id=lot_id)
+        assert_statuses(
+            self,
+            rules={
+                "data.status": "cancelled",
+                "data.lots[*].status": ["cancelled"],
+                "data.bids[*].status": [
+                    "invalid.pre-qualification",
+                    "invalid.pre-qualification",
+                    "invalid.pre-qualification",
+                ],
+                "data.qualifications[*].status": ["cancelled", "cancelled", "cancelled"],
+                "data.awards[*].status": None,
+                "data.agreements[*].status": None,
+                "data.complaints[*].status": statuses,
+            },
+        )
+    else:
+        response = self.app.post_json(
+            "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),
+            {"data": {"reasonType": "noDemand", "reason": "cancellation reason"}},
+            status=403
+        )
+        self.assertEqual(response.status, "403 Forbidden")
+        self.assertEqual(
+            response.json["errors"][0]["description"],
+            "Can't create cancellation in current (active.auction) tender status",
+        )
 
 
 def cancel_lot_active_qualification(self):
@@ -407,19 +476,22 @@ def cancel_lot_active_qualification_stand_still(self):
     response = self.get_tender(role="broker")
     self.assertEqual(response.json["data"]["status"], "active.qualification.stand-still")
     lot_id = response.json["data"]["lots"][0]["id"]
-    self.cancel_tender(lot_id=lot_id)
-    assert_statuses(
-        self,
-        rules={
-            "data.status": "cancelled",
-            "data.lots[*].status": ["cancelled"],
-            "data.bids[*].status": ["active", "active", "active"],
-            "data.qualifications[*].status": ["cancelled", "cancelled", "cancelled"],
-            "data.awards[*].status": ["active", "active", "active"],
-            "data.agreements[*].status": None,
-            "data.complaints[*].status": None,
-        },
-    )
+    if RELEASE_2020_04_19 > get_now():
+        # Test for old rules
+        # In new rules there will be 403 error
+        self.cancel_tender(lot_id=lot_id)
+        assert_statuses(
+            self,
+            rules={
+                "data.status": "cancelled",
+                "data.lots[*].status": ["cancelled"],
+                "data.bids[*].status": ["active", "active", "active"],
+                "data.qualifications[*].status": ["cancelled", "cancelled", "cancelled"],
+                "data.awards[*].status": ["active", "active", "active"],
+                "data.agreements[*].status": None,
+                "data.complaints[*].status": None,
+            },
+        )
 
 
 def cancel_lot_active_awarded(self):

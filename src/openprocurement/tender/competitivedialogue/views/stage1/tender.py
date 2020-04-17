@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 from openprocurement.tender.core.utils import optendersresource, save_tender
-from openprocurement.tender.core.validation import validate_tender_not_in_terminated_status
+from openprocurement.tender.core.validation import (
+    validate_tender_not_in_terminated_status,
+    validate_tender_change_status_with_cancellation_lot_pending,
+)
 from openprocurement.api.utils import json_view, context_unpack, APIResource
 from openprocurement.tender.belowthreshold.views.tender import TenderResource
 from openprocurement.tender.openeu.views.tender import TenderEUResource
 from openprocurement.tender.openua.validation import validate_patch_tender_ua_data
-from openprocurement.tender.core.validation import validate_tender_change_status_permission
 from openprocurement.tender.competitivedialogue.utils import patch_eu, set_ownership
 from openprocurement.tender.competitivedialogue.constants import (
     CD_EU_TYPE,
@@ -33,8 +35,8 @@ class CompetitiveDialogueEUResource(TenderEUResource):
         validators=(
             validate_patch_tender_ua_data,
             validate_tender_not_in_terminated_status,
-            validate_tender_change_status_permission,
             validate_tender_update,
+            validate_tender_change_status_with_cancellation_lot_pending,
         ),
         permission="edit_tender",
     )
@@ -56,8 +58,8 @@ class CompetitiveDialogueUAResource(TenderResource):
         validators=(
             validate_patch_tender_ua_data,
             validate_tender_not_in_terminated_status,
-            validate_tender_change_status_permission,
             validate_tender_update,
+            validate_tender_change_status_with_cancellation_lot_pending,
         ),
         permission="edit_tender",
     )

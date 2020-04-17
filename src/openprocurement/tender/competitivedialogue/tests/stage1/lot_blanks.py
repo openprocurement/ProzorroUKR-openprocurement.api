@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 from copy import deepcopy
 
+from openprocurement.api.utils import get_now
+from openprocurement.api.constants import RELEASE_2020_04_19
+from openprocurement.tender.core.tests.cancellation import activate_cancellation_with_complaints_after_2020_04_19
 
 # CompetitiveDialogueEU(UA)LotBidderResourceTest
 from openprocurement.tender.belowthreshold.tests.base import test_cancellation
@@ -781,6 +784,10 @@ def two_lot_2can(self):
         {"data": {"items": [{"relatedLot": i} for i in lots]}},
     )
     self.assertEqual(response.status, "200 OK")
+
+    set_complaint_period_end = getattr(self, "set_complaint_period_end", None)
+    if RELEASE_2020_04_19 < get_now() and set_complaint_period_end:
+        set_complaint_period_end()
     # cancel every lot
     for lot_id in lots:
         cancellation = dict(**test_cancellation)
@@ -793,6 +800,11 @@ def two_lot_2can(self):
             "/tenders/{}/cancellations?acc_token={}".format(tender_id, owner_token),
             {"data": cancellation},
         )
+
+        cancellation_id = response.json["data"]["id"]
+        if RELEASE_2020_04_19 < get_now():
+            activate_cancellation_with_complaints_after_2020_04_19(self, cancellation_id, tender_id, owner_token)
+
     response = self.app.get("/tenders/{}".format(tender_id))
     self.assertTrue(all([i["status"] == "cancelled" for i in response.json["data"]["lots"]]))
     self.assertEqual(response.json["data"]["status"], "cancelled")
@@ -865,6 +877,10 @@ def two_lot_2bid_0com_1can(self):
         },
     )
 
+    set_complaint_period_end = getattr(self, "set_complaint_period_end", None)
+    if RELEASE_2020_04_19 < get_now() and set_complaint_period_end:
+        set_complaint_period_end()
+
     self.app.authorization = ("Basic", ("broker", ""))
     cancellation = dict(**test_cancellation)
     cancellation.update({
@@ -876,6 +892,10 @@ def two_lot_2bid_0com_1can(self):
         "/tenders/{}/cancellations?acc_token={}".format(tender_id, owner_token),
         {"data": cancellation},
     )
+    cancellation_id = response.json["data"]["id"]
+    if RELEASE_2020_04_19 < get_now():
+        activate_cancellation_with_complaints_after_2020_04_19(self, cancellation_id, tender_id, owner_token)
+
     response = self.app.get("/tenders/{}?acc_token={}".format(tender_id, owner_token))
     self.assertEqual(response.status, "200 OK")
     # active.pre-qualification

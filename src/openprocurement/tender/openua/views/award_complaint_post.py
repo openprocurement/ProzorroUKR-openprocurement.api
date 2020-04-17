@@ -19,7 +19,7 @@ from openprocurement.tender.openua.views.complaint_post import TenderComplaintPo
 )
 class TenderAwardComplaintPostResource(TenderComplaintPostResource):
     def generate_location_url(self):
-        return  self.request.route_url(
+        return self.request.route_url(
             "{}:Tender Award Complaint Posts".format(self.request.validated["tender"].procurementMethodType),
             tender_id=self.request.validated["tender_id"],
             award_id=self.request.validated["award_id"],
