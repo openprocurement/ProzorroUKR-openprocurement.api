@@ -599,3 +599,20 @@ def get_contract_supplier_roles(contract):
     bid_data = jmespath.search("bids[?id=='{}'].[owner,owner_token]".format(bid_id), contract.__parent__)[0]
     roles['_'.join(bid_data)] = 'contract_supplier'
     return roles
+
+
+def flatten_multidimensional_list(list_to_flatten):
+    for element in list_to_flatten:
+        if isinstance(element,(list, tuple)):
+            for x in flatten_multidimensional_list(element):
+                yield x
+        else:
+            yield element
+
+
+def get_all_nested_from_the_object(objects_to_find, obj):
+    nested_regex = ["", "*.", "*[*]."]
+    search_query = ' || '.join([item + objects_to_find for item in nested_regex])
+    nested_objects = jmespath.search(search_query, obj)
+    nested_objects = list(flatten_multidimensional_list(nested_objects))
+    return nested_objects
