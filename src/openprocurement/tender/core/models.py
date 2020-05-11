@@ -56,10 +56,13 @@ from openprocurement.tender.core.constants import (
     COMPLAINT_ENHANCED_AMOUNT_RATE, COMPLAINT_ENHANCED_MIN_AMOUNT, COMPLAINT_ENHANCED_MAX_AMOUNT,
 )
 from openprocurement.tender.core.utils import (
-    calc_auction_end_time, rounding_shouldStartAfter,
-    restrict_value_to_bounds, round_up_to_ten,
-    get_contract_supplier_roles, get_contract_supplier_permissions,
-    calculate_tender_business_date,
+    calc_auction_end_time,
+    rounding_shouldStartAfter,
+    restrict_value_to_bounds,
+    round_up_to_ten,
+    get_contract_supplier_roles,
+    get_contract_supplier_permissions,
+    get_all_nested_from_the_object,
 )
 from openprocurement.tender.core.validation import (
     validate_lotvalue_value,
@@ -158,10 +161,12 @@ class ComplaintModelType(ModelType):
 
 
 class Document(BaseDocument):
-    documentOf = StringType(required=True, choices=["tender", "item", "lot"], default="tender")
+    documentOf = StringType(required=True, choices=[
+                            "tender", "item", "lot",  "document"], default="tender")
+
 
     def validate_relatedItem(self, data, relatedItem):
-        if not relatedItem and data.get("documentOf") in ["item", "lot"]:
+        if not relatedItem and data.get("documentOf") in ["item", "lot", "document"]:
             raise ValidationError(u"This field is required.")
         parent = data["__parent__"]
         if relatedItem and isinstance(parent, Model):
@@ -170,6 +175,10 @@ class Document(BaseDocument):
                 raise ValidationError(u"relatedItem should be one of lots")
             if data.get("documentOf") == "item" and relatedItem not in [i.id for i in tender.items if i]:
                 raise ValidationError(u"relatedItem should be one of items")
+            if data.get("documentOf") == "document":
+                documents = get_all_nested_from_the_object("documents",tender) + get_all_nested_from_the_object("documents",parent)
+                if relatedItem not in [i.id for i in documents]:
+                    raise ValidationError(u"relatedItem should be one of documents")
 
 
 class ConfidentialDocumentModelType(ModelType):
