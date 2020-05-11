@@ -1157,6 +1157,7 @@ def put_tender_contract_document(self):
         ),
     )
 
+
 def patch_tender_contract_document(self):
     response = self.app.post(
         "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),

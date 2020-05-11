@@ -7,7 +7,6 @@ from openprocurement.api.utils import get_now
 from openprocurement.tender.belowthreshold.tests.base import test_claim, test_cancellation, test_tender_data, test_organization, test_tender_full_document_data
 from openprocurement.tender.core.tests.cancellation import activate_cancellation_after_2020_04_19
 
-
 # TenderContractResourceTest
 from openprocurement.api.constants import RELEASE_2020_04_19
 
@@ -865,6 +864,7 @@ def not_found(self):
     self.assertEqual(
         response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"tender_id"}]
     )
+
     response = self.app.get("/tenders/{}/contracts/some_id/documents".format(self.tender_id), status=404)
     self.assertEqual(response.status, "404 Not Found")
     self.assertEqual(response.content_type, "application/json")
@@ -1061,6 +1061,7 @@ def create_tender_contract_document(self):
     )
     self.assertEqual(response.status, "403 Forbidden")
     self.assertEqual(response.content_type, "application/json")
+    
     self.assertEqual(
         response.json["errors"][0]["description"],
         "Can't add document in current ({}) tender status".format(
@@ -1121,16 +1122,14 @@ def create_tender_contract_document_by_supplier(self):
     self.assertEqual(response.json["errors"],
                      [{u'description': u"Supplier can't add document in current contract status",
                        u'location': u'body',
-                       u'name': u'data'}])
-                       
+                       u'name': u'data'}])                       
     # Tender owner
     response = self.app.patch_json(
         "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
         {"data": {"status": "pending.winner-signing"}}
     )
     self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
-    
+    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")   
 
     # Supplier
     response = self.app.post(
@@ -1543,7 +1542,6 @@ def put_tender_contract_document_by_supplier(self):
     response = self.app.get("/tenders/{}/contracts/{}".format(self.tender_id, self.contract_id))
     contract = response.json["data"]
     self.assertEqual(response.json["data"]["status"], "pending")
-  
     doc = self.db.get(self.tender_id)
     bid_id = jmespath.search("awards[?id=='{}'].bid_id".format(contract["awardID"]), doc)[0]
     bid_token = jmespath.search("bids[?id=='{}'].owner_token".format(bid_id), doc)[0]
@@ -2306,6 +2304,7 @@ def lot2_create_tender_contract_document_by_supplier(self):
     )
     self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
+    
     # Supplier
     response = self.app.post(
         "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
@@ -2634,7 +2633,7 @@ def lot2_put_tender_contract_document_by_supplier(self):
     )
     self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
-    
+
     # Supplier
     response = self.app.post_json(
     "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
