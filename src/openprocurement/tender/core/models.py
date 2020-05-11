@@ -158,8 +158,6 @@ class ComplaintModelType(ModelType):
 
 
 class Document(BaseDocument):
-    documentOf = StringType(required=True, choices=["tender", "item", "lot"], default="tender")
-
     def validate_relatedItem(self, data, relatedItem):
         if not relatedItem and data.get("documentOf") in ["item", "lot"]:
             raise ValidationError(u"This field is required.")
