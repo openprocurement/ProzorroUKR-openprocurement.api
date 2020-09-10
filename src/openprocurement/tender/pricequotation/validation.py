@@ -196,7 +196,7 @@ def matches(criteria, response):
                 )
             )
     if not min_value and max_value:
-        if value < min_value:
+        if value > max_value:
             raise ValidationError(
                 u'Value {} is higher then required {} in reqirement {}'.format(
                     value,
