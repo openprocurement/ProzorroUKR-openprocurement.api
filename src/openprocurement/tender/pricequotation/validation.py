@@ -175,7 +175,7 @@ def matches(criteria, response):
     if min_value and max_value:
         min_value = datatype.to_native(min_value)
         max_value = datatype.to_native(max_value)
-        if value < min_value or value > max_value:
+        if (value < min_value) or (value > max_value):
             raise ValidationError(
                 u'Value "{}" does not match range from "{}" to "{}" in reqirement {}'.format(
                     value,
