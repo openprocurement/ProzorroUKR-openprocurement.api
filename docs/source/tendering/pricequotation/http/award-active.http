@@ -1,0 +1,77 @@
+PATCH /api/2.5/tenders/2f6b50d7e72d4fc184f561d945af0397/awards/5f64866dfe6941f2a9d069642cef4aaa?acc_token=adf39ec64c5247239b58aa72f5b14aa7 HTTP/1.0
+Authorization: Bearer broker
+Content-Length: 30
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+DATA:
+{
+  "data": {
+    "status": "active"
+  }
+}
+
+Response: 200 OK
+Content-Type: application/json; charset=UTF-8
+{
+  "data": {
+    "status": "active", 
+    "items": [
+      {
+        "description": "Комп’ютерне обладнання", 
+        "classification": {
+          "scheme": "ДК021", 
+          "description": "Комп’ютерне обладнанн", 
+          "id": "30230000-0"
+        }, 
+        "deliveryAddress": {
+          "postalCode": "79000", 
+          "countryName": "Україна", 
+          "streetAddress": "вул. Банкова 1", 
+          "region": "м. Київ", 
+          "locality": "м. Київ"
+        }, 
+        "deliveryDate": {
+          "startDate": "2020-05-17T01:00:00+03:00", 
+          "endDate": "2020-05-20T01:00:00+03:00"
+        }, 
+        "id": "d2c4f983cbf340e29ff714a0f99d8844", 
+        "unit": {
+          "code": "H87", 
+          "name": "штук"
+        }, 
+        "quantity": 1.0
+      }
+    ], 
+    "suppliers": [
+      {
+        "contactPoint": {
+          "name": "Державне управління справами", 
+          "telephone": "0440000000"
+        }, 
+        "scale": "micro", 
+        "name": "Державне управління справами", 
+        "identifier": {
+          "scheme": "UA-EDR", 
+          "id": "00037256", 
+          "uri": "http://www.dus.gov.ua/"
+        }, 
+        "address": {
+          "postalCode": "01220", 
+          "countryName": "Україна", 
+          "streetAddress": "вул. Банкова, 11, корпус 1", 
+          "region": "м. Київ", 
+          "locality": "м. Київ"
+        }
+      }
+    ], 
+    "bid_id": "4a907324bf9b40f79a057716377707f7", 
+    "value": {
+      "currency": "UAH", 
+      "amount": 479.0, 
+      "valueAddedTaxIncluded": true
+    }, 
+    "date": "2020-05-15T01:00:01+03:00", 
+    "id": "5f64866dfe6941f2a9d069642cef4aaa"
+  }
+}
+

@@ -1,0 +1,107 @@
+PATCH /api/2.5/tenders/2f6b50d7e72d4fc184f561d945af0397/contracts/081c725a9a7f49c08e30ff870b3c2d56?acc_token=ac342a9f314046808ffa89602219bf8d HTTP/1.0
+Authorization: Bearer broker
+Content-Length: 30
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+DATA:
+{
+  "data": {
+    "status": "active"
+  }
+}
+
+Response: 200 OK
+Content-Type: application/json; charset=UTF-8
+{
+  "data": {
+    "status": "active", 
+    "documents": [
+      {
+        "hash": "md5:00000000000000000000000000000000", 
+        "title": "contract_first_document.doc", 
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/05c283398a464e0fa58038d9e1313f94?KeyID=a8968c46&Signature=XdzOWMLCaq8jRpC%2FI4N7%2Fb6Ec5l39pRbOpmyVKtiBYl140v4uJzfifxecIIdxnCggyD4GBWsZCIXFEZxGyUaAg%253D%253D", 
+        "format": "application/msword", 
+        "documentOf": "tender", 
+        "datePublished": "2020-05-15T01:00:03+03:00", 
+        "id": "dc5e406cc06d44659918ed3acb29a6bc", 
+        "dateModified": "2020-05-15T01:00:03+03:00"
+      }, 
+      {
+        "hash": "md5:00000000000000000000000000000000", 
+        "title": "contract_second_document.doc", 
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/081deb42a20d45d299cea86a0dd80346?KeyID=a8968c46&Signature=Z1jfOvOOx0D1%252BMAWySO1THwhLB7v2WglDYjZtfyLdka3zO3hir%2FtiKJuEVHownh%252BAbqRz2fZAJ6ICpkEmuDABQ%253D%253D", 
+        "format": "application/msword", 
+        "documentOf": "tender", 
+        "datePublished": "2020-05-15T01:00:03+03:00", 
+        "id": "58b01bbf809148a9a155be0fb7dc7e5f", 
+        "dateModified": "2020-05-15T01:00:03+03:00"
+      }
+    ], 
+    "items": [
+      {
+        "description": "Комп’ютерне обладнання", 
+        "classification": {
+          "scheme": "ДК021", 
+          "description": "Комп’ютерне обладнанн", 
+          "id": "30230000-0"
+        }, 
+        "deliveryAddress": {
+          "postalCode": "79000", 
+          "countryName": "Україна", 
+          "streetAddress": "вул. Банкова 1", 
+          "region": "м. Київ", 
+          "locality": "м. Київ"
+        }, 
+        "deliveryDate": {
+          "startDate": "2020-05-17T01:00:00+03:00", 
+          "endDate": "2020-05-20T01:00:00+03:00"
+        }, 
+        "id": "d2c4f983cbf340e29ff714a0f99d8844", 
+        "unit": {
+          "code": "H87", 
+          "name": "штук"
+        }, 
+        "quantity": 1.0
+      }
+    ], 
+    "suppliers": [
+      {
+        "contactPoint": {
+          "name": "Державне управління справами", 
+          "telephone": "0440000000"
+        }, 
+        "scale": "micro", 
+        "name": "Державне управління справами", 
+        "identifier": {
+          "scheme": "UA-EDR", 
+          "id": "00037256", 
+          "uri": "http://www.dus.gov.ua/"
+        }, 
+        "address": {
+          "postalCode": "01220", 
+          "countryName": "Україна", 
+          "streetAddress": "вул. Банкова, 11, корпус 1", 
+          "region": "м. Київ", 
+          "locality": "м. Київ"
+        }
+      }
+    ], 
+    "contractNumber": "contract #13111", 
+    "period": {
+      "startDate": "2020-05-15T01:00:03+03:00", 
+      "endDate": "2021-05-15T01:00:03+03:00"
+    }, 
+    "dateSigned": "2020-05-15T01:00:03+03:00", 
+    "value": {
+      "currency": "UAH", 
+      "amount": 238.0, 
+      "amountNet": 230.0, 
+      "valueAddedTaxIncluded": true
+    }, 
+    "date": "2020-05-15T01:00:03+03:00", 
+    "awardID": "c58f6124caae4fa8aee6e33233bb4ba3", 
+    "id": "081c725a9a7f49c08e30ff870b3c2d56", 
+    "contractID": "UA-2020-05-15-000001-2"
+  }
+}
+

@@ -1,0 +1,31 @@
+POST /api/2.5/tenders/2f6b50d7e72d4fc184f561d945af0397/bids/e46b68ebf7724fcfa182eeade05ec272/documents?acc_token=7ee1f0a7d9ca4a6d95fe2bf79100a9e1 HTTP/1.0
+Authorization: Bearer broker
+Content-Length: 328
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+DATA:
+{
+  "data": {
+    "url": "http://public-docs-sandbox.prozorro.gov.ua/get/fb1bfc41e45e4a6c946adbd59bfdff16?KeyID=a8968c46&Signature=mq3jIE1hdYFYj9aMeyhNsq6%2BhLzC9iYNKM%2BhkWN89llAF5r%2ByQr4qxtwrCv8V21AmZVUajRa3yCLg7Qc%2BVC9DQ%3D%3D", 
+    "title": "Proposal.pdf", 
+    "hash": "md5:00000000000000000000000000000000", 
+    "format": "application/pdf"
+  }
+}
+
+Response: 201 Created
+Content-Type: application/json; charset=UTF-8
+Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/2f6b50d7e72d4fc184f561d945af0397/bids/e46b68ebf7724fcfa182eeade05ec272/documents/6f3bb464ac7844b7ac3136550e8751e4
+{
+  "data": {
+    "hash": "md5:00000000000000000000000000000000", 
+    "title": "Proposal.pdf", 
+    "url": "http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/2f6b50d7e72d4fc184f561d945af0397/bids/e46b68ebf7724fcfa182eeade05ec272/documents/6f3bb464ac7844b7ac3136550e8751e4?download=fb1bfc41e45e4a6c946adbd59bfdff16", 
+    "format": "application/pdf", 
+    "documentOf": "tender", 
+    "datePublished": "2020-05-15T01:00:01+03:00", 
+    "id": "6f3bb464ac7844b7ac3136550e8751e4", 
+    "dateModified": "2020-05-15T01:00:01+03:00"
+  }
+}
+

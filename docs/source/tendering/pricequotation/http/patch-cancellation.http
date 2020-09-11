@@ -1,0 +1,28 @@
+PATCH /api/2.5/tenders/2f6b50d7e72d4fc184f561d945af0397/cancellations/4b9cfb25db254d3ab12593f969cfc64d/documents/8eab55698e214da9a8596071cc90ed8c?acc_token=ac342a9f314046808ffa89602219bf8d HTTP/1.0
+Authorization: Bearer broker
+Content-Length: 48
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+DATA:
+{
+  "data": {
+    "description": "Changed description"
+  }
+}
+
+Response: 200 OK
+Content-Type: application/json; charset=UTF-8
+{
+  "data": {
+    "hash": "md5:00000000000000000000000000000000", 
+    "description": "Changed description", 
+    "title": "Notice.pdf", 
+    "url": "http://public-docs-sandbox.prozorro.gov.ua/get/6c09ba3998ad4cb8a1232d732d0b418a?KeyID=a8968c46&Signature=1kVtsM7NZS1ALmYHAnefygkvEQVOcy%2FvAWxtCk5HXRMuOKyfXo23XH8yrDAbKuFWAAJWkm1HYYgW7kPVMTSrDg%253D%253D", 
+    "format": "application/pdf", 
+    "documentOf": "tender", 
+    "datePublished": "2020-05-15T01:00:03+03:00", 
+    "id": "8eab55698e214da9a8596071cc90ed8c", 
+    "dateModified": "2020-05-15T01:00:03+03:00"
+  }
+}
+
