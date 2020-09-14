@@ -688,3 +688,13 @@ class Contract(Model):
     items = ListType(ModelType(Item))
     suppliers = ListType(ModelType(BusinessOrganization), min_size=1, max_size=1)
     date = IsoDateTimeType()
+
+
+class BankAccount(Model):
+    id = StringType(required=True)
+    scheme = StringType(choices=["IBAN", ], required=True)
+
+
+class Reference(Model):
+    id = StringType(required=True)
+    title = StringType(required=True, min_length=1)

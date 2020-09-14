@@ -10,6 +10,7 @@ from openprocurement.api.utils import get_now
 from openprocurement.tender.belowthreshold.tests.base import test_organization
 from openprocurement.tender.core.utils import calculate_tender_business_date
 from openprocurement.tender.openeu.models import Tender
+from openprocurement.api.constants import RELEASE_ECRITERIA_ARTICLE_17
 
 # TenderTest
 
@@ -505,7 +506,11 @@ def patch_tender(self):
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(
         response.json["errors"],
-        [{"location": "body", "name": "tenderPeriod", "description": ["tenderPeriod should be greater than 30 days"]}],
+        [{
+            "location": "body",
+            "name": "tenderPeriod",
+            "description": ["tenderPeriod must be at least 30 full calendar days long"]
+        }],
     )
 
     response = self.app.patch_json(
@@ -702,17 +707,14 @@ def invalid_bid_tender_features(self):
 
     # create bid
     self.app.authorization = ("Basic", ("broker", ""))
+
+    bid_data = deepcopy(self.test_bids_data[0])
+    bid_data["value"] = {"amount": 500}
+    bid_data["parameters"] = [{"code": "OCDS-123454-POSTPONEMENT", "value": 0.1}]
+
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "parameters": [{"code": "OCDS-123454-POSTPONEMENT", "value": 0.1}],
-                "tenderers": [test_organization],
-                "value": {"amount": 500},
-            }
-        },
+        {"data": bid_data},
     )
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.content_type, "application/json")
@@ -787,17 +789,17 @@ def invalid_bid_tender_lot(self):
 
     # create bid
     self.app.authorization = ("Basic", ("broker", ""))
+
+    bid_data = deepcopy(self.test_bids_data[0])
+    del bid_data["value"]
+    bid_data.update({
+        "status": "draft",
+        "lotValues": [{"value": self.test_bids_data[0]["value"], "relatedLot": i} for i in lots],
+    })
+
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "status": "draft",
-                "lotValues": [{"value": self.test_bids_data[0]["value"], "relatedLot": i} for i in lots],
-                "tenderers": [test_organization],
-            }
-        },
+        {"data": bid_data},
     )
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.content_type, "application/json")
@@ -828,16 +830,13 @@ def one_bid_tender(self):
     # create bid
     bidder_data = deepcopy(test_organization)
     self.app.authorization = ("Basic", ("broker", ""))
+
+    bid_data = deepcopy(self.test_bids_data[0])
+    bid_data["tenderers"] = [bidder_data]
+
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "tenderers": [bidder_data],
-                "value": self.test_bids_data[0]["value"],
-            }
-        },
+        {"data": bid_data},
     )
     # switch to active.pre-qualification
     self.set_status("active.pre-qualification", {"id": tender_id, "status": "active.tendering"})
@@ -861,38 +860,21 @@ def unsuccessful_after_prequalification_tender(self):
     # create bid
     bidder_data = deepcopy(test_organization)
     self.app.authorization = ("Basic", ("broker", ""))
+
+    bid_data = deepcopy(self.test_bids_data[0])
+    bid_data["tenderers"] = [bidder_data]
+
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "tenderers": [bidder_data],
-                "value": self.test_bids_data[0]["value"],
-            }
-        },
+        {"data": bid_data},
     )
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "tenderers": [bidder_data],
-                "value": self.test_bids_data[0]["value"],
-            }
-        },
+        {"data": bid_data},
     )
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "tenderers": [bidder_data],
-                "value": self.test_bids_data[0]["value"],
-            }
-        },
+        {"data": bid_data},
     )
     # switch to active.pre-qualification
     self.set_status("active.pre-qualification", {"id": tender_id, "status": "active.tendering"})
@@ -928,9 +910,14 @@ def unsuccessful_after_prequalification_tender(self):
     self.app.authorization = ("Basic", ("chronograph", ""))
     response = self.app.patch_json("/tenders/{}".format(tender_id), {"data": {"id": tender_id}})
     self.assertEqual(response.json["data"]["status"], "unsuccessful")
+
+    assert_data = {u"id", u"status", u"tenderers", u"selfQualified"}
+    if get_now() < RELEASE_ECRITERIA_ARTICLE_17:
+        assert_data.add(u"selfEligible")
+
     for bid in response.json["data"]["bids"]:
         self.assertEqual(bid["status"], "unsuccessful")
-        self.assertEqual(set(bid.keys()), set([u"id", u"status", u"selfEligible", u"tenderers", u"selfQualified"]))
+        self.assertEqual(set(bid.keys()), assert_data)
 
 
 def one_qualificated_bid_tender(self):
@@ -945,27 +932,20 @@ def one_qualificated_bid_tender(self):
     # create bids
     bidder_data = deepcopy(test_organization)
     self.app.authorization = ("Basic", ("broker", ""))
+
+    bid_data = deepcopy(self.test_bids_data[0])
+    bid_data["tenderers"] = [bidder_data]
+
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "tenderers": [bidder_data],
-                "value": self.test_bids_data[0]["value"],
-            }
-        },
+        {"data": bid_data},
     )
+
+    bid_data["value"] = self.test_bids_data[1]["value"]
+
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "tenderers": [bidder_data],
-                "value": self.test_bids_data[1]["value"],
-            }
-        },
+        {"data": bid_data},
     )
     # switch to active.pre-qualification
     self.set_status("active.pre-qualification", {"id": tender_id, "status": "active.tendering"})
@@ -1047,41 +1027,24 @@ def multiple_bidders_tender(self):
     tender_owner_token = response.json["access"]["token"]
     # create bids
     bidder_data = deepcopy(test_organization)
+
+    bid_data = deepcopy(self.test_bids_data[0])
+    bid_data["tenderers"] = [bidder_data]
+
     self.app.authorization = ("Basic", ("broker", ""))
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "tenderers": [bidder_data],
-                "value": self.test_bids_data[0]["value"],
-            }
-        },
+        {"data": bid_data},
     )
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "tenderers": [bidder_data],
-                "value": self.test_bids_data[0]["value"],
-            }
-        },
+        {"data": bid_data},
     )
     bid_id = response.json["data"]["id"]
     bid_token = response.json["access"]["token"]
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "tenderers": [bidder_data],
-                "value": self.test_bids_data[0]["value"],
-            }
-        },
+        {"data": bid_data},
     )
     # switch to active.pre-qualification
     self.set_status("active.pre-qualification", {"id": tender_id, "status": "active.tendering"})
@@ -1237,30 +1200,19 @@ def lost_contract_for_active_award(self):
     tender_id = self.tender_id = response.json["data"]["id"]
     owner_token = response.json["access"]["token"]
     # create bid
+    bid_data = deepcopy(self.test_bids_data[0])
+    bid_data["tenderers"] = [test_organization]
+
     self.app.authorization = ("Basic", ("broker", ""))
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "tenderers": [test_organization],
-                "value": self.test_bids_data[0]["value"],
-            }
-        },
+        {"data": bid_data},
     )
     # create bid #2
     self.app.authorization = ("Basic", ("broker", ""))
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "tenderers": [test_organization],
-                "value": self.test_bids_data[0]["value"],
-            }
-        },
+        {"data": bid_data},
     )
     # switch to active.pre-qualification
     self.set_status("active.pre-qualification", {"id": tender_id, "status": "active.tendering"})

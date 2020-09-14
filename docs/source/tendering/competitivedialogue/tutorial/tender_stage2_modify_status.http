@@ -17,16 +17,16 @@ Content-Type: application/json; charset=UTF-8
     "procurementMethod": "selective", 
     "complaintPeriod": {
       "startDate": "2020-05-15T01:00:00+03:00", 
-      "endDate": "2020-06-10T00:00:00+03:00"
+      "endDate": "2020-06-11T00:00:00+03:00"
     }, 
     "enquiryPeriod": {
       "startDate": "2020-05-15T01:00:00+03:00", 
       "clarificationsUntil": "2020-06-11T00:00:00+03:00", 
-      "endDate": "2020-06-04T01:00:00+03:00", 
+      "endDate": "2020-06-05T00:00:00+03:00", 
       "invalidationDate": "2020-05-15T01:00:00+03:00"
     }, 
     "submissionMethod": "electronicAuction", 
-    "next_check": "2020-06-14T01:00:00+03:00", 
+    "next_check": "2020-06-15T00:00:00+03:00", 
     "awardCriteria": "lowestCost", 
     "owner": "broker", 
     "title_en": "Services in school canteens", 
@@ -63,7 +63,7 @@ Content-Type: application/json; charset=UTF-8
     "status": "active.tendering", 
     "tenderPeriod": {
       "startDate": "2020-05-15T01:00:00+03:00", 
-      "endDate": "2020-06-14T01:00:00+03:00"
+      "endDate": "2020-06-15T00:00:00+03:00"
     }, 
     "auctionPeriod": {
       "shouldStartAfter": "2020-07-20T00:00:00+03:00"
@@ -102,7 +102,7 @@ Content-Type: application/json; charset=UTF-8
           "startDate": "2020-06-04T00:00:00+02:00", 
           "endDate": "2020-07-04T00:00:00+02:00"
         }, 
-        "id": "7b511293045e49b8a328224196e04d55", 
+        "id": "6c6189b104254d6b9857a84c2174dcfd", 
         "unit": {
           "code": "44617100-9", 
           "name": "item"
@@ -135,7 +135,7 @@ Content-Type: application/json; charset=UTF-8
           "startDate": "2020-06-04T00:00:00+02:00", 
           "endDate": "2020-07-04T00:00:00+02:00"
         }, 
-        "id": "1ad12baa812349259ed30e5b5f014a52", 
+        "id": "dba29819bc7d49d3b8650d799bacdc98", 
         "unit": {
           "code": "44617100-9", 
           "name": "item"

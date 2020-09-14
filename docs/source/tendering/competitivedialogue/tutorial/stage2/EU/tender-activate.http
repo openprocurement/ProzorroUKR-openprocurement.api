@@ -17,16 +17,16 @@ Content-Type: application/json; charset=UTF-8
     "procurementMethod": "selective", 
     "complaintPeriod": {
       "startDate": "2020-05-15T01:00:00+03:00", 
-      "endDate": "2020-06-10T00:00:00+03:00"
+      "endDate": "2020-06-11T00:00:00+03:00"
     }, 
     "enquiryPeriod": {
       "startDate": "2020-05-15T01:00:00+03:00", 
       "clarificationsUntil": "2020-06-11T00:00:00+03:00", 
-      "endDate": "2020-06-04T01:00:10+03:00", 
+      "endDate": "2020-06-05T00:00:00+03:00", 
       "invalidationDate": "2020-05-15T01:00:00+03:00"
     }, 
     "submissionMethod": "electronicAuction", 
-    "next_check": "2020-06-14T01:00:10+03:00", 
+    "next_check": "2020-06-15T01:00:00+03:00", 
     "awardCriteria": "lowestCost", 
     "owner": "broker", 
     "title_en": "Services in school canteens", 
@@ -63,10 +63,10 @@ Content-Type: application/json; charset=UTF-8
     "status": "active.tendering", 
     "tenderPeriod": {
       "startDate": "2020-05-15T01:00:00+03:00", 
-      "endDate": "2020-06-14T01:00:10+03:00"
+      "endDate": "2020-06-15T01:00:00+03:00"
     }, 
     "auctionPeriod": {
-      "shouldStartAfter": "2020-07-20T00:00:00+03:00"
+      "shouldStartAfter": "2020-07-21T00:00:00+03:00"
     }, 
     "procurementMethodType": "competitiveDialogueEU.stage2", 
     "date": "2020-05-15T01:00:00+03:00", 
@@ -102,7 +102,7 @@ Content-Type: application/json; charset=UTF-8
           "startDate": "2020-06-04T00:00:00+02:00", 
           "endDate": "2020-07-04T00:00:00+02:00"
         }, 
-        "id": "52ba02bed7a347fa9f8119661caf0ed2", 
+        "id": "c9279535363848ec981dbe0480847b88", 
         "unit": {
           "code": "44617100-9", 
           "name": "item"
@@ -135,7 +135,7 @@ Content-Type: application/json; charset=UTF-8
           "startDate": "2020-06-04T00:00:00+02:00", 
           "endDate": "2020-07-04T00:00:00+02:00"
         }, 
-        "id": "50f37ac382a444ecbc996d07df1e15ed", 
+        "id": "822b768f5a104187ad91523b930af57d", 
         "unit": {
           "code": "44617100-9", 
           "name": "item"

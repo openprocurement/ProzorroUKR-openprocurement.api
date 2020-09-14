@@ -19,7 +19,10 @@ areas that were not covered by it.
    complaintpost
    confidentialdocument
    contract
+   criterion
    document
+   eligibleevidence
+   evidence
    feature
    firm
    qualificationmilestone
@@ -33,9 +36,15 @@ areas that were not covered by it.
    planmilestone
    planrelation
    planorganization
+   requirement
+   requirementgroup
+   requirementresponse
    qualification
    question
    tender
    unitPrice
    util
    transfer
+   implementation
+   transaction
+

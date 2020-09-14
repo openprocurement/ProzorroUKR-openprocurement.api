@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from collections import defaultdict
+from math import floor, ceil
 from decimal import Decimal, ROUND_UP
 
 from schematics.types import BaseType
@@ -12,7 +13,9 @@ from openprocurement.api.validation import (
     OPERATIONS,
     validate_accreditation_level_kind,
     validate_tender_first_revision_date,
+    validate_post_list_data,
 )
+from openprocurement.api.models import Model
 from openprocurement.api.constants import (
     SANDBOX_MODE,
     UA_ROAD_SCHEME,
@@ -21,10 +24,14 @@ from openprocurement.api.constants import (
     ATC_SCHEME,
     INN_SCHEME,
     GMDN_CPV_PREFIXES,
-    RELEASE_2020_04_19
+    RELEASE_2020_04_19,
+    RELEASE_ECRITERIA_ARTICLE_17,
+    RELEASE_2020_04_19,
+    MINIMAL_STEP_VALIDATION_FROM,
 )
 from openprocurement.api.utils import (
     get_now,
+    get_root,
     is_ua_road_classification,
     is_gmdn_classification,
     to_decimal,
@@ -34,11 +41,22 @@ from openprocurement.api.utils import (
     check_document_batch,
     handle_data_exceptions,
     get_first_revision_date,
+    get_root,
 )
 from openprocurement.tender.core.constants import AMOUNT_NET_COEF, FIRST_STAGE_PROCUREMENT_TYPES
-from openprocurement.tender.core.utils import calculate_tender_business_date, requested_fields_changes
+from openprocurement.tender.core.utils import (
+    calculate_tender_business_date,
+    requested_fields_changes,
+    check_skip_award_complaint_period,
+)
 from openprocurement.planning.api.utils import extract_plan_adapter
 from schematics.exceptions import ValidationError
+from schematics.types import DecimalType, StringType, IntType, BooleanType, DateTimeType
+
+# Decided in CS-8167
+MINIMAL_STEP_VALIDATION_PRESCISSION = 2
+MINIMAL_STEP_VALIDATION_LOWER_LIMIT = 0.005
+MINIMAL_STEP_VALIDATION_UPPER_LIMIT = 0.03
 
 
 def validate_tender_data(request):
@@ -191,7 +209,7 @@ def validate_tender_auction_data(request):
         if (
             SANDBOX_MODE
             and tender.submissionMethodDetails
-            and tender.submissionMethodDetails in [u"quick(mode:no-auction)", u"quick(mode:fast-forward)"]
+            and tender.submissionMethodDetails.endswith((u"quick(mode:no-auction)", u"quick(mode:fast-forward)"))
         ):
             if tender.lots:
                 data["lots"] = [
@@ -244,6 +262,52 @@ def validate_bid_documents(request):
             document = check_document_batch(request, document, doc_type, route_kwargs)
             documents[doc_type].append(document)
     return documents
+
+
+def validate_bid_activate_criteria(request):
+    """
+    Validate that bidder gave response for all requirements
+    for only one of requirementGroups inside all criteria
+    """
+
+    tender = request.validated["tender"]
+    bid = request.context
+
+    bid_status_to = request.validated["data"].get("status", request.context.status)
+    tender_created = get_first_revision_date(tender, default=get_now())
+
+    if (
+        tender_created < RELEASE_ECRITERIA_ARTICLE_17
+        or bid.status == bid_status_to
+        or bid_status_to not in ["active", "pending"]
+    ):
+        return
+
+    all_answered_requirements = [i.requirement.id for i in bid.requirementResponses]
+
+    for criteria in tender.criteria:
+        if criteria.source != "tenderer":
+            continue
+
+        criteria_ids = {}
+        group_answered_requirement_ids = {}
+        for rg in criteria.requirementGroups:
+            req_ids = {i.id for i in rg.requirements}
+            answered_reqs = {i for i in all_answered_requirements if i in req_ids}
+
+            if answered_reqs:
+                group_answered_requirement_ids[rg.id] = answered_reqs
+            criteria_ids[rg.id] = req_ids
+
+        if not group_answered_requirement_ids:
+            raise_operation_error(request, "Must be answered on all criteria with source `tenderer`")
+
+        if len(group_answered_requirement_ids) > 1:
+            raise_operation_error(request, "Inside criteria must be answered only one requirement group")
+
+        rg_id = group_answered_requirement_ids.keys()[0]
+        if set(criteria_ids[rg_id]).difference(set(group_answered_requirement_ids[rg_id])):
+            raise_operation_error(request, "Inside requirement group must get answered all of requirements")
 
 
 def validate_patch_bid_data(request):
@@ -668,7 +732,7 @@ def validate_bid_value(tender, value):
 
 
 def validate_minimalstep(data, value):
-    if value and value.amount and data.get("value"):
+    if value and value.amount is not None and data.get("value"):
         if data.get("value").amount < value.amount:
             raise ValidationError(u"value should be less than value of tender")
         if data.get("value").currency != value.currency:
@@ -677,6 +741,25 @@ def validate_minimalstep(data, value):
             raise ValidationError(
                 u"valueAddedTaxIncluded should be identical " u"to valueAddedTaxIncluded of value of tender"
             )
+        if not data.get("lots"):
+            validate_minimalstep_limits(data, value, is_tender=True)
+
+
+def validate_minimalstep_limits(data, value, is_tender=False):
+    if value and value.amount is not None and data.get("value"):
+        tender = data if is_tender else get_root(data["__parent__"])
+        tender_created = get_first_revision_date(tender, default=get_now())
+        if tender_created > MINIMAL_STEP_VALIDATION_FROM:
+            precision_multiplier = 10**MINIMAL_STEP_VALIDATION_PRESCISSION
+            lower_minimalstep = (floor(float(data.get("value").amount)
+                                       * MINIMAL_STEP_VALIDATION_LOWER_LIMIT * precision_multiplier)
+                                 / precision_multiplier)
+            higher_minimalstep = (ceil(float(data.get("value").amount)
+                                       * MINIMAL_STEP_VALIDATION_UPPER_LIMIT * precision_multiplier)
+                                  / precision_multiplier)
+            if higher_minimalstep < value.amount or value.amount < lower_minimalstep:
+                raise ValidationError(
+                    u"minimalstep must be between 0.5% and 3% of value (with 2 digits precision).")
 
 
 # cancellation
@@ -810,6 +893,36 @@ def validate_tender_change_status_with_cancellation_lot_pending(request):
             request,
             "Can't update tender with pending cancellation in one of exists lot",
         )
+
+
+def validate_tender_activate_with_criteria(request):
+    tender = request.context
+    data = request.validated["data"]
+    tender_created = get_first_revision_date(tender, default=get_now())
+
+    if (
+        tender_created < RELEASE_ECRITERIA_ARTICLE_17
+        or request.validated["tender_src"]["status"] == data.get("status")
+        or data.get("status") not in ["active", "active.tendering"]
+    ):
+        return
+
+    tender_criteria = [criterion.classification.id for criterion in tender.criteria if criterion.classification]
+
+    needed_criteria = {
+        "CRITERION.EXCLUSION.CONVICTIONS.PARTICIPATION_IN_CRIMINAL_ORGANISATION",
+        "CRITERION.EXCLUSION.CONVICTIONS.FRAUD",
+        "CRITERION.EXCLUSION.CONVICTIONS.CORRUPTION",
+        "CRITERION.EXCLUSION.CONVICTIONS.CHILD_LABOUR-HUMAN_TRAFFICKING",
+        "CRITERION.EXCLUSION.CONTRIBUTIONS.PAYMENT_OF_TAXES",
+        "CRITERION.EXCLUSION.BUSINESS.BANKRUPTCY",
+        "CRITERION.EXCLUSION.MISCONDUCT.MARKET_DISTORTION",
+        "CRITERION.EXCLUSION.CONFLICT_OF_INTEREST.MISINTERPRETATION",
+        "CRITERION.EXCLUSION.NATIONAL.OTHER",
+    }
+
+    if needed_criteria.difference(tender_criteria):
+        raise_operation_error(request, "Tender must contain all 9 `EXCLUSION` criteria")
 
 
 def validate_tender_status_update_not_in_pre_qualificaton(request):
@@ -1092,7 +1205,10 @@ def validate_submit_complaint_time(request):
     if get_now() > tender.complaintPeriod.endDate:
         raise_operation_error(
             request,
-            "Can submit complaint not later than {0.days} days before tenderPeriod end".format(complaint_submit_time),
+            "Can submit complaint not later than {duration.days} "
+            "full calendar days before tenderPeriod ends".format(
+                duration=complaint_submit_time
+            ),
         )
 
 
@@ -1407,12 +1523,22 @@ def validate_contract_signing(request):
     tender = request.validated["tender"]
     data = request.validated["data"]
     if request.context.status != "active" and "status" in data and data["status"] == "active":
+        skip_complaint_period = check_skip_award_complaint_period(tender)
         award = [a for a in tender.awards if a.id == request.context.awardID][0]
-        stand_still_end = award.complaintPeriod.endDate
-        if stand_still_end > get_now():
-            raise_operation_error(
-                request, "Can't sign contract before stand-still period end ({})".format(stand_still_end.isoformat())
-            )
+        if not skip_complaint_period:
+            stand_still_end = award.complaintPeriod.endDate
+            if stand_still_end > get_now():
+                raise_operation_error(
+                    request,
+                    "Can't sign contract before stand-still period end ({})".format(stand_still_end.isoformat())
+                )
+        else:
+            stand_still_end = award.complaintPeriod.startDate
+            if stand_still_end > get_now():
+                raise_operation_error(
+                    request,
+                    "Can't sign contract before award activation date ({})".format(stand_still_end.isoformat())
+                )
         pending_complaints = [
             i
             for i in tender.complaints
@@ -1515,7 +1641,8 @@ def validate_tender_matches_plan(request):
 
     pattern = plan.classification.id[:3] if plan.classification.id.startswith("336") else plan.classification.id[:4]
     for i, item in enumerate(tender.items):
-        if item.classification.id[: len(pattern)] != pattern:
+        # item.classification may be empty in pricequotaiton
+        if item.classification and item.classification.id[: len(pattern)] != pattern:
             request.errors.add(
                 "data",
                 "items[{}].classification.id".format(i),
@@ -1605,3 +1732,198 @@ def validate_role_for_contract_document_operation(request):
         raise_operation_error(
             request, "Tender onwer can't {} document in current contract status".format(OPERATIONS.get(request.method))
         )
+
+
+def validate_award_document_tender_not_in_allowed_status_base(request, allowed_bot_statuses=("active.awarded",)):
+    allowed_tender_statuses = ["active.qualification"]
+    if request.authenticated_role == "bots":
+        allowed_tender_statuses.extend(allowed_bot_statuses)
+    if request.validated["tender_status"] not in allowed_tender_statuses:
+        raise_operation_error(
+            request,
+            "Can't {} document in current ({}) tender status".format(
+                OPERATIONS.get(request.method), request.validated["tender_status"]
+            ),
+        )
+
+
+def validate_award_document_lot_not_in_allowed_status(request):
+    if any([
+        i.status != "active"
+        for i in request.validated["tender"].lots
+        if i.id == request.validated["award"].lotID
+    ]):
+        raise_operation_error(request, "Can {} document only in active lot status".format(
+            OPERATIONS.get(request.method)
+        ))
+
+
+def validate_award_document_author(request):
+    operation = OPERATIONS.get(request.method)
+    if operation == "update" and request.authenticated_role != (request.context.author or "tender_owner"):
+        request.errors.add("url", "role", "Can update document only author")
+        request.errors.status = 403
+        raise error_handler(request.errors)
+
+
+TYPEMAP = {
+    'string': StringType(),
+    'integer': IntType(),
+    'number': DecimalType(),
+    'boolean': BooleanType(),
+    'date-time': DateTimeType(),
+}
+
+# Criteria
+
+
+def validate_value_type(value, datatype):
+    if not value:
+        return
+    type_ = TYPEMAP.get(datatype)
+    if not type_:
+        raise ValidationError(
+            u'Type mismatch: value {} does not confront type {}'.format(
+                value, type_
+            )
+        )
+    # validate value
+    return type_.to_native(value)
+
+
+# tender.criterion.requirementGroups
+def validate_requirement_values(requirement):
+    expected = requirement.get('expectedValue')
+    min_value = requirement.get('minValue')
+    max_value = requirement.get('maxValue')
+
+    if any((expected and min_value, expected and max_value)):
+        raise ValidationError(
+            u'expectedValue conflicts with ["minValue", "maxValue"]'
+        )
+
+
+def validate_requirement(requirement):
+    expected = requirement.get('expectedValue')
+    min_value = requirement.get('minValue')
+    max_value = requirement.get('maxValue')
+    if not any((expected, min_value, max_value)):
+        raise ValidationError(
+            u'Value required for at least one field ["expectedValue", "minValue", "maxValue"]'
+        )
+    validate_requirement_values(requirement)
+
+
+def validate_requirement_groups(value):
+    for requirements in value:
+        for requirement in requirements.requirements:
+            validate_requirement(requirement)
+
+
+def base_validate_operation_ecriteria_objects(request, valid_statuses="", obj_name="tender"):
+    validate_tender_first_revision_date(request, validation_date=RELEASE_ECRITERIA_ARTICLE_17)
+    current_status = request.validated[obj_name].status
+    if current_status not in valid_statuses:
+        raise_operation_error(request, "Can't {} object if {} not in {} statuses".format(
+            request.method.lower(), obj_name, valid_statuses))
+
+
+def validate_operation_ecriteria_objects(request):
+    valid_statuses = ["draft", "draft.pending", "draft.stage2", "active.tendering"]
+    base_validate_operation_ecriteria_objects(request, valid_statuses)
+
+
+def validate_patch_exclusion_ecriteria_objects(request):
+    criterion = request.validated["criterion"]
+    if criterion.classification.id.startswith("CRITERION.EXCLUSION"):
+        raise_operation_error(request, "Can't update exclusion ecriteria objects")
+
+
+def validate_operation_bid_requirement_response(request):
+    valid_statuses = ["draft", "invalid"]
+    base_validate_operation_ecriteria_objects(request, valid_statuses, "bid")
+
+
+def validate_operation_award_requirement_response(request):
+    validate_tender_first_revision_date(request, validation_date=RELEASE_ECRITERIA_ARTICLE_17)
+    base_validate_operation_ecriteria_objects(request, ["pending"], "award")
+
+
+def validate_criterion_data(request):
+    update_logging_context(request, {"criterion_id": "__new__"})
+    model = type(request.tender).criteria.model_class
+    return validate_data(request, model, bulk="full")
+
+
+def validate_patch_criterion_data(request):
+    model = type(request.tender).criteria.model_class
+    return validate_data(request, model, True)
+
+
+def validate_requirement_group_data(request):
+    update_logging_context(request, {"requirementgroup_id": "__new__"})
+    model = type(request.tender).criteria.model_class.requirementGroups.model_class
+    return validate_data(request, model)
+
+
+def validate_patch_requirement_group_data(request):
+    model = type(request.tender).criteria.model_class.requirementGroups.model_class
+    return validate_data(request, model, True)
+
+
+def validate_requirement_data(request):
+    update_logging_context(request, {"requirement_id": "__new__"})
+    model = type(request.tender).criteria.model_class.requirementGroups.model_class.requirements.model_class
+    return validate_data(request, model)
+
+
+def validate_patch_requirement_data(request):
+    model = type(request.tender).criteria.model_class.requirementGroups.model_class.requirements.model_class
+    return validate_data(request, model, True)
+
+
+def validate_eligible_evidence_data(request):
+    update_logging_context(request, {"evidence_id": "__new__"})
+    model = (type(request.tender).criteria.model_class.requirementGroups.model_class
+             .requirements.model_class
+             .eligibleEvidences.model_class)
+    return validate_data(request, model)
+
+
+def validate_patch_eligible_evidence_data(request):
+    model = (type(request.tender).criteria.model_class.requirementGroups.model_class
+             .requirements.model_class
+             .eligibleEvidences.model_class)
+    return validate_data(request, model, True)
+
+
+def validate_requirement_response_data(request):
+    update_logging_context(request, {"requirement_response_id": "__new__"})
+    model = type(request.tender).bids.model_class.requirementResponses.model_class
+    return validate_data(request, model, bulk="full")
+
+
+def validate_patch_requirement_response_data(request):
+    model = type(request.tender).bids.model_class.requirementResponses.model_class
+    return validate_data(request, model, True)
+
+
+def validate_evidence_data(request):
+    update_logging_context(request, {"evidence_id": "__new__"})
+    model = type(request.tender).bids.model_class.requirementResponses.model_class.evidences.model_class
+    return validate_data(request, model)
+
+
+def validate_patch_evidence_data(request):
+    model = type(request.tender).bids.model_class.requirementResponses.model_class.evidences.model_class
+    return validate_data(request, model, True)
+
+
+class ValidateSelfEligibleMixin(Model):
+    def validate_selfEligible(self, data, value):
+        tender = get_root(data["__parent__"])
+        if get_first_revision_date(tender, default=get_now()) > RELEASE_ECRITERIA_ARTICLE_17:
+            if value is not None:
+                raise ValidationError("Rogue field.")
+        elif value is None:
+            raise ValidationError("This field is required.")

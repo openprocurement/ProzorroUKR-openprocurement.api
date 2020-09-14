@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
 from openprocurement.api.utils import error_handler, raise_operation_error
 from openprocurement.api.validation import OPERATIONS
+from openprocurement.tender.core.validation import (
+    RELEASE_ECRITERIA_ARTICLE_17,
+    validate_tender_first_revision_date,
+    base_validate_operation_ecriteria_objects,
+)
+
 
 
 # tender documents
@@ -164,3 +170,8 @@ def validate_award_document(request):
         request.errors.add("url", "role", "Can update document only author")
         request.errors.status = 403
         raise error_handler(request.errors)
+
+
+def validate_operation_ecriteria_objects(request):
+    valid_statuses = ["draft", "active.enquiries"]
+    base_validate_operation_ecriteria_objects(request, valid_statuses)
