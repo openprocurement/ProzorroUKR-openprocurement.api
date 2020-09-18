@@ -3,9 +3,11 @@ import os
 from copy import deepcopy
 
 from openprocurement.tender.core.tests.base import change_auth
+from openprocurement.tender.core.utils import calculate_tender_business_date
+from openprocurement.tender.core.tests.criteria_utils import add_criteria
 from openprocurement.tender.openeu.models import TENDERING_DURATION
 from openprocurement.api.models import get_now
-from openprocurement.tender.belowthreshold.tests.base import test_tender_data, BaseTenderWebTest
+from openprocurement.tender.belowthreshold.tests.base import test_tender_data, test_criteria, BaseTenderWebTest
 from openprocurement.tender.openua.tests.base import test_tender_data as test_ua_tender_data
 from openprocurement.tender.openuadefense.tests.base import test_tender_data as test_uadefense_tender_data
 from openprocurement.tender.openeu.tests.base import test_tender_data as test_eu_tender_data
@@ -47,6 +49,7 @@ class TenderOwnershipChangeTest(BaseTenderOwnershipChangeTest):
     test_owner = "broker1t"
     invalid_owner = "broker3"
     central_owner = "broker5"
+    initial_criteria = test_criteria
 
     def setUp(self):
         super(TenderOwnershipChangeTest, self).setUp()
@@ -392,6 +395,9 @@ class OpenUACompetitiveDialogueStage2TenderOwnershipChangeTest(TenderOwnershipCh
         )
         self.tender_transfer = response.json["access"]["transfer"]
         tender_access_token = response.json["access"]["token"]
+
+        add_criteria(self, tender_token=tender_access_token)
+
         response = self.app.patch_json(
             "/tenders/{}?acc_token={}".format(self.tender_id, tender_access_token),
             {"data": {"status": "active.tendering"}},
@@ -432,23 +438,25 @@ class OpenUACompetitiveDialogueStage2TenderOwnershipChangeTest(TenderOwnershipCh
         self.assertNotEqual(transfer_creation_date, transfer_modification_date)
 
         # second owner can change the tender
-        now = get_now()
+        end_date = calculate_tender_business_date(
+            get_now(), TENDERING_DURATION
+        )
         with change_auth(self.app, ("Basic", (self.second_owner, ""))):
             response = self.app.patch_json(
                 "/tenders/{}?acc_token={}".format(self.tender_id, new_access_token),
-                {"data": {"tenderPeriod": {"endDate": (now + TENDERING_DURATION).isoformat()}}},
+                {"data": {"tenderPeriod": {"endDate": end_date.isoformat()}}},
             )
         self.assertEqual(response.status, "200 OK")
         self.assertNotIn("transfer", response.json["data"])
         self.assertNotIn("transfer_token", response.json["data"])
         self.assertIn("owner", response.json["data"])
         self.assertEqual(response.json["data"]["owner"], self.second_owner)
-        self.assertEqual(response.json["data"]["tenderPeriod"]["endDate"], (now + TENDERING_DURATION).isoformat())
+        self.assertEqual(response.json["data"]["tenderPeriod"]["endDate"], end_date.isoformat())
 
         # first owner now can`t change tender
         response = self.app.patch_json(
             "/tenders/{}?acc_token={}".format(self.tender_id, new_access_token),
-            {"data": {"tenderPeriod": {"endDate": (now + TENDERING_DURATION).isoformat()}}},
+            {"data": {"tenderPeriod": {"endDate": end_date.isoformat()}}},
             status=403,
         )
         self.assertEqual(response.status, "403 Forbidden")

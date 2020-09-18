@@ -7,7 +7,7 @@ DATA:
 {
   "data": {
     "tenderPeriod": {
-      "endDate": "2020-05-30T01:00:10+03:00"
+      "endDate": "2020-05-31T01:00:00+03:00"
     }
   }
 }
@@ -20,16 +20,16 @@ Content-Type: application/json; charset=UTF-8
     "mainProcurementCategory": "services", 
     "complaintPeriod": {
       "startDate": "2020-05-15T01:00:00+03:00", 
-      "endDate": "2020-05-26T00:00:00+03:00"
+      "endDate": "2020-05-27T00:00:00+03:00"
     }, 
     "enquiryPeriod": {
       "startDate": "2020-05-15T01:00:00+03:00", 
       "clarificationsUntil": "2020-05-26T00:00:00+03:00", 
-      "endDate": "2020-05-20T01:00:10+03:00", 
+      "endDate": "2020-05-21T00:00:00+03:00", 
       "invalidationDate": "2020-05-15T01:00:00+03:00"
     }, 
     "submissionMethod": "electronicAuction", 
-    "next_check": "2020-05-30T01:00:10+03:00", 
+    "next_check": "2020-05-31T01:00:00+03:00", 
     "procuringEntity": {
       "contactPoint": {
         "url": "http://sch10.edu.vn.ua/", 
@@ -59,10 +59,10 @@ Content-Type: application/json; charset=UTF-8
     "status": "active.tendering", 
     "tenderPeriod": {
       "startDate": "2020-05-15T01:00:00+03:00", 
-      "endDate": "2020-05-30T01:00:10+03:00"
+      "endDate": "2020-05-31T01:00:00+03:00"
     }, 
     "auctionPeriod": {
-      "shouldStartAfter": "2020-05-31T00:00:00+03:00"
+      "shouldStartAfter": "2020-06-01T00:00:00+03:00"
     }, 
     "procurementMethodType": "aboveThresholdUA", 
     "date": "2020-05-15T01:00:00+03:00", 
@@ -89,7 +89,7 @@ Content-Type: application/json; charset=UTF-8
         }, 
         "percentage": 54.45, 
         "type": "financing", 
-        "id": "4c193c7458cf4a5482c231727d0a8227"
+        "id": "bed04f3328294f82a17fcc8b9cf9e82c"
       }
     ], 
     "minimalStep": {
@@ -123,7 +123,7 @@ Content-Type: application/json; charset=UTF-8
           "startDate": "2020-06-04T00:00:00+02:00", 
           "endDate": "2020-07-04T00:00:00+02:00"
         }, 
-        "id": "f3ba6b452c3b4fd19de53486e6486c87", 
+        "id": "a6cf31518a5e48c7accc253ea93c582e", 
         "quantity": 1.0
       }
     ], 

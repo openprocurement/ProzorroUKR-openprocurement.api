@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import json
 from copy import deepcopy
 from uuid import uuid4
 
@@ -8,6 +9,8 @@ from datetime import timedelta
 from openprocurement.api.constants import SANDBOX_MODE, RELEASE_2020_04_19
 from openprocurement.api.tests.base import BaseWebTest
 from openprocurement.api.utils import get_now
+from openprocurement.tender.belowthreshold.models import Tender
+from openprocurement.tender.belowthreshold.tests.periods import PERIODS
 from openprocurement.tender.core.tests.base import BaseCoreWebTest
 from openprocurement.tender.belowthreshold.constants import MIN_BIDS_NUMBER
 
@@ -84,7 +87,7 @@ test_tender_data = {
     "mainProcurementCategory": "goods",
     "procuringEntity": test_procuringEntity,
     "value": {"amount": 500, "currency": u"UAH"},
-    "minimalStep": {"amount": 35, "currency": u"UAH"},
+    "minimalStep": {"amount": 15, "currency": u"UAH"},
     "items": [deepcopy(test_item)],
     "enquiryPeriod": {"endDate": (now + timedelta(days=7)).isoformat()},
     "tenderPeriod": {"endDate": (now + timedelta(days=14)).isoformat()},
@@ -186,6 +189,14 @@ test_draft_complaint = {
 }
 
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+with open(os.path.join(current_dir, "test_criteria.json")) as json_file:
+    test_criteria = json.load(json_file)
+
+test_requirement_groups = test_criteria[0]["requirementGroups"]
+
+
 def set_tender_lots(tender, lots):
     tender["lots"] = []
     for lot in lots:
@@ -195,6 +206,15 @@ def set_tender_lots(tender, lots):
     for i, item in enumerate(tender["items"]):
         item["relatedLot"] = tender["lots"][i % len(tender["lots"])]["id"]
     return tender
+
+
+def set_tender_criteria(criteria, lots, items):
+    for i, criterion in enumerate(criteria):
+        if lots and criterion["relatesTo"] == "lot":
+            criterion["relatedItem"] = lots[i % len(lots)]["id"]
+        elif items and criterion["relatesTo"] == "item":
+            criterion["relatedItem"] = items[i % len(lots)]["id"]
+    return criteria
 
 
 def set_bid_lotvalues(bid, lots):
@@ -213,6 +233,7 @@ class BaseTenderWebTest(BaseCoreWebTest):
     initial_status = None
     initial_bids = None
     initial_lots = None
+    initial_criteria = None
     initial_auth = ("Basic", ("broker", ""))
     docservice = False
     min_bids_number = MIN_BIDS_NUMBER
@@ -238,141 +259,9 @@ class BaseTenderWebTest(BaseCoreWebTest):
         "active.tendering"
     )  # status, in which adding document to tender auction is forbidden
 
-    def update_status(self, status, extra=None):
-        now = get_now()
-        data = {"status": status}
-        if status == "active.enquiries":
-            data.update(
-                {
-                    "enquiryPeriod": {"startDate": (now).isoformat(), "endDate": (now + timedelta(days=7)).isoformat()},
-                    "tenderPeriod": {
-                        "startDate": (now + timedelta(days=7)).isoformat(),
-                        "endDate": (now + timedelta(days=14)).isoformat(),
-                    },
-                }
-            )
-        elif status == "active.tendering":
-            data.update(
-                {
-                    "enquiryPeriod": {
-                        "startDate": (now - timedelta(days=10)).isoformat(),
-                        "endDate": (now).isoformat(),
-                    },
-                    "tenderPeriod": {"startDate": (now).isoformat(), "endDate": (now + timedelta(days=7)).isoformat()},
-                }
-            )
-        elif status == "active.auction":
-            data.update(
-                {
-                    "enquiryPeriod": {
-                        "startDate": (now - timedelta(days=14)).isoformat(),
-                        "endDate": (now - timedelta(days=7)).isoformat(),
-                    },
-                    "tenderPeriod": {"startDate": (now - timedelta(days=7)).isoformat(), "endDate": (now).isoformat()},
-                    "auctionPeriod": {"startDate": (now).isoformat()},
-                }
-            )
-            if self.initial_lots:
-                data.update({"lots": [{"auctionPeriod": {"startDate": (now).isoformat()}} for i in self.initial_lots]})
-        elif status == "active.qualification":
-            data.update(
-                {
-                    "enquiryPeriod": {
-                        "startDate": (now - timedelta(days=15)).isoformat(),
-                        "endDate": (now - timedelta(days=8)).isoformat(),
-                    },
-                    "tenderPeriod": {
-                        "startDate": (now - timedelta(days=8)).isoformat(),
-                        "endDate": (now - timedelta(days=1)).isoformat(),
-                    },
-                    "auctionPeriod": {"startDate": (now - timedelta(days=1)).isoformat(), "endDate": (now).isoformat()},
-                    "awardPeriod": {"startDate": (now).isoformat()},
-                }
-            )
-            if self.initial_lots:
-                data.update(
-                    {
-                        "lots": [
-                            {
-                                "auctionPeriod": {
-                                    "startDate": (now - timedelta(days=1)).isoformat(),
-                                    "endDate": (now).isoformat(),
-                                }
-                            }
-                            for i in self.initial_lots
-                        ]
-                    }
-                )
-        elif status == "active.awarded":
-            data.update(
-                {
-                    "enquiryPeriod": {
-                        "startDate": (now - timedelta(days=15)).isoformat(),
-                        "endDate": (now - timedelta(days=8)).isoformat(),
-                    },
-                    "tenderPeriod": {
-                        "startDate": (now - timedelta(days=8)).isoformat(),
-                        "endDate": (now - timedelta(days=1)).isoformat(),
-                    },
-                    "auctionPeriod": {"startDate": (now - timedelta(days=1)).isoformat(), "endDate": (now).isoformat()},
-                    "awardPeriod": {"startDate": (now).isoformat(), "endDate": (now).isoformat()},
-                }
-            )
-            if self.initial_lots:
-                data.update(
-                    {
-                        "lots": [
-                            {
-                                "auctionPeriod": {
-                                    "startDate": (now - timedelta(days=1)).isoformat(),
-                                    "endDate": (now).isoformat(),
-                                }
-                            }
-                            for i in self.initial_lots
-                        ]
-                    }
-                )
-        elif status == "complete":
-            data.update(
-                {
-                    "enquiryPeriod": {
-                        "startDate": (now - timedelta(days=25)).isoformat(),
-                        "endDate": (now - timedelta(days=18)).isoformat(),
-                    },
-                    "tenderPeriod": {
-                        "startDate": (now - timedelta(days=18)).isoformat(),
-                        "endDate": (now - timedelta(days=11)).isoformat(),
-                    },
-                    "auctionPeriod": {
-                        "startDate": (now - timedelta(days=11)).isoformat(),
-                        "endDate": (now - timedelta(days=10)).isoformat(),
-                    },
-                    "awardPeriod": {
-                        "startDate": (now - timedelta(days=10)).isoformat(),
-                        "endDate": (now - timedelta(days=10)).isoformat(),
-                    },
-                }
-            )
-            if self.initial_lots:
-                data.update(
-                    {
-                        "lots": [
-                            {
-                                "auctionPeriod": {
-                                    "startDate": (now - timedelta(days=11)).isoformat(),
-                                    "endDate": (now - timedelta(days=10)).isoformat(),
-                                }
-                            }
-                            for i in self.initial_lots
-                        ]
-                    }
-                )
-
-        self.tender_document_patch = data
-        if extra:
-            self.tender_document_patch.update(extra)
-        self.save_changes()
-
+    periods = PERIODS
+    tender_class = Tender
+    
     def create_tender(self):
         data = deepcopy(self.initial_data)
         if self.initial_lots:
@@ -382,6 +271,19 @@ class BaseTenderWebTest(BaseCoreWebTest):
         tender = response.json["data"]
         self.tender_token = response.json["access"]["token"]
         self.tender_id = tender["id"]
+
+        if self.initial_criteria:
+            self.app.post_json(
+                "/tenders/{}/criteria?acc_token={}&bulk=true".format(self.tender_id, self.tender_token),
+                {
+                    "data": set_tender_criteria(
+                        self.initial_criteria,
+                        tender.get("lots", []),
+                        tender.get("items", []),
+                    )
+                }
+            )
+
         status = tender["status"]
         if self.initial_bids:
             self.initial_bids_tokens = {}

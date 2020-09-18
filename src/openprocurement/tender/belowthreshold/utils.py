@@ -3,10 +3,13 @@ from barbecue import chef
 from logging import getLogger
 from openprocurement.api.constants import TZ, RELEASE_2020_04_19
 from openprocurement.api.utils import get_now, context_unpack
+from openprocurement.tender.core.constants import COMPLAINT_STAND_STILL_TIME
 from openprocurement.tender.core.utils import (
     calculate_tender_business_date,
     cleanup_bids_for_cancelled_lots,
     remove_draft_bids,
+    calculate_tender_date,
+    check_skip_award_complaint_period,
 )
 from openprocurement.tender.core.constants import COMPLAINT_STAND_STILL_TIME
 from openprocurement.tender.core.utils import (
@@ -48,7 +51,6 @@ def check_bids(request):
         if tender.numberOfBids == 0:
             tender.status = "unsuccessful"
         if tender.numberOfBids == 1:
-            # tender.status = 'active.qualification'
             add_next_award(request)
     check_ignored_claim(tender)
 
@@ -56,11 +58,10 @@ def check_bids(request):
 def check_complaint_status(request, complaint, now=None):
     if not now:
         now = get_now()
-    if (
-        complaint.status == "answered"
-        and calculate_tender_business_date(complaint.dateAnswered, COMPLAINT_STAND_STILL_TIME, request.tender) < now
-    ):
-        complaint.status = complaint.resolutionType
+    if complaint.status == "answered":
+        date = calculate_tender_date(complaint.dateAnswered, COMPLAINT_STAND_STILL_TIME, request.tender)
+        if date < now:
+            complaint.status = complaint.resolutionType
     elif complaint.status == "pending" and complaint.resolutionType and complaint.dateEscalated:
         complaint.status = complaint.resolutionType
     elif complaint.status == "pending":
@@ -213,8 +214,17 @@ def check_tender_status(request):
             pending_awards_complaints = any(
                 [i.status in tender.block_complaint_status for a in lot_awards for i in a.complaints]
             )
-            stand_still_end = max([(a.complaintPeriod and a.complaintPeriod.endDate) or now for a in lot_awards])
-            if pending_complaints or pending_awards_complaints or not stand_still_end <= now:
+            stand_still_end = max([
+                a.complaintPeriod.endDate
+                if a.complaintPeriod and a.complaintPeriod.endDate else now
+                for a in lot_awards
+            ])
+            skip_award_complaint_period = check_skip_award_complaint_period(tender)
+            if (
+                    pending_complaints
+                    or pending_awards_complaints
+                    or (not stand_still_end <= now and not skip_award_complaint_period)
+            ):
                 continue
             elif last_award.status == "unsuccessful":
                 LOGGER.info(

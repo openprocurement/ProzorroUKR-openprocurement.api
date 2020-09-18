@@ -9,9 +9,12 @@ from openprocurement.tender.belowthreshold.tests.lot import (
     TenderLotFeatureResourceTestMixin,
     TenderLotProcessTestMixin,
 )
-from openprocurement.tender.belowthreshold.tests.lot_blanks import tender_lot_milestones
+from openprocurement.tender.belowthreshold.tests.lot_blanks import (
+    tender_lot_milestones,
+    create_tender_lot_minimalstep_validation,
+    patch_tender_lot_minimalstep_validation,
+)
 
-from openprocurement.tender.openua.tests.base import test_bids
 from openprocurement.tender.openua.tests.lot import TenderUALotResourceTestMixin, TenderUALotProcessTestMixin
 from openprocurement.tender.openua.tests.lot_blanks import (
     # TenderLotFeatureResourceTest
@@ -22,7 +25,11 @@ from openprocurement.tender.openua.tests.lot_blanks import (
     create_tender_bidder_feature,
 )
 
-from openprocurement.tender.openuadefense.tests.base import BaseTenderUAContentWebTest, test_tender_data
+from openprocurement.tender.openuadefense.tests.base import (
+    BaseTenderUAContentWebTest,
+    test_tender_data,
+    test_bids,
+)
 from openprocurement.tender.openuadefense.tests.lot_blanks import (
     # TenderLotEdgeCasesTest
     question_blocking,
@@ -42,6 +49,8 @@ from openprocurement.tender.openuadefense.tests.lot_blanks import (
 class TenderLotResourceTest(BaseTenderUAContentWebTest, TenderLotResourceTestMixin, TenderUALotResourceTestMixin):
     test_lots_data = test_lots
     test_tender_lot_milestones = snitch(tender_lot_milestones)
+    test_create_tender_lot_minimalstep_validation = snitch(create_tender_lot_minimalstep_validation)
+    test_patch_tender_lot_minimalstep_validation = snitch(patch_tender_lot_minimalstep_validation)
 
 
 class TenderLotEdgeCasesTest(BaseTenderUAContentWebTest):
@@ -65,6 +74,7 @@ class TenderLotFeatureResourceTest(BaseTenderUAContentWebTest, TenderLotFeatureR
 class TenderLotBidderResourceTest(BaseTenderUAContentWebTest):
     # initial_status = 'active.tendering'
     initial_lots = test_lots
+    test_bids_data = test_bids
 
     test_create_tender_bidder_invalid = snitch(create_tender_bidder_invalid)
     test_patch_tender_bidder = snitch(patch_tender_bidder)
@@ -72,6 +82,7 @@ class TenderLotBidderResourceTest(BaseTenderUAContentWebTest):
 
 class TenderLotFeatureBidderResourceTest(BaseTenderUAContentWebTest):
     initial_lots = test_lots
+    test_bids_data = test_bids
 
     def setUp(self):
         super(TenderLotFeatureBidderResourceTest, self).setUp()
@@ -117,6 +128,7 @@ class TenderLotFeatureBidderResourceTest(BaseTenderUAContentWebTest):
 class TenderLotProcessTest(BaseTenderUAContentWebTest, TenderLotProcessTestMixin, TenderUALotProcessTestMixin):
     setUp = BaseTenderUAContentWebTest.setUp
     initial_data = test_tender_data
+    test_bids_data = test_bids
 
     days_till_auction_starts = 6
 
