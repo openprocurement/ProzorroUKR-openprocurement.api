@@ -13,13 +13,12 @@ from openprocurement.api.constants import (
     CPV_BLOCK_FROM,
     NOT_REQUIRED_ADDITIONAL_CLASSIFICATION_FROM,
     RELEASE_2020_04_19,
+    CPV_ITEMS_CLASS_FROM,
 )
-from openprocurement.tender.core.constants import CPV_ITEMS_CLASS_FROM
 from openprocurement.tender.core.tests.cancellation import (
     activate_cancellation_after_2020_04_19,
 )
 from openprocurement.tender.belowthreshold.models import Tender
-from openprocurement.tender.belowthreshold.utils import calculate_tender_business_date
 from openprocurement.tender.belowthreshold.tests.base import (
     test_organization,
     test_author,
@@ -31,6 +30,8 @@ from openprocurement.tender.belowthreshold.tests.base import (
 
 # TenderTest
 from openprocurement.tender.core.tests.base import change_auth
+from openprocurement.tender.core.utils import calculate_tender_business_date
+from openprocurement.tender.core.tests.criteria_utils import add_criteria
 
 
 def simple_add_tender(self):
@@ -886,7 +887,7 @@ def validate_tenderPeriod(self):
         response.json["errors"],
         [
             {
-                u"description": [u"the tenderPeriod cannot end earlier than 2 business days after the start"],
+                u"description": [u"tenderPeriod must be at least 2 full business days long"],
                 u"location": u"body",
                 u"name": u"tenderPeriod",
             }
@@ -921,7 +922,7 @@ def validate_tenderPeriod(self):
         response.json["errors"],
         [
             {
-                u"description": [u"the tenderPeriod cannot end earlier than 2 business days after the start"],
+                u"description": [u"tenderPeriod must be at least 2 full business days long"],
                 u"location": u"body",
                 u"name": u"tenderPeriod",
             }
@@ -1096,7 +1097,7 @@ def create_tender_draft(self):
         response.json["errors"],
         [{u"description": u"Can't update tender in current (draft) status", u"location": u"body", u"name": u"data"}],
     )
-
+    add_criteria(self, tender["id"], token)
     response = self.app.patch_json(
         "/tenders/{}?acc_token={}".format(tender["id"], token), {"data": {"status": self.primary_tender_status}}
     )
@@ -2620,3 +2621,106 @@ def tender_token_invalid(self):
     self.assertEqual(
         response.json["errors"], [{u'description': u'Forbidden', u'location': u'url', u'name': u'permission'}]
     )
+
+
+def tender_minimalstep_validation(self):
+    data = deepcopy(self.initial_data)
+    data["minimalStep"]["amount"] = 35
+    # invalid minimalStep validated on tender level
+    with mock.patch("openprocurement.tender.core.validation.MINIMAL_STEP_VALIDATION_FROM",
+                    get_now() - timedelta(days=1)):
+        response = self.app.post_json("/tenders", {"data": data}, status=422)
+        self.assertEqual(response.status, "422 Unprocessable Entity")
+        self.assertEqual(
+            response.json["errors"],
+            [{u"description": [u"minimalstep must be between 0.5% and 3% of value (with 2 digits precision)."],
+              u"location": u"body", u"name": u"minimalStep"}],
+        )
+    with mock.patch("openprocurement.tender.core.validation.MINIMAL_STEP_VALIDATION_FROM",
+                    get_now() + timedelta(days=1)):
+        response = self.app.post_json("/tenders", {"data": data}, status=201)
+        self.assertEqual(response.status, "201 Created")
+
+    # invalid minimalStep validated on lots level
+    test_lots_data = deepcopy(self.test_lots_data)
+    test_lots_data.append({
+        "title": "invalid lot title",
+        "description": "invalid lot description",
+        "value": {"amount": 500},
+        "minimalStep": {"amount": 35},
+    })
+    set_tender_lots(data, test_lots_data)
+    with mock.patch("openprocurement.tender.core.validation.MINIMAL_STEP_VALIDATION_FROM",
+                    get_now() - timedelta(days=1)):
+        response = self.app.post_json("/tenders", {"data": data}, status=422)
+        self.assertEqual(response.json["status"], "error")
+        self.assertEqual(
+            response.json["errors"],
+            [{u'description':
+                  [{u'minimalStep': [u'minimalstep must be between 0.5% and 3% of value (with 2 digits precision).']}],
+              u'location': u'body', u'name': u'lots'}
+             ]
+        )
+    with mock.patch("openprocurement.tender.core.validation.MINIMAL_STEP_VALIDATION_FROM",
+                    get_now() + timedelta(days=1)):
+        response = self.app.post_json("/tenders", {"data": data}, status=201)
+        self.assertEqual(response.status, "201 Created")
+
+    # valid minimalStep on lots level
+    test_lots_data[1]["minimalStep"]["amount"] = 15
+    set_tender_lots(data, test_lots_data)
+    with mock.patch("openprocurement.tender.core.validation.MINIMAL_STEP_VALIDATION_FROM",
+                    get_now() - timedelta(days=1)):
+        response = self.app.post_json("/tenders", {"data": data})
+        self.assertEqual(response.status, "201 Created")
+        self.assertEqual(response.json["data"]["value"]["amount"], 1000.0)
+        self.assertEqual(response.json["data"]["minimalStep"]["amount"], 15.0)
+
+
+def patch_tender_minimalstep_validation(self):
+    data = deepcopy(self.initial_data)
+    lots = deepcopy(self.test_lots_data)
+    lots.append({
+        "title": "invalid lot title",
+        "description": "invalid lot description",
+        "value": {"amount": 500},
+        "minimalStep": {"amount": 15},
+    })
+    set_tender_lots(data, lots)
+
+    # tender created before MINIMAL_STEP_VALIDATION_FROM
+    with mock.patch("openprocurement.tender.core.validation.MINIMAL_STEP_VALIDATION_FROM",
+                    get_now() + timedelta(days=1)):
+        response = self.app.post_json("/tenders", {"data": data})
+        self.tender_id = response.json["data"]["id"]
+        self.token_token = response.json["access"]["token"]
+
+        lots[0]["minimalStep"]["amount"] = 123
+        response = self.app.patch_json(
+        "/tenders/{}?acc_token={}".format(self.tender_id, self.token_token), {"data": {"lots": lots}}, status=200)
+        self.assertEqual(response.status, "200 OK")
+
+    # tender created after MINIMAL_STEP_VALIDATION_FROM
+    with mock.patch("openprocurement.tender.core.validation.MINIMAL_STEP_VALIDATION_FROM",
+                    get_now() - timedelta(days=1)):
+        response = self.app.post_json("/tenders", {"data": data})
+        self.tender_id = response.json["data"]["id"]
+        self.token_token = response.json["access"]["token"]
+
+        lots[0]["minimalStep"]["amount"] = 123
+        response = self.app.patch_json(
+            "/tenders/{}?acc_token={}".format(self.tender_id, self.token_token), {"data": {"lots": lots}}, status=422)
+        self.assertEqual(response.status, "422 Unprocessable Entity")
+        self.assertEqual(
+            response.json["errors"],
+            [{u'description':
+                  [{u'minimalStep': [u'minimalstep must be between 0.5% and 3% of value (with 2 digits precision).']}],
+              u'location': u'body', u'name': u'lots'}
+             ],
+        )
+
+        lots[0]["minimalStep"]["amount"] = 15
+        response = self.app.patch_json(
+            "/tenders/{}?acc_token={}".format(self.tender_id, self.token_token), {"data": {"lots": lots}}, status=200)
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(response.content_type, "application/json")

@@ -8,11 +8,12 @@ from uuid import uuid4
 from openprocurement.api.constants import SANDBOX_MODE, TZ
 from openprocurement.api.tests.base import BaseWebTest
 from openprocurement.api.utils import get_now
+from openprocurement.tender.belowthreshold.tests.base import set_tender_criteria
 from openprocurement.tender.cfaselectionua.constants import BOT_NAME
+from openprocurement.tender.cfaselectionua.models.tender import CFASelectionUATender
 from openprocurement.tender.core.tests.base import BaseCoreWebTest
 from openprocurement.tender.cfaselectionua.adapters.configurator import TenderCfaSelectionUAConfigurator
-from openprocurement.tender.cfaselectionua.tests.periods import periods
-
+from openprocurement.tender.cfaselectionua.tests.periods import PERIODS
 
 here = os.path.dirname(os.path.abspath(__file__))
 now = datetime.now(TZ)
@@ -75,6 +76,7 @@ class BaseTenderWebTest(BaseCoreWebTest):
     initial_data = test_tender_data
     initial_agreement = deepcopy(test_agreement)
     initial_status = None
+    initial_criteria = None
     initial_bids = None
     initial_lots = None
     initial_auth = ("Basic", ("broker", ""))
@@ -103,33 +105,9 @@ class BaseTenderWebTest(BaseCoreWebTest):
 
     meta_initial_bids = test_bids
     meta_initial_lots = test_lots
-    periods = periods
 
-    def update_periods(self, status, startend):
-        LOT_PERIODS = ("auctionPeriod",)
-        lots = self.tender_document.get("lots", [])
-
-        for period in self.periods[status][startend]:
-            self.tender_document_patch.update({period: {}})
-            if period in LOT_PERIODS:
-                continue
-            for date in self.periods[status][startend][period]:
-                self.tender_document_patch[period][date] = (
-                    self.now + self.periods[status][startend][period][date]
-                ).isoformat()
-
-        if lots:
-            for period in self.periods[status][startend]:
-                if period in LOT_PERIODS:
-                    for lot in lots:
-                        if lot.get("status", None) == "active":
-                            lot.update({period: {}})
-                            for date in self.periods[status][startend][period]:
-                                lot[period][date] = (
-                                    self.now + self.periods[status][startend][period][date]
-                                ).isoformat()
-                self.tender_document_patch.update({"lots": lots})
-        self.save_changes()
+    periods = PERIODS
+    tender_class = CFASelectionUATender
 
     def get_timedelta(self, **kw):
         delta = timedelta(**kw)
@@ -276,6 +254,15 @@ class BaseTenderWebTest(BaseCoreWebTest):
         self.tender_token = response.json["access"]["token"]
         self.tender_id = tender["id"]
         status = tender["status"]
+        if self.initial_criteria:
+            self.app.post_json(
+                "/tenders/{id}/criteria?acc_token={token}".format(id=self.tender_id, token=self.tender_token),
+                {"data": set_tender_criteria(
+                    self.initial_criteria,
+                    tender.get("lots", []),
+                    tender.get("items", []),
+                )},
+            )
         if self.initial_status != status and self.initial_status:
             self.set_status(self.initial_status)
 

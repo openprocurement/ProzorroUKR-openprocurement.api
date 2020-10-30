@@ -9,14 +9,13 @@ from openprocurement.tender.belowthreshold.tests.contract import (
     TenderContractDocumentResourceTestMixin,
 )
 
-from openprocurement.tender.openua.tests.base import test_bids
 from openprocurement.tender.openua.tests.contract_blanks import (
     # TenderContractResourceTest
     create_tender_contract,
     patch_tender_contract,
 )
 
-from openprocurement.tender.openuadefense.tests.base import BaseTenderUAContentWebTest
+from openprocurement.tender.openuadefense.tests.base import BaseTenderUAContentWebTest, test_bids
 
 from openprocurement.tender.belowthreshold.tests.contract_blanks import (
     patch_tender_contract_value_vat_not_included,
@@ -35,6 +34,7 @@ from openprocurement.tender.belowthreshold.tests.contract_blanks import (
 class TenderContractResourceTest(BaseTenderUAContentWebTest, TenderContractResourceTestMixin):
     initial_status = "active.qualification"
     initial_bids = test_bids
+    docservice = True
 
     def setUp(self):
         super(TenderContractResourceTest, self).setUp()
@@ -72,6 +72,7 @@ class TenderContractResourceTest(BaseTenderUAContentWebTest, TenderContractResou
 class TenderContractVATNotIncludedResourceTest(BaseTenderUAContentWebTest, TenderContractResourceTestMixin):
     initial_status = "active.qualification"
     initial_bids = test_bids
+    docservice = True
 
     def create_award(self):
         authorization = self.app.authorization
@@ -113,7 +114,8 @@ class TenderContractVATNotIncludedResourceTest(BaseTenderUAContentWebTest, Tende
 class TenderContractDocumentResourceTest(BaseTenderUAContentWebTest, TenderContractDocumentResourceTestMixin):
     initial_status = "active.qualification"
     initial_bids = test_bids
-
+    docservice = True
+    
     def setUp(self):
         super(TenderContractDocumentResourceTest, self).setUp()
         # Create award

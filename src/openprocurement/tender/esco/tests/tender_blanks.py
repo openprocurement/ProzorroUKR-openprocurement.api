@@ -7,6 +7,7 @@ from openprocurement.api.constants import CPV_ITEMS_CLASS_FROM, NOT_REQUIRED_ADD
 from openprocurement.api.utils import get_now
 from openprocurement.tender.core.utils import calculate_tender_business_date
 from openprocurement.tender.esco.models import TenderESCO
+from openprocurement.tender.core.tests.criteria_utils import add_criteria, generate_responses
 
 
 # TenderESCOTest
@@ -258,6 +259,7 @@ def items_without_deliveryDate_quantity(self):
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["errors"][0]["description"], "Can't update tender in current (draft) status")
 
+    add_criteria(self)
     # edit_active.tendering role
     response = self.app.patch_json(
         "/tenders/{}?acc_token={}".format(self.tender_id, self.tender_token), {"data": {"status": "active.tendering"}}
@@ -280,6 +282,10 @@ def items_without_deliveryDate_quantity(self):
 
     # post bids
     for bid_data in self.test_bids_data:
+        bid_data = bid_data.copy()
+        rrs = generate_responses(self)
+        if rrs:
+            bid_data["requirementResponses"] = rrs
         response = self.app.post_json("/tenders/{}/bids".format(self.tender_id), {"data": bid_data})
         self.assertEqual(response.status, "201 Created")
         self.assertEqual(response.content_type, "application/json")
@@ -444,6 +450,7 @@ def tender_noticePublicationDate(self):
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["errors"][0]["description"], "Can't update tender in current (draft) status")
 
+    add_criteria(self)
     # set active.tendering status
     response = self.app.patch_json(
         "/tenders/{}?acc_token={}".format(self.tender_id, self.tender_token), {"data": {"status": "active.tendering"}}
@@ -466,6 +473,10 @@ def tender_noticePublicationDate(self):
 
     # post bids
     for bid_data in self.test_bids_data:
+        bid_data = bid_data.copy()
+        rrs = generate_responses(self)
+        if rrs:
+            bid_data["requirementResponses"] = rrs
         response = self.app.post_json("/tenders/{}/bids".format(self.tender_id), {"data": bid_data})
         self.assertEqual(response.status, "201 Created")
         self.assertEqual(response.content_type, "application/json")
@@ -979,7 +990,11 @@ def patch_tender(self):
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(
         response.json["errors"],
-        [{"location": "body", "name": "tenderPeriod", "description": ["tenderPeriod should be greater than 30 days"]}],
+        [{
+            "location": "body",
+            "name": "tenderPeriod",
+            "description": ["tenderPeriod must be at least 30 full calendar days long"]
+        }],
     )
 
     response = self.app.patch_json(

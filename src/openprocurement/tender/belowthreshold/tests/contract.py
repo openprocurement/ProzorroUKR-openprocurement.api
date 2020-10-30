@@ -15,10 +15,12 @@ from openprocurement.tender.belowthreshold.tests.contract_blanks import (
     create_tender_contract,
     create_tender_contract_in_complete_status,
     patch_tender_contract,
+    patch_tender_contract_rationale_simple,
     get_tender_contract,
     get_tender_contracts,
     # Tender2LotContractResourceTest
     lot2_patch_tender_contract,
+    lot2_patch_tender_contract_rationale_simple,
     # TenderContractDocumentResourceTest
     not_found,
     create_tender_contract_document,
@@ -42,6 +44,12 @@ from openprocurement.tender.belowthreshold.tests.contract_blanks import (
     lot2_create_tender_contract_document_by_others,
     lot2_put_tender_contract_document_by_supplier,
     lot2_patch_tender_contract_document_by_supplier,
+    create_contract_documents_by_render_bot,
+    create_contract_documents_by_render_bot_invalid,
+    create_contract_document_contract_data_by_owner,
+    create_contract_document_second_contract_data_by_owner_fail,
+    put_contract_document_contract_data_by_owner,
+    put_contract_document_contract_data_by_rbot,
 )
 
 
@@ -56,6 +64,13 @@ class TenderContractDocumentResourceTestMixin(object):
     test_create_tender_contract_document = snitch(create_tender_contract_document)
     test_put_tender_contract_document = snitch(put_tender_contract_document)
     test_patch_tender_contract_document = snitch(patch_tender_contract_document)
+    test_create_contract_documents_by_render_bot = snitch(create_contract_documents_by_render_bot)
+    test_create_contract_documents_by_render_bot_invalid = snitch(create_contract_documents_by_render_bot_invalid)
+    test_create_contract_document_contract_data_by_owner = snitch(create_contract_document_contract_data_by_owner)
+    test_create_contract_document_second_contract_data_by_owner_fail = \
+        snitch(create_contract_document_second_contract_data_by_owner_fail)
+    test_put_contract_document_contract_data_by_owner = snitch(put_contract_document_contract_data_by_owner)
+    test_put_contract_document_contract_data_by_rbot = snitch(put_contract_document_contract_data_by_rbot)
 
 
 class TenderContractResourceTest(TenderContentWebTest, TenderContractResourceTestMixin):
@@ -93,6 +108,7 @@ class TenderContractResourceTest(TenderContentWebTest, TenderContractResourceTes
     test_create_tender_contract = snitch(create_tender_contract)
     test_create_tender_contract_in_complete_status = snitch(create_tender_contract_in_complete_status)
     test_patch_tender_contract = snitch(patch_tender_contract)
+    test_patch_tender_contract_rationale_simple = snitch(patch_tender_contract_rationale_simple)
     test_patch_tender_contract_value = snitch(patch_tender_contract_value)
     test_patch_tender_contract_status_by_owner = snitch(patch_tender_contract_status_by_owner)
     test_patch_tender_contract_status_by_supplier = snitch(patch_tender_contract_status_by_supplier)
@@ -170,11 +186,13 @@ class Tender2LotContractResourceTest(TenderContentWebTest):
         )
 
     test_lot2_patch_tender_contract = snitch(lot2_patch_tender_contract)
+    test_lot2_patch_tender_contract_rationale_simple = snitch(lot2_patch_tender_contract_rationale_simple)
 
 
 class TenderContractDocumentResourceTest(TenderContentWebTest, TenderContractDocumentResourceTestMixin):
     initial_status = "active.qualification"
     initial_bids = test_bids
+    docservice = True
 
     def setUp(self):
         super(TenderContractDocumentResourceTest, self).setUp()
@@ -218,6 +236,7 @@ class Tender2LotContractDocumentResourceTest(TenderContentWebTest):
     initial_status = "active.qualification"
     initial_bids = test_bids
     initial_lots = 2 * test_lots
+    docservice = True
 
     def setUp(self):
         super(Tender2LotContractDocumentResourceTest, self).setUp()
@@ -262,6 +281,8 @@ class Tender2LotContractDocumentResourceTest(TenderContentWebTest):
     test_lot2_create_tender_contract_document_by_others = snitch(lot2_create_tender_contract_document_by_others)
     test_lot2_put_tender_contract_document_by_supplier = snitch(lot2_put_tender_contract_document_by_supplier)
     test_lot2_patch_tender_contract_document_by_supplier = snitch(lot2_patch_tender_contract_document_by_supplier)
+    test_lot2_create_contract_documents_by_render_bot = snitch(create_contract_documents_by_render_bot)
+    test_lot2_create_contract_documents_by_render_bot_invalid = snitch(create_contract_documents_by_render_bot_invalid)
 
 
 def suite():

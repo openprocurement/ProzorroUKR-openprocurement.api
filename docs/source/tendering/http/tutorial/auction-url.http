@@ -67,7 +67,7 @@ Content-Type: application/json; charset=UTF-8
         "title": "Калорійність", 
         "date": "2020-05-15T01:00:01+03:00", 
         "answer": "Таблицю додано в файлі \"Kalorijnist.xslx\"", 
-        "id": "2758aa9c71374230ab34f91ac85d72c1", 
+        "id": "3f751fcae5fa40be86e8b38392376e1c", 
         "questionOf": "tender"
       }
     ], 
@@ -79,16 +79,27 @@ Content-Type: application/json; charset=UTF-8
     }, 
     "documents": [
       {
+        "title": "contractProforma", 
+        "url": null, 
+        "author": "tender_owner", 
+        "documentOf": "tender", 
+        "datePublished": "2020-05-15T01:00:00+03:00", 
+        "documentType": "contractProforma", 
+        "dateModified": "2020-05-15T01:00:00+03:00", 
+        "id": "f77c2444fc6f47e1bb441a284cd344e6", 
+        "templateId": "paper0000001"
+      }, 
+      {
         "hash": "md5:00000000000000000000000000000000", 
         "description": "document description modified", 
-        "title": "Notice.pdf", 
+        "author": "tender_owner", 
         "url": "http://public-docs-sandbox.prozorro.gov.ua/get/4d52879c11df4aa7ae80d3b6c4a274ce?KeyID=a8968c46&Signature=BiR23Y26fUFdAaBBqxSqN2Lv29UkW8VjpoZA0NLoVj2cgKeSq3J%2FiuGzva%252Bl0R6wpgLbA2zfat9mNkErf3HjAg%253D%253D", 
         "format": "application/pdf", 
         "documentOf": "tender", 
         "datePublished": "2020-05-15T01:00:01+03:00", 
-        "author": "tender_owner", 
         "documentType": "technicalSpecifications", 
-        "id": "8a3d30101dc94ca58f768bec6a1f45dd", 
+        "id": "8924acf921d645b7bce35748c4f9e237", 
+        "title": "Notice.pdf", 
         "dateModified": "2020-05-15T01:00:01+03:00"
       }, 
       {
@@ -99,8 +110,8 @@ Content-Type: application/json; charset=UTF-8
         "format": "application/pdf", 
         "documentOf": "tender", 
         "datePublished": "2020-05-15T01:00:01+03:00", 
-        "id": "90a4fef3a0f545f4807445bbd4017f29", 
-        "dateModified": "2020-05-15T01:00:01+03:00"
+        "dateModified": "2020-05-15T01:00:01+03:00", 
+        "id": "f05f28fd104147beb09d8b4f7bbcbd2b"
       }, 
       {
         "hash": "md5:00000000000000000000000000000000", 
@@ -110,8 +121,73 @@ Content-Type: application/json; charset=UTF-8
         "format": "application/pdf", 
         "documentOf": "tender", 
         "datePublished": "2020-05-15T01:00:01+03:00", 
-        "id": "90a4fef3a0f545f4807445bbd4017f29", 
-        "dateModified": "2020-05-15T01:00:01+03:00"
+        "dateModified": "2020-05-15T01:00:01+03:00", 
+        "id": "f05f28fd104147beb09d8b4f7bbcbd2b"
+      }, 
+      {
+        "dateModified": "2020-05-15T01:00:01+03:00", 
+        "hash": "md5:00000000000000000000000000000000", 
+        "format": "application/json", 
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/4f1b9f5a45364f0cbb725e846b662238?KeyID=a8968c46&Signature=CVe5P9Wl2XZzgeb%2F2VXizVGxoyZ5PZmcSZPdZzb58LZXQ48PfznXpmJcGAzC65u3BgNoBfLxlwaAsU5oNDG%252BBg%253D%253D", 
+        "author": "template_registry_bots", 
+        "documentOf": "document", 
+        "datePublished": "2020-05-15T01:00:01+03:00", 
+        "documentType": "contractForm", 
+        "title": "paper0000001-form.json", 
+        "relatedItem": "f77c2444fc6f47e1bb441a284cd344e6", 
+        "id": "e1d5e08ba83b4566bcea7e5cb75eae49"
+      }, 
+      {
+        "dateModified": "2020-05-15T01:00:01+03:00", 
+        "hash": "md5:00000000000000000000000000000000", 
+        "format": "application/json", 
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/13a0c52811684b1c90e594fb5fb765b4?KeyID=a8968c46&Signature=H1uYxm2tSuPt1Sb%252BZn%2Ffzuu0rGGiNPPRYpE1PIpYlAnObArIskamOTmUyerpQZZm0PXZvOHjmCbkreYkWN4GAA%253D%253D", 
+        "author": "template_registry_bots", 
+        "documentOf": "document", 
+        "datePublished": "2020-05-15T01:00:01+03:00", 
+        "documentType": "contractSchema", 
+        "title": "paper0000001-schema.json", 
+        "relatedItem": "f77c2444fc6f47e1bb441a284cd344e6", 
+        "id": "4def4093a1af4480859c5785d8675c1b"
+      }, 
+      {
+        "dateModified": "2020-05-15T01:00:01+03:00", 
+        "hash": "md5:00000000000000000000000000000000", 
+        "format": "application/msword", 
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/30738d06643940d784e148efc196ddbd?KeyID=a8968c46&Signature=WR5EaLBJS1niKVihmLH2zMHNwq%252B5q3fQLDD%252BKDDUZzG5hUZVaCcjxx8RCbSlxzCjB1I9%2F4kIKll%252BUQ%252B80qzQDg%253D%253D", 
+        "author": "template_registry_bots", 
+        "documentOf": "document", 
+        "datePublished": "2020-05-15T01:00:01+03:00", 
+        "documentType": "contractTemplate", 
+        "title": "paper0000001.docx", 
+        "relatedItem": "f77c2444fc6f47e1bb441a284cd344e6", 
+        "id": "2f9c9e234bfc48d98a61dd50fcd2f5d8"
+      }, 
+      {
+        "dateModified": "2020-05-15T01:00:01+03:00", 
+        "hash": "md5:00000000000000000000000000000000", 
+        "format": "application/json", 
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/95a5ac5af56648dea6e6a944b29a05de?KeyID=a8968c46&Signature=NI2C%252BycIDWp7qpDUP3C1lKe05wyd1Y%2FSc3vVk2NDQPwzUlzmdbkvoEXAzxNx00S%252Bw%252BHPMLNCbSlWdY1oPSkxAg%253D%253D", 
+        "author": "tender_owner", 
+        "documentOf": "document", 
+        "datePublished": "2020-05-15T01:00:01+03:00", 
+        "documentType": "contractData", 
+        "title": "ownerContractData.json", 
+        "relatedItem": "f77c2444fc6f47e1bb441a284cd344e6", 
+        "id": "e6282176a09042e98da8914ea70c5880"
+      }, 
+      {
+        "dateModified": "2020-05-15T01:00:01+03:00", 
+        "hash": "md5:00000000000000000000000000000000", 
+        "format": "application/pdf", 
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/3f003255450240f1b322c644a1d57a67?KeyID=a8968c46&Signature=1oskI3DnUz5JDXg9rrJGpqFU806VMd6KGjV0OHDecyw2ahKkac3M3O4OhVkzceIlW3qFqm%252BK4g5EJMeEm2FkAA%253D%253D", 
+        "author": "tender_owner", 
+        "documentOf": "tender", 
+        "datePublished": "2020-05-15T01:00:00+03:00", 
+        "documentType": "contractProforma", 
+        "title": "contractProforma.pdf", 
+        "id": "f77c2444fc6f47e1bb441a284cd344e6", 
+        "templateId": "paper0000001"
       }
     ], 
     "title": "футляри до державних нагород", 
@@ -151,12 +227,12 @@ Content-Type: application/json; charset=UTF-8
         }, 
         "percentage": 54.45, 
         "type": "financing", 
-        "id": "bbe57ebfab144c58adb7ed673a73b0aa"
+        "id": "af069a25c8f94e74a8b2428b51bcd1a7"
       }
     ], 
     "minimalStep": {
       "currency": "UAH", 
-      "amount": 35.0, 
+      "amount": 15.0, 
       "valueAddedTaxIncluded": true
     }, 
     "items": [
@@ -185,7 +261,7 @@ Content-Type: application/json; charset=UTF-8
           "startDate": "2020-05-17T01:00:00+03:00", 
           "endDate": "2020-05-20T01:00:00+03:00"
         }, 
-        "id": "22efe85457d041aab3bc5a64aae6be0f", 
+        "id": "53de0c90af0e430ea270c5970351ba0c", 
         "unit": {
           "code": "44617100-9", 
           "name": "item"

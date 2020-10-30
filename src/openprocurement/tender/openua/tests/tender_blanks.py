@@ -12,6 +12,7 @@ from openprocurement.api.constants import (
 )
 
 from openprocurement.tender.belowthreshold.tests.base import test_organization, test_lots
+from openprocurement.tender.openua.tests.base import test_bids
 from openprocurement.tender.core.utils import calculate_tender_business_date
 
 from openprocurement.tender.openua.models import Tender
@@ -681,7 +682,11 @@ def patch_tender(self):
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(
         response.json["errors"],
-        [{"location": "body", "name": "tenderPeriod", "description": ["tenderPeriod should be greater than 15 days"]}],
+        [{
+            "location": "body",
+            "name": "tenderPeriod",
+            "description": ["tenderPeriod must be at least 15 full calendar days long"]
+        }],
     )
 
     response = self.app.patch_json(
@@ -837,16 +842,20 @@ def patch_tender_period(self):
     self.assertEqual(response.status, "403 Forbidden")
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["errors"][0]["description"], "tenderPeriod should be extended by 7 days")
-    tenderPeriod_endDate = get_now() + timedelta(days=7, seconds=10)
-    enquiryPeriod_endDate = tenderPeriod_endDate - (timedelta(minutes=10) if SANDBOX_MODE else timedelta(days=10))
+    tender_period_end_date = calculate_tender_business_date(
+        get_now(), timedelta(days=7), tender
+    ) + timedelta(seconds=10)
+    enquiry_period_end_date = calculate_tender_business_date(
+        tender_period_end_date, -timedelta(days=10), tender
+    )
     response = self.app.patch_json(
         "/tenders/{}?acc_token={}".format(tender["id"], owner_token),
-        {"data": {"description": "new description", "tenderPeriod": {"endDate": tenderPeriod_endDate.isoformat()}}},
+        {"data": {"description": "new description", "tenderPeriod": {"endDate": tender_period_end_date.isoformat()}}},
     )
     self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["data"]["tenderPeriod"]["endDate"], tenderPeriod_endDate.isoformat())
-    self.assertEqual(response.json["data"]["enquiryPeriod"]["endDate"], enquiryPeriod_endDate.isoformat())
+    self.assertEqual(response.json["data"]["tenderPeriod"]["endDate"], tender_period_end_date.isoformat())
+    self.assertEqual(response.json["data"]["enquiryPeriod"]["endDate"], enquiry_period_end_date.isoformat())
 
 
 # TenderUAProcessTest
@@ -877,17 +886,12 @@ def invalid_bid_tender_features(self):
 
     # create bid
     self.app.authorization = ("Basic", ("broker", ""))
+    bid_data = deepcopy(self.test_bids_data[0])
+    bid_data["parameters"] = [{"code": "OCDS-123454-POSTPONEMENT", "value": 0.1}]
+    bid_data["value"] = {"amount": 500}
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "parameters": [{"code": "OCDS-123454-POSTPONEMENT", "value": 0.1}],
-                "tenderers": [test_organization],
-                "value": {"amount": 500},
-            }
-        },
+        {"data": bid_data},
     )
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.content_type, "application/json")
@@ -962,17 +966,14 @@ def invalid_bid_tender_lot(self):
 
     # create bid
     self.app.authorization = ("Basic", ("broker", ""))
+    bid_data = deepcopy(self.test_bids_data[0])
+    bid_data.update({
+        "status": "draft",
+        "lotValues": [{"value": {"amount": 500}, "relatedLot": i} for i in lots]
+    })
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "status": "draft",
-                "lotValues": [{"value": {"amount": 500}, "relatedLot": i} for i in lots],
-                "tenderers": [test_organization],
-            }
-        },
+        {"data": bid_data},
     )
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.content_type, "application/json")
@@ -1007,18 +1008,14 @@ def one_valid_bid_tender_ua(self):
     )
     self.assertIn("auctionPeriod", response.json["data"])
 
+    bid_data = deepcopy(self.test_bids_data[0])
+    bid_data["value"] = {"amount": 500}
+
     # create bid
     self.app.authorization = ("Basic", ("broker", ""))
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "tenderers": [test_organization],
-                "value": {"amount": 500},
-            }
-        },
+        {"data": bid_data},
     )
 
     bid_id = self.bid_id = response.json["data"]["id"]
@@ -1042,30 +1039,19 @@ def invalid1_and_1draft_bids_tender(self):
     owner_token = response.json["access"]["token"]
     # create bid
     self.app.authorization = ("Basic", ("broker", ""))
+
+    bid_data = deepcopy(self.test_bids_data[0])
+    bid_data["value"] = {"amount": 500}
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "tenderers": [test_organization],
-                "value": {"amount": 500},
-            }
-        },
+        {"data": bid_data},
     )
 
+    bid_data["status"] = "draft"
     self.app.authorization = ("Basic", ("broker", ""))
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "status": "draft",
-                "tenderers": [test_organization],
-                "value": {"amount": 500},
-            }
-        },
+        {"data": bid_data},
     )
     # switch to active.qualification
     self.set_status("active.auction", {"auctionPeriod": {"startDate": None}, "status": "active.tendering"})
@@ -1077,6 +1063,8 @@ def invalid1_and_1draft_bids_tender(self):
 
 def activate_bid_after_adding_lot(self):
     self.app.authorization = ("Basic", ("broker", ""))
+    bid_data = deepcopy(self.test_bids_data[0])
+    bid_data["value"] = {"amount": 500}
     # empty tenders listing
     response = self.app.get("/tenders")
     self.assertEqual(response.json["data"], [])
@@ -1088,14 +1076,7 @@ def activate_bid_after_adding_lot(self):
     self.app.authorization = ("Basic", ("broker", ""))
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "tenderers": [test_organization],
-                "value": {"amount": 500},
-            }
-        },
+        {"data": bid_data},
     )
 
     bid_id = response.json["data"]["id"]
@@ -1140,31 +1121,20 @@ def first_bid_tender(self):
     self.set_status("active.tendering")
     # create bid
     self.app.authorization = ("Basic", ("broker", ""))
+    bid_data = deepcopy(self.test_bids_data[0])
+    bid_data["value"] = {"amount": 450}
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "tenderers": [test_organization],
-                "value": {"amount": 450},
-                "selfEligible": True,
-                "selfQualified": True,
-            }
-        },
+        {"data": bid_data},
     )
     bid_id = response.json["data"]["id"]
     bid_token = response.json["access"]["token"]
     # create second bid
     self.app.authorization = ("Basic", ("broker", ""))
+    bid_data["value"] = {"amount": 475}
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "tenderers": [test_organization],
-                "value": {"amount": 475},
-                "selfEligible": True,
-                "selfQualified": True,
-            }
-        },
+        {"data": bid_data},
     )
     # switch to active.auction
     self.set_status("active.auction")
@@ -1293,6 +1263,8 @@ def first_bid_tender(self):
 
 
 def lost_contract_for_active_award(self):
+    bid_data = deepcopy(self.test_bids_data[0])
+    bid_data["value"] = {"amount": 450}
     self.app.authorization = ("Basic", ("broker", ""))
     # create tender
     response = self.app.post_json("/tenders", {"data": self.initial_data})
@@ -1302,27 +1274,13 @@ def lost_contract_for_active_award(self):
     self.app.authorization = ("Basic", ("broker", ""))
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "tenderers": [test_organization],
-                "value": {"amount": 450},
-            }
-        },
+        {"data": bid_data},
     )
     # create bid #2
     self.app.authorization = ("Basic", ("broker", ""))
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {
-            "data": {
-                "selfEligible": True,
-                "selfQualified": True,
-                "tenderers": [test_organization],
-                "value": {"amount": 450},
-            }
-        },
+        {"data": bid_data},
     )
     # switch to active.auction
     self.set_status("active.auction")

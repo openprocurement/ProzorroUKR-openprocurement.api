@@ -11,6 +11,7 @@ from openprocurement.tender.belowthreshold.tests.base import test_organization
 
 from openprocurement.tender.competitivedialogue.constants import CD_EU_TYPE, CD_UA_TYPE, FEATURES_MAX_SUM
 from openprocurement.tender.competitivedialogue.models import CompetitiveDialogUA, CompetitiveDialogEU
+from openprocurement.tender.competitivedialogue.tests.base import test_bids
 
 
 # CompetitiveDialogTest
@@ -598,21 +599,26 @@ def multiple_bidders_tender_eu(self):
     # create bids
     bidder_data = deepcopy(test_organization)
     self.app.authorization = ("Basic", ("broker", ""))
+    bid_data = deepcopy(test_bids[0])
+    bid_data["value"] = {"amount": 500}
+    bid_data["tenderers"] = [bidder_data]
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {"data": {"selfEligible": True, "selfQualified": True, "tenderers": [bidder_data], "value": {"amount": 500}}},
+        {"data": bid_data},
     )
+    bid_data["value"]["amount"] = 499
     bidder_data["identifier"]["id"] = u"00037257"
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {"data": {"selfEligible": True, "selfQualified": True, "tenderers": [bidder_data], "value": {"amount": 499}}},
+        {"data": bid_data},
     )
     bid_id = response.json["data"]["id"]
     bid_token = response.json["access"]["token"]
+    bid_data["value"]["amount"] = 498
     bidder_data["identifier"]["id"] = u"00037259"
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {"data": {"selfEligible": True, "selfQualified": True, "tenderers": [bidder_data], "value": {"amount": 498}}},
+        {"data": bid_data},
     )
     # switch to active.pre-qualification
     self.set_status("active.pre-qualification", {"id": tender_id, "status": "active.tendering"})
@@ -702,23 +708,28 @@ def try_go_to_ready_stage_eu(self):
     tender_id = self.tender_id = response.json["data"]["id"]
     tender_owner_token = response.json["access"]["token"]
     # create bids
+    bid_data = deepcopy(test_bids[0])
+    bid_data["value"] = {"amount": 500}
     bidder_data = deepcopy(test_organization)
+    bid_data["tenderers"] = [bidder_data]
     self.app.authorization = ("Basic", ("broker", ""))
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {"data": {"selfEligible": True, "selfQualified": True, "tenderers": [bidder_data], "value": {"amount": 500}}},
+        {"data": bid_data},
     )
+    bid_data["value"]["amount"] = 499
     bidder_data["identifier"]["id"] = u"00037257"
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {"data": {"selfEligible": True, "selfQualified": True, "tenderers": [bidder_data], "value": {"amount": 499}}},
+        {"data": bid_data},
     )
     bid_id = response.json["data"]["id"]
     bid_token = response.json["access"]["token"]
+    bid_data["value"]["amount"] = 498
     bidder_data["identifier"]["id"] = u"00037258"
     response = self.app.post_json(
         "/tenders/{}/bids".format(tender_id),
-        {"data": {"selfEligible": True, "selfQualified": True, "tenderers": [bidder_data], "value": {"amount": 498}}},
+        {"data": bid_data},
     )
     # switch to active.pre-qualification
     self.set_status("active.pre-qualification", {"id": tender_id, "status": "active.tendering"})
@@ -1189,7 +1200,11 @@ def patch_tender_1(self):
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(
         response.json["errors"],
-        [{"location": "body", "name": "tenderPeriod", "description": ["tenderPeriod should be greater than 30 days"]}],
+        [{
+            "location": "body",
+            "name": "tenderPeriod",
+            "description": ["tenderPeriod must be at least 30 full calendar days long"]
+        }],
     )
 
     response = self.app.patch_json(
@@ -1384,21 +1399,25 @@ def patch_tender_eu_ua(self):
     self.assertEqual(response.status, "403 Forbidden")
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["errors"][0]["description"], "tenderPeriod should be extended by 7 days")
-    tenderPeriod_endDate = get_now() + timedelta(days=7, seconds=10)
-    enquiryPeriod_endDate = tenderPeriod_endDate - (timedelta(minutes=10) if SANDBOX_MODE else timedelta(days=10))
+    tender_period_end_date = calculate_tender_business_date(
+        get_now(), timedelta(days=7), tender
+    ) + timedelta(seconds=10)
+    enquiry_period_end_date = calculate_tender_business_date(
+        tender_period_end_date, -timedelta(days=10), tender
+    )
     response = self.app.patch_json(
         "/tenders/{}?acc_token={}".format(tender["id"], owner_token),
         {
             "data": {
                 "value": {"amount": 501, "currency": u"UAH"},
-                "tenderPeriod": {"endDate": tenderPeriod_endDate.isoformat()},
+                "tenderPeriod": {"endDate": tender_period_end_date.isoformat()},
             }
         },
     )
     self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["data"]["tenderPeriod"]["endDate"], tenderPeriod_endDate.isoformat())
-    self.assertEqual(response.json["data"]["enquiryPeriod"]["endDate"], enquiryPeriod_endDate.isoformat())
+    self.assertEqual(response.json["data"]["tenderPeriod"]["endDate"], tender_period_end_date.isoformat())
+    self.assertEqual(response.json["data"]["enquiryPeriod"]["endDate"], enquiry_period_end_date.isoformat())
 
     response = self.app.patch_json(
         "/tenders/{}?acc_token={}".format(tender["id"], owner_token),

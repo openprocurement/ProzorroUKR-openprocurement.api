@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import mock
 from datetime import timedelta
 from copy import deepcopy
 
@@ -17,6 +18,7 @@ from uuid import uuid4
 from openprocurement.tender.cfaua.constants import MAX_AGREEMENT_PERIOD
 from openprocurement.tender.cfaua.models.tender import CloseFrameworkAgreementUA
 from openprocurement.tender.cfaua.utils import add_next_awards
+from openprocurement.api.constants import RELEASE_ECRITERIA_ARTICLE_17
 
 # TenderTest
 from openprocurement.tender.core.utils import calculate_tender_business_date
@@ -354,6 +356,22 @@ def create_tender_invalid(self):
             }
         ],
     )
+    with mock.patch("openprocurement.tender.core.validation.MINIMAL_STEP_VALIDATION_FROM",
+                    get_now() - timedelta(days=1)):
+        data = deepcopy(self.initial_data["lots"])
+        self.initial_data["lots"][0]["minimalStep"] = {"amount": "1.0"}
+        response = self.app.post_json(request_path, {"data": self.initial_data}, status=422)
+        self.initial_data["lots"] = data
+        self.assertEqual(response.status, "422 Unprocessable Entity")
+        self.assertEqual(response.content_type, "application/json")
+        self.assertEqual(response.json["status"], "error")
+        self.assertEqual(
+            response.json["errors"],
+            [{u'description':
+                  [{u'minimalStep': [u'minimalstep must be between 0.5% and 3% of value (with 2 digits precision).']}],
+              u'location': u'body', u'name': u'lots'}
+             ]
+        )
 
     data = self.initial_data["items"][0].pop("additionalClassifications")
     if get_now() > CPV_ITEMS_CLASS_FROM:
@@ -565,7 +583,11 @@ def patch_tender(self):
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(
         response.json["errors"],
-        [{"location": "body", "name": "tenderPeriod", "description": ["tenderPeriod should be greater than 30 days"]}],
+        [{
+            "location": "body",
+            "name": "tenderPeriod",
+            "description": ["tenderPeriod must be at least 30 full calendar days long"]
+        }],
     )
 
     response = self.app.patch_json(
@@ -738,6 +760,25 @@ def patch_tender(self):
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["errors"][0]["description"], "Can't update tender in current (complete) status")
 
+    with mock.patch("openprocurement.tender.core.validation.MINIMAL_STEP_VALIDATION_FROM",
+                    get_now() - timedelta(days=1)):
+        lots = deepcopy(self.initial_lots)
+        lots[0]["minimalStep"]["amount"] = 123
+        response = self.app.patch_json(
+            "/tenders/{}?acc_token={}".format(tender["id"], owner_token),
+            {"data": {"lots": lots}},
+            status=422,
+        )
+        self.assertEqual(response.status, "422 Unprocessable Entity")
+        self.assertEqual(response.content_type, "application/json")
+        self.assertEqual(
+            response.json["errors"],
+            [{u'description':
+                  [{u'minimalStep': [u'minimalstep must be between 0.5% and 3% of value (with 2 digits precision).']}],
+              u'location': u'body', u'name': u'lots'}
+             ],
+        )
+
 
 def patch_tender_period(self):
     data = deepcopy(self.initial_data)
@@ -766,16 +807,20 @@ def patch_tender_period(self):
     self.assertEqual(response.status, "403 Forbidden")
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["errors"][0]["description"], "tenderPeriod should be extended by 7 days")
-    tenderPeriod_endDate = get_now() + timedelta(days=7, seconds=10)
-    enquiryPeriod_endDate = tenderPeriod_endDate - (timedelta(minutes=10) if SANDBOX_MODE else timedelta(days=10))
+    tender_period_end_date = calculate_tender_business_date(
+        get_now(), timedelta(days=7), tender
+    ) + timedelta(seconds=10)
+    enquiry_period_end_date = calculate_tender_business_date(
+        tender_period_end_date, -timedelta(days=10), tender
+    )
     response = self.app.patch_json(
         "/tenders/{}?acc_token={}".format(tender["id"], owner_token),
-        {"data": {"description": "new description", "tenderPeriod": {"endDate": tenderPeriod_endDate.isoformat()}}},
+        {"data": {"description": "new description", "tenderPeriod": {"endDate": tender_period_end_date.isoformat()}}},
     )
     self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["data"]["tenderPeriod"]["endDate"], tenderPeriod_endDate.isoformat())
-    self.assertEqual(response.json["data"]["enquiryPeriod"]["endDate"], enquiryPeriod_endDate.isoformat())
+    self.assertEqual(response.json["data"]["tenderPeriod"]["endDate"], tender_period_end_date.isoformat())
+    self.assertEqual(response.json["data"]["enquiryPeriod"]["endDate"], enquiry_period_end_date.isoformat())
 
 
 def tender_contract_period(self):
@@ -1105,9 +1150,13 @@ def unsuccessful_after_prequalification_tender(self):
     self.app.authorization = ("Basic", ("chronograph", ""))
     response = self.app.patch_json("/tenders/{}".format(tender_id), {"data": {"id": tender_id}})
     self.assertEqual(response.json["data"]["status"], "unsuccessful")
+
+    assert_data = {u"id", u"status", u"tenderers", u"selfQualified"}
+    if get_now() < RELEASE_ECRITERIA_ARTICLE_17:
+        assert_data.add(u"selfEligible")
     for bid in response.json["data"]["bids"]:
         self.assertEqual(bid["status"], "unsuccessful")
-        self.assertEqual(set(bid.keys()), set([u"id", u"status", u"selfEligible", u"tenderers", u"selfQualified"]))
+        self.assertEqual(set(bid.keys()), assert_data)
 
 
 def one_qualificated_bid_tender(self):

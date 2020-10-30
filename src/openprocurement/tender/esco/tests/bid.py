@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import unittest
+from copy import deepcopy
 
 from esculator import npv, escp
 from openprocurement.api.utils import get_now
@@ -19,8 +20,16 @@ from openprocurement.tender.belowthreshold.tests.bid_blanks import (
     create_tender_bid_with_document,
     # Tender2LotBidResourceTest
     patch_tender_with_bids_lots_none,
+    create_tender_bid_contract_data_document_json,
 )
-from openprocurement.tender.openeu.tests.bid import TenderBidDocumentResourceTestMixin
+from openprocurement.tender.openeu.tests.bid import (
+    TenderBidDocumentResourceTestMixin,
+    CreateBidMixin,
+)
+from openprocurement.tender.openua.tests.bid import (
+    TenderBidRequirementResponseTestMixin,
+    TenderBidRequirementResponseEvidenceTestMixin,
+)
 from openprocurement.tender.openeu.tests.bid_blanks import (
     # TenderBidDocumentWithDSResourceTest
     patch_tender_bidder_document_private_json,
@@ -167,6 +176,7 @@ class TenderBidDocumentWithDSResourceTest(TenderBidDocumentResourceTest):
     test_patch_tender_bidder_document_private_json = snitch(patch_tender_bidder_document_private_json)
     test_put_tender_bidder_document_private_json = snitch(put_tender_bidder_document_private_json)
     test_get_tender_bidder_document_ds = snitch(get_tender_bidder_document_ds)
+    test_create_tender_bid_contract_data_document_json = snitch(create_tender_bid_contract_data_document_json)
 
 
 class TenderBidDocumentWithoutDSResourceTest(TenderBidDocumentResourceTest):
@@ -176,14 +186,6 @@ class TenderBidDocumentWithoutDSResourceTest(TenderBidDocumentResourceTest):
 class TenderBidBatchDocumentsWithDSResourceTest(BaseESCOContentWebTest):
     docservice = True
     initial_status = "active.tendering"
-
-    bid_data_wo_docs = {
-        "tenderers": [test_organization],
-        "value": test_bids[0]["value"],
-        "selfEligible": True,
-        "selfQualified": True,
-        "documents": [],
-    }
 
     test_create_tender_bid_with_document_invalid = snitch(create_tender_bid_with_document_invalid)
     test_create_tender_bid_with_document = snitch(create_tender_bid_with_document)
@@ -207,6 +209,35 @@ class TenderBidBatchDocumentsWithDSResourceTest(BaseESCOContentWebTest):
 
     test_create_tender_bid_with_all_documents = snitch(create_tender_bid_with_all_documents)
 
+    def setUp(self):
+        bid_data = deepcopy(test_bids[0])
+        bid_data.update({
+            "tenderers": [test_organization],
+            "documents": []
+        })
+
+        self.bid_data_wo_docs = bid_data
+
+        super(TenderBidBatchDocumentsWithDSResourceTest, self).setUp()
+
+
+class TenderBidRequirementResponseResourceTest(
+    TenderBidRequirementResponseTestMixin,
+    CreateBidMixin,
+    BaseESCOContentWebTest,
+):
+    test_bids_data = test_bids
+    initial_status = "active.tendering"
+
+
+class TenderBidRequirementResponseEvidenceResourceTest(
+    TenderBidRequirementResponseEvidenceTestMixin,
+    CreateBidMixin,
+    BaseESCOContentWebTest,
+):
+    test_bids_data = test_bids
+    initial_status = "active.tendering"
+
 
 def suite():
     suite = unittest.TestSuite()
@@ -216,6 +247,8 @@ def suite():
     suite.addTest(TenderBidDocumentWithDSResourceTest)
     suite.addTest(TenderBidDocumentWithoutDSResourceTest)
     suite.addTest(TenderBidBatchDocumentsWithDSResourceTest)
+    suite.addTest(TenderBidRequirementResponseResourceTest)
+    suite.addTest(TenderBidRequirementResponseEvidenceResourceTest)
     return suite
 
 

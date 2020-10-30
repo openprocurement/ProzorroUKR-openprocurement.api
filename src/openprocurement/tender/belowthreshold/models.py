@@ -12,22 +12,19 @@ from barbecue import vnmax
 from zope.interface import implementer
 
 from openprocurement.api.models import ListType, Period, Value, Guarantee
-
 from openprocurement.api.utils import get_now, get_first_revision_date
-
-from openprocurement.api.constants import TZ, RELEASE_2020_04_19
+from openprocurement.api.constants import TZ, RELEASE_2020_04_19, CPV_ITEMS_CLASS_FROM
 from openprocurement.api.validation import validate_items_uniq, validate_cpv_group, validate_classification_id
-
-from openprocurement.tender.core.models import ITender
-
-from openprocurement.tender.core.models import validate_features_uniq, validate_lots_uniq, get_tender
+from openprocurement.tender.core.constants import COMPLAINT_STAND_STILL_TIME
+from openprocurement.tender.core.validation import validate_minimalstep
 
 from openprocurement.tender.core.models import (
+    ITender,
     ComplaintModelType,
     TenderAuctionPeriod,
     PeriodEndRequired,
     Tender as BaseTender,
-    Bid,
+    Bid as BaseBid,
     ProcuringEntity,
     Item,
     Award,
@@ -35,18 +32,21 @@ from openprocurement.tender.core.models import (
     Question,
     Cancellation as BaseCancellation,
     Feature,
-    Lot as BaseLot,
+    LotWithMinimalStepLimitsValidation as BaseLot,
     Complaint,
+    BidResponsesMixin,
+    validate_features_uniq,
+    validate_lots_uniq,
+    get_tender
 )
 
 from openprocurement.tender.core.utils import (
     calc_auction_end_time,
-    rounding_shouldStartAfter,
+    normalize_should_start_after,
+    calculate_tender_date,
     calculate_tender_business_date,
 )
-
-from openprocurement.tender.core.constants import CPV_ITEMS_CLASS_FROM, COMPLAINT_STAND_STILL_TIME
-from openprocurement.tender.core.validation import validate_minimalstep
+from openprocurement.tender.openua.validation import validate_tender_period_duration
 
 
 class LotAuctionPeriod(Period):
@@ -58,7 +58,8 @@ class LotAuctionPeriod(Period):
             return
         tender = get_tender(self)
         lot = self.__parent__
-        if tender.status not in ["active.tendering", "active.auction"] or lot.status != "active":
+        statuses = ["active.tendering", "active.auction"]
+        if tender.status not in statuses or lot.status != "active":
             return
         if tender.status == "active.auction" and lot.numberOfBids < 2:
             return
@@ -66,7 +67,7 @@ class LotAuctionPeriod(Period):
             start_after = calc_auction_end_time(tender.numberOfBids, self.startDate)
         else:
             start_after = tender.tenderPeriod.endDate
-        return rounding_shouldStartAfter(start_after, tender).isoformat()
+        return normalize_should_start_after(start_after, tender).isoformat()
 
 
 class Lot(BaseLot):
@@ -82,6 +83,10 @@ class Cancellation(BaseCancellation):
     _after_release_reasonType_choices = ["noDemand", "unFixable", "expensesCut"]
 
     _after_release_status_choices = ["draft", "unsuccessful", "active"]
+
+
+class Bid(BaseBid, BidResponsesMixin):
+    pass
 
 
 @implementer(IBelowThresholdTender)
@@ -229,8 +234,12 @@ class Tender(BaseTender):
         ):
             if now < self.auctionPeriod.startDate:
                 checks.append(self.auctionPeriod.startDate.astimezone(TZ))
-            elif now < calc_auction_end_time(self.numberOfBids, self.auctionPeriod.startDate).astimezone(TZ):
-                checks.append(calc_auction_end_time(self.numberOfBids, self.auctionPeriod.startDate).astimezone(TZ))
+            else:
+                auction_end_time = calc_auction_end_time(
+                    self.numberOfBids, self.auctionPeriod.startDate
+                ).astimezone(TZ)
+                if now < auction_end_time:
+                    checks.append(auction_end_time)
         elif self.lots and self.status == "active.auction":
             for lot in self.lots:
                 if (
@@ -242,8 +251,12 @@ class Tender(BaseTender):
                     continue
                 if now < lot.auctionPeriod.startDate:
                     checks.append(lot.auctionPeriod.startDate.astimezone(TZ))
-                elif now < calc_auction_end_time(lot.numberOfBids, lot.auctionPeriod.startDate).astimezone(TZ):
-                    checks.append(calc_auction_end_time(lot.numberOfBids, lot.auctionPeriod.startDate).astimezone(TZ))
+                else:
+                    auction_end_time = calc_auction_end_time(
+                        lot.numberOfBids, lot.auctionPeriod.startDate
+                    ).astimezone(TZ)
+                    if now < auction_end_time:
+                        checks.append(auction_end_time)
         elif (
             not self.lots
             and self.status == "active.awarded"
@@ -287,13 +300,10 @@ class Tender(BaseTender):
                 ):
                     checks.append(max(standStillEnds))
         if self.status.startswith("active"):
-            from openprocurement.tender.core.utils import calculate_tender_business_date
-
             for complaint in self.complaints:
                 if complaint.status == "answered" and complaint.dateAnswered:
-                    checks.append(
-                        calculate_tender_business_date(complaint.dateAnswered, COMPLAINT_STAND_STILL_TIME, self)
-                    )
+                    check = calculate_tender_date(complaint.dateAnswered, COMPLAINT_STAND_STILL_TIME, self)
+                    checks.append(check)
                 elif complaint.status == "pending":
                     checks.append(self.dateModified)
             for award in self.awards:
@@ -301,9 +311,8 @@ class Tender(BaseTender):
                     checks.append(award.date)
                 for complaint in award.complaints:
                     if complaint.status == "answered" and complaint.dateAnswered:
-                        checks.append(
-                            calculate_tender_business_date(complaint.dateAnswered, COMPLAINT_STAND_STILL_TIME, self)
-                        )
+                        check = calculate_tender_date(complaint.dateAnswered, COMPLAINT_STAND_STILL_TIME, self)
+                        checks.append(check)
                     elif complaint.status == "pending":
                         checks.append(self.dateModified)
         return min(checks).isoformat() if checks else None
@@ -432,9 +441,8 @@ class Tender(BaseTender):
             and period
             and period.startDate
             and period.endDate
-            and period.endDate < calculate_tender_business_date(period.startDate, timedelta(days=2), data, True)
         ):
-            raise ValidationError(u"the tenderPeriod cannot end earlier than 2 business days after the start")
+            validate_tender_period_duration(data, period, timedelta(days=2), working_days=True)
 
     def validate_awardPeriod(self, data, period):
         if (

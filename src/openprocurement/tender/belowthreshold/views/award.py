@@ -355,7 +355,8 @@ class TenderAwardResource(APIResource):
             for i in tender.awards[tender.awards.index(award):]:
                 if i.lotID != award.lotID:
                     continue
-                i.complaintPeriod.endDate = now
+                if i.complaintPeriod and (not i.complaintPeriod.endDate or i.complaintPeriod.endDate > now):
+                    i.complaintPeriod.endDate = now
                 i.status = "cancelled"
                 for j in i.complaints:
                     if j.status not in ["invalid", "resolved", "declined"]:

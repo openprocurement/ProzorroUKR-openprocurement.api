@@ -25,7 +25,11 @@ class Root(object):
         (Allow, "g:Administrator", "edit_complaint"),
         (Allow, "g:admins", ALL_PERMISSIONS),
         (Allow, "g:bots", "upload_tender_documents"),
+        (Allow, "g:bots", "edit_tender"),
         (Allow, "g:bots", "upload_qualification_documents"),
+        (Allow, "g:template_registry_bots", "upload_tender_documents"),
+        (Allow, "g:renderer_bots", "upload_tender_documents"),
+        (Allow, "g:renderer_bots", "upload_contract_documents"),
     ]
 
     def __init__(self, request):
@@ -74,6 +78,8 @@ def factory(request):
         return resolve_question(request, tender)
     elif request.matchdict.get("lot_id"):
         return resolve_lot(request, tender)
+    elif request.matchdict.get("criterion_id"):
+        return resolve_criteria(request, tender)
 
     request.validated["id"] = request.matchdict["tender_id"]
 
@@ -112,8 +118,9 @@ def resolve_bid(request, obj, document_type=None):
     bid = get_item(obj, "bid", request)
     if request.matchdict.get("document_id"):
         return resolve_document(request, bid, document_type=document_type)
-    else:
-        return bid
+    if request.matchdict.get("requirement_response_id"):
+        return resolve_requirement_response(request, bid)
+    return bid
 
 
 def resolve_contract(request, obj):
@@ -132,6 +139,8 @@ def resolve_award(request, obj):
         return resolve_document(request, award)
     elif request.matchdict.get("milestone_id"):
         return resolve_milestone(request, award)
+    elif request.matchdict.get("requirement_response_id"):
+        return resolve_requirement_response(request, award)
     else:
         return award
 
@@ -150,3 +159,34 @@ def resolve_document(request, obj, document_type=None):
 
 def resolve_milestone(request, obj):
     return get_item(obj, "milestone", request)
+
+
+def resolve_requirement(request, obj):
+    requirement = get_item(obj, "requirement", request)
+    if request.matchdict.get("evidence_id"):
+        return get_item(requirement, "evidence", request, where_search="eligibleEvidences")
+    return requirement
+
+
+def resolve_requirement_group(request, obj):
+    requirement_group = get_item(obj, "requirement_group", request, "requirementGroups")
+    if request.matchdict.get("requirement_id"):
+        return resolve_requirement(request, requirement_group)
+    return requirement_group
+
+
+def resolve_criteria(request, obj):
+    criteria = get_item(obj, "criterion", request, "criteria")
+
+    if request.matchdict.get("requirement_group_id"):
+        return resolve_requirement_group(request, criteria)
+    else:
+        return criteria
+
+
+def resolve_requirement_response(request, obj):
+    requirement_response = get_item(obj, "requirement_response", request, "requirementResponses")
+
+    if request.matchdict.get("evidence_id"):
+        return get_item(requirement_response, "evidence", request)
+    return requirement_response

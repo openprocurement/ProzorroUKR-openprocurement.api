@@ -1,0 +1,72 @@
+PATCH /api/2.5/tenders/fb07ce223a754201a341023b86d832ef/criteria/3061d99566884fb3b45862a6d237616e?acc_token=056f6edd10e84810b429550ae3a12f86 HTTP/1.0
+Authorization: Bearer broker
+Content-Length: 36
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+DATA:
+{
+  "data": {
+    "title": "Updated title"
+  }
+}
+
+Response: 200 OK
+Content-Type: application/json; charset=UTF-8
+{
+  "data": {
+    "requirementGroups": [
+      {
+        "requirements": [
+          {
+            "dataType": "boolean", 
+            "title": "Фізична особа, яка є учасником процедури закупівлі, не була засуджена за злочин, учинений з корисливих мотивів (зокрема, пов'язаний з хабарництвом та відмиванням коштів), судимість з якої знято або погашено у встановленому законом порядку", 
+            "id": "4e7c2e5730574b87a39eed9d06bc1eb1", 
+            "expectedValue": "true", 
+            "eligibleEvidences": [
+              {
+                "title": "Документальне підтвердження", 
+                "type": "document", 
+                "description": "Довідка в довільній формі", 
+                "id": "a550bea95b42465cb3a1d1d9528e90e2"
+              }
+            ]
+          }
+        ], 
+        "id": "672700185cd3443f9b4021f5300d11cf", 
+        "description": "Учасник фізична особа підтверджує, що"
+      }
+    ], 
+    "description": "Службова (посадова) особа учасника процедури закупівлі, яка підписала тендерну пропозицію (або уповноважена на підписання договору в разі переговорної процедури закупівлі) або фізична особа, яка є учасником процедури закупівлі, не була засуджена за злочин, учинений з корисливих мотивів (зокрема, пов'язаний з хабарництвом та відмиванням коштів), судимість з якої знято або погашено у встановленому законом порядку", 
+    "classification": {
+      "scheme": " espd211", 
+      "id": "CRITERION.OTHER"
+    }, 
+    "title": "Updated title", 
+    "legislation": [
+      {
+        "article": "17.1.5", 
+        "version": "2020-04-19", 
+        "type": "NATIONAL_LEGISLATION", 
+        "identifier": {
+          "legalName": "Закон України \"Про публічні закупівлі\"", 
+          "uri": "https://zakon.rada.gov.ua/laws/show/922-19", 
+          "id": "922-VIII"
+        }
+      }, 
+      {
+        "article": "17.1.6", 
+        "version": "2020-04-19", 
+        "type": "NATIONAL_LEGISLATION", 
+        "identifier": {
+          "legalName": "Закон України \"Про публічні закупівлі\"", 
+          "uri": "https://zakon.rada.gov.ua/laws/show/922-19", 
+          "id": "922-VIII"
+        }
+      }
+    ], 
+    "relatesTo": "tenderer", 
+    "source": "tenderer", 
+    "id": "3061d99566884fb3b45862a6d237616e"
+  }
+}
+

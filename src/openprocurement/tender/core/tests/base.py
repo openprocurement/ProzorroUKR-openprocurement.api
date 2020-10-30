@@ -11,6 +11,10 @@ from requests.models import Response
 from openprocurement.tender.core.models import QualificationMilestone
 from openprocurement.api.tests.base import BaseWebTest as BaseApiWebTest
 from openprocurement.api.utils import SESSION, apply_data_patch, get_now
+from openprocurement.tender.core.utils import (
+    calculate_tender_date,
+    calculate_tender_business_date,
+)
 
 now = datetime.now()
 
@@ -84,17 +88,59 @@ class BaseCoreWebTest(BaseWebTest):
 
     tender_id = None
 
+    periods = None
+    now = None
+    tender_class = None
+
     def tearDown(self):
         self.delete_tender()
         super(BaseCoreWebTest, self).tearDown()
 
-    def set_status(self, status, extra=None):
+    def set_status(self, status, extra=None, startend="start"):
+        self.now = get_now()
         self.tender_document = self.db.get(self.tender_id)
-        self.update_status(status, extra=extra)
+        self.tender_document_patch = {"status": status}
+        self.update_periods(status, startend=startend)
+        if extra:
+            self.tender_document_patch.update(extra)
+        self.save_changes()
         return self.get_tender("chronograph")
 
-    def update_status(self, status, extra=None):
-        self.tender_document_patch = {"status": status}
+    def update_periods(self, status, startend="start", shift=None):
+        shift = shift or timedelta()
+        if status in self.periods:
+            for period in self.periods[status][startend]:
+                self.tender_document_patch.update({period: {}})
+                for date in self.periods[status][startend][period]:
+                    self.tender_document_patch[period][date] = (self.calculate_period_date(
+                        date, period, startend, status
+                    ) + shift).isoformat()
+
+            lots = self.tender_document.get("lots", [])
+            if lots:
+                for period in self.periods[status][startend]:
+                    if period in ("auctionPeriod",):
+                        for lot in lots:
+                            if lot.get("status", None) == "active":
+                                lot.update({period: {}})
+                                for date in self.periods[status][startend][period]:
+                                    lot[period][date] = (self.calculate_period_date(
+                                        date, period, startend, status
+                                    ) + shift).isoformat()
+                self.tender_document_patch.update({"lots": lots})
+
+    def calculate_period_date(self, date, period, startend, status):
+        tender = self.tender_class(self.tender_document)
+        period_date_item = self.periods[status][startend][period][date]
+        return calculate_tender_date(
+            self.now, period_date_item, tender=tender, working_days=False
+        )
+
+    def time_shift(self, status, extra=None, startend="start", shift=None):
+        self.now = get_now()
+        self.tender_document = self.db.get(self.tender_id)
+        self.tender_document_patch = {}
+        self.update_periods(status, startend=startend, shift=shift)
         if extra:
             self.tender_document_patch.update(extra)
         self.save_changes()
@@ -152,6 +198,34 @@ class BaseCoreWebTest(BaseWebTest):
         else:
             tender["qualifications"] = [qualification]
         self.db.save(tender)
+
+    def add_contract_proforma_document(self):
+        data = {
+            "id": uuid4().hex,
+            "author": "tender_owner",
+            "title": u"paper0000001.pdf",
+            "url": self.generate_docservice_url(),
+            "hash": "md5:" + "0" * 32,
+            "format": "application/pdf",
+            "templateId": "paper00000001",
+            "documentType": "contractProforma",
+            "documentOf": "tender",
+            "dateModified": now.isoformat(),
+            "datePublished": now.isoformat(),
+        }
+        if self.initial_lots:
+            data["relatedItem"] = self.initial_lots[0]["id"]
+            data["documentOf"] = "lot"
+        doc = self.db.get(self.tender_id)
+        proforma_docs = [d["id"] for d in doc.get("documents", []) if d.get("documentType", "") == "contractProforma"]
+        if len(proforma_docs) != 0:
+            self.proforma_doc_id = proforma_docs[-1]
+        else:
+            documents = doc.get("documents", [])
+            documents.append(data)
+            doc["documents"] = documents
+            self.db.save(doc)
+            self.proforma_doc_id = data["id"]
 
 
 @contextmanager

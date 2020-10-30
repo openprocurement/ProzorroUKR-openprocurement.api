@@ -1,7 +1,7 @@
 import os
 from setuptools import setup, find_packages
 
-version = "2.5.81"
+version = "2.5.101"
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -32,7 +32,7 @@ requires = [
     "zope.component",
     "zope.configuration",
     "esculator",
-    "dateorro>=0.0.2",
+    "dateorro>=0.0.3",
     "configparser",
     "sentry-sdk",
 ]
@@ -70,6 +70,7 @@ entry_points = {
         "tender.esco = openprocurement.tender.esco.includeme:includeme",
         "tender.cfaua = openprocurement.tender.cfaua.includeme:includeme",
         "tender.cfaselectionua = openprocurement.tender.cfaselectionua.includeme:includeme",
+        "tender.pricequotation = openprocurement.tender.pricequotation.includeme:includeme",
     ],
     "openprocurement.agreements.core.plugins": [
         "agreement.cfaua = openprocurement.agreement.cfaua.includeme:includeme"

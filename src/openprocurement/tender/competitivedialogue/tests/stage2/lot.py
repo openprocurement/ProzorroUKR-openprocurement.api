@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from openprocurement.api.tests.base import snitch
 
+from openprocurement.tender.core.tests.criteria_utils import add_criteria
 from openprocurement.tender.competitivedialogue.tests.base import (
     BaseCompetitiveDialogEUStage2ContentWebTest,
     BaseCompetitiveDialogUAStage2ContentWebTest,
@@ -12,6 +13,7 @@ from openprocurement.tender.competitivedialogue.tests.base import (
     test_tender_stage2_data_ua,
     test_tender_stage2_data_eu,
     test_author,
+    BaseCompetitiveDialogEUStage2WebTest,
 )
 from openprocurement.tender.openeu.tests.base import test_tender_data, test_lots, test_bids
 from openprocurement.tender.belowthreshold.tests.lot_blanks import (
@@ -169,7 +171,7 @@ class TenderStage2EULotFeatureBidderResourceTest(BaseCompetitiveDialogEUStage2Co
     test_create_tender_bidder = snitch(create_tender_with_features_bidder)
 
 
-class TenderStage2EULotProcessTest(BaseCompetitiveDialogEUWebTest):
+class TenderStage2EULotProcessTest(BaseCompetitiveDialogEUStage2WebTest):
     initial_data = test_tender_stage2_data_eu
     test_lots_data = test_lots  # TODO: change attribute identifier
     test_bids_data = test_bids  # TODO: change attribute identifier
@@ -222,6 +224,8 @@ class TenderStage2EULotProcessTest(BaseCompetitiveDialogEUWebTest):
             "/tenders/{id}?acc_token={token}".format(id=self.tender_id, token=self.tender_token),
             {"data": {"status": "draft.stage2"}},
         )
+
+        add_criteria(self)
 
         self.app.authorization = ("Basic", ("broker", ""))
         self.app.patch_json(
@@ -395,6 +399,7 @@ class TenderStage2UALotProcessTest(BaseCompetitiveDialogUAStage2ContentWebTest):
             {"data": {"status": "draft.stage2"}},
         )
 
+        add_criteria(self)
         self.app.authorization = ("Basic", ("broker", ""))
         self.app.patch_json(
             "/tenders/{id}?acc_token={token}".format(id=self.tender_id, token=self.tender_token),

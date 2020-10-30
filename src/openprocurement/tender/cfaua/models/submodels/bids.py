@@ -10,6 +10,7 @@ from openprocurement.tender.core.models import (
     bids_validation_wrapper,
     EUConfidentialDocument,
     ConfidentialDocumentModelType,
+    BidResponsesMixin,
 )
 from openprocurement.tender.cfaua.constants import BID_UNSUCCESSFUL_FROM
 from openprocurement.tender.cfaua.models.submodels.lotvalue import LotValue
@@ -44,13 +45,15 @@ class BidModelType(ModelType):
             return shaped
 
 
-class Bid(BaseBid):
+class Bid(BidResponsesMixin, BaseBid):
     class Options:
         _all_documents = whitelist("documents", "eligibilityDocuments", "financialDocuments", "qualificationDocuments")
-        _edit = whitelist("value", "lotValues", "parameters", "subcontractingDetails", "tenderers", "status")
+        _edit = whitelist("value", "lotValues", "parameters", "subcontractingDetails",
+                          "tenderers", "status", "requirementResponses")
         _create = _all_documents + _edit + {"selfEligible", "selfQualified"}
-        _open_view = _create + whitelist("id", "date", "participationUrl")
-        _qualification_view = whitelist("id", "status", "tenderers", "documents", "eligibilityDocuments")
+        _open_view = _create + whitelist("id", "date", "participationUrl", "requirementResponses")
+        _qualification_view = whitelist(
+            "id", "status", "tenderers", "documents", "eligibilityDocuments", "requirementResponses")
         roles = {
             "create": _create,
             "edit": _edit,
@@ -86,7 +89,7 @@ class Bid(BaseBid):
     qualificationDocuments = ListType(ConfidentialDocumentModelType(EUConfidentialDocument, required=True), default=list())
     lotValues = ListType(ModelType(LotValue, required=True), default=list())
     selfQualified = BooleanType(required=True, choices=[True])
-    selfEligible = BooleanType(required=True, choices=[True])
+    selfEligible = BooleanType(choices=[True])
     subcontractingDetails = StringType()
     parameters = ListType(ModelType(BidParameter, required=True), default=list(), validators=[validate_parameters_uniq])
     status = StringType(

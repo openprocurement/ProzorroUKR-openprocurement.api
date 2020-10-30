@@ -19,13 +19,13 @@ Content-Type: application/json; charset=UTF-8
     "procurementMethod": "open", 
     "mainProcurementCategory": "goods", 
     "complaintPeriod": {
-      "startDate": "2020-05-15T01:00:00+03:00", 
+      "startDate": "2020-04-20T01:00:00+03:00", 
       "endDate": "2020-06-10T00:00:00+03:00"
     }, 
     "enquiryPeriod": {
-      "startDate": "2020-05-15T01:00:00+03:00", 
-      "clarificationsUntil": "2020-06-11T00:00:00+03:00", 
-      "endDate": "2020-06-04T01:00:10+03:00", 
+      "startDate": "2020-04-20T01:00:00+03:00", 
+      "clarificationsUntil": "2020-06-10T00:00:00+03:00", 
+      "endDate": "2020-06-04T00:00:00+03:00", 
       "invalidationDate": "2020-05-15T01:00:00+03:00"
     }, 
     "submissionMethod": "electronicAuction", 
@@ -84,7 +84,7 @@ Content-Type: application/json; charset=UTF-8
     "dateModified": "2020-05-15T01:00:00+03:00", 
     "status": "active.tendering", 
     "tenderPeriod": {
-      "startDate": "2020-05-15T01:00:00+03:00", 
+      "startDate": "2020-04-20T01:00:00+03:00", 
       "endDate": "2020-06-14T01:00:10+03:00"
     }, 
     "title_en": "Cases for state awards", 
@@ -138,7 +138,7 @@ Content-Type: application/json; charset=UTF-8
           "startDate": "2018-06-27T13:39:09.362837+03:00", 
           "endDate": "2018-06-30T13:39:09.362837+03:00"
         }, 
-        "id": "c9f1001e9cf04ec9b6dba5517f0be455", 
+        "id": "0054e405b9d64563bb0437ddf2a830f8", 
         "unit": {
           "code": "44617100-9", 
           "name": "item"
@@ -172,7 +172,7 @@ Content-Type: application/json; charset=UTF-8
           "startDate": "2018-06-27T13:39:09.362837+03:00", 
           "endDate": "2018-06-30T13:39:09.362837+03:00"
         }, 
-        "id": "d2921287716245e095f67d91b9ceafa6", 
+        "id": "238443d82d0c43dab3543c1b3dd471b8", 
         "unit": {
           "code": "44617100-8", 
           "name": "item"

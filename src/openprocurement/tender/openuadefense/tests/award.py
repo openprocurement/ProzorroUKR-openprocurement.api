@@ -38,10 +38,11 @@ from openprocurement.tender.belowthreshold.tests.award_blanks import (
     patch_tender_lots_award_document,
     # TenderLotAwardResourceTest
     patch_tender_lot_award_lots_none,
+    create_tender_award_contract_data_document,
 )
 
 from openprocurement.tender.core.tests.base import change_auth
-from openprocurement.tender.openua.tests.base import test_bids
+from openprocurement.tender.openuadefense.tests.base import test_bids
 from openprocurement.tender.openua.tests.award_blanks import (
     # TenderAwardResourceTest
     create_tender_award,
@@ -321,6 +322,7 @@ class Tender2LotAwardDocumentResourceTest(TenderAwardPendingResourceTestCase):
     test_create_tender_award_document = snitch(create_tender_lots_award_document)
     test_put_tender_award_document = snitch(put_tender_lots_award_document)
     test_patch_tender_award_document = snitch(patch_tender_lots_award_document)
+    test_create_tender_award_contract_data_document = snitch(create_tender_award_contract_data_document)
 
 
 def suite():

@@ -6,6 +6,7 @@ from openprocurement.api.tests.base import snitch
 from openprocurement.tender.belowthreshold.tests.bid_blanks import (
     # TenderBidResourceTest
     patch_tender_with_bids_lots_none,
+    create_tender_bid_contract_data_document_json,
 )
 
 from openprocurement.tender.cfaselectionua.tests.base import (
@@ -14,6 +15,10 @@ from openprocurement.tender.cfaselectionua.tests.base import (
     test_lots,
     test_agreement_features,
     test_bids,
+)
+from openprocurement.tender.openua.tests.bid import (
+    TenderBidRequirementResponseTestMixin,
+    TenderBidRequirementResponseEvidenceTestMixin,
 )
 from openprocurement.tender.cfaselectionua.tests.bid_blanks import (
     # TenderBidResourceTest
@@ -42,6 +47,26 @@ from openprocurement.tender.cfaselectionua.tests.bid_blanks import (
     create_tender_bid_with_document,
     create_tender_bid_with_documents,
 )
+
+
+class CreateBidMixin(object):
+    base_bid_status = "draft"
+    def setUp(self):
+        super(CreateBidMixin, self).setUp()
+        # Create bid
+        response = self.app.post_json(
+            "/tenders/{}/bids".format(self.tender_id),
+            {
+                "data": {
+                    "status": self.base_bid_status,
+                    "tenderers": [test_organization],
+                    "lotValues": [{"value": {"amount": 500}, "relatedLot": self.initial_lots[0]["id"]}],
+                }
+            },
+        )
+        bid = response.json["data"]
+        self.bid_id = bid["id"]
+        self.bid_token = response.json["access"]["token"]
 
 
 class TenderBidResourceTest(TenderContentWebTest):
@@ -117,6 +142,8 @@ class TenderBidDocumentWithDSResourceTest(TenderBidDocumentResourceTest):
 
     test_create_tender_bid_document_json = snitch(create_tender_bid_document_json)
     test_put_tender_bid_document_json = snitch(put_tender_bid_document_json)
+    test_create_tender_bid_contract_data_document_json = snitch(create_tender_bid_contract_data_document_json)
+
 
 
 class TenderBidBatchDocumentWithDSResourceTest(TenderContentWebTest):
@@ -130,12 +157,34 @@ class TenderBidBatchDocumentWithDSResourceTest(TenderContentWebTest):
     test_create_tender_bid_with_documents = snitch(create_tender_bid_with_documents)
 
 
+class TenderBidRequirementResponseResourceTest(
+    TenderBidRequirementResponseTestMixin,
+    CreateBidMixin,
+    TenderContentWebTest,
+):
+    initial_lots = deepcopy(test_lots)
+    test_bids_data = test_bids
+    initial_status = "active.tendering"
+
+
+class TenderBidRequirementResponseEvidenceResourceTest(
+    TenderBidRequirementResponseEvidenceTestMixin,
+    CreateBidMixin,
+    TenderContentWebTest,
+):
+    initial_lots = deepcopy(test_lots)
+    test_bids_data = test_bids
+    initial_status = "active.tendering"
+
+
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(TenderBidDocumentResourceTest))
     suite.addTest(unittest.makeSuite(TenderBidDocumentWithDSResourceTest))
     suite.addTest(unittest.makeSuite(TenderBidFeaturesResourceTest))
     suite.addTest(unittest.makeSuite(TenderBidResourceTest))
+    suite.addTest(unittest.makeSuite(TenderBidRequirementResponseResourceTest))
+    suite.addTest(unittest.makeSuite(TenderBidRequirementResponseEvidenceResourceTest))
     return suite
 
 

@@ -1,6 +1,5 @@
 from uuid import uuid4
 from datetime import timedelta, datetime, time
-from iso8601 import parse_date
 from pyramid.security import Allow
 from zope.interface import implementer
 from schematics.types import StringType, MD5Type, BooleanType
@@ -8,7 +7,7 @@ from schematics.types.compound import ModelType
 from schematics.types.serializable import serializable
 from schematics.transforms import blacklist, whitelist, export_loop
 from schematics.exceptions import ValidationError
-from openprocurement.api.utils import get_now, get_first_revision_date
+from openprocurement.api.utils import get_now, get_first_revision_date, is_new_created
 from openprocurement.api.constants import TZ
 from openprocurement.api.auth import ACCR_3, ACCR_4, ACCR_5
 from openprocurement.api.models import (
@@ -26,7 +25,7 @@ from openprocurement.tender.core.models import (
     ITender,
     Bid as BaseBid,
     Contract as BaseContract,
-    Lot as BaseLot,
+    LotWithMinimalStepLimitsValidation as BaseLot,
     ConfidentialDocumentModelType,
     EUConfidentialDocument,
     EUDocument,
@@ -42,11 +41,16 @@ from openprocurement.tender.core.models import (
     default_lot_role,
     get_tender,
     validate_lots_uniq,
-    rounding_shouldStartAfter,
+    normalize_should_start_after,
     validate_parameters_uniq,
     bids_validation_wrapper,
     PROCURING_ENTITY_KINDS,
     QualificationMilestoneListMixin,
+    RequirementResponse,
+    BidResponsesMixin,
+
+    # validators
+    validate_response_requirement_uniq,
 )
 from openprocurement.tender.core.utils import (
     calculate_tender_business_date,
@@ -54,11 +58,16 @@ from openprocurement.tender.core.utils import (
     has_unanswered_questions,
     has_unanswered_complaints,
     calculate_complaint_business_date,
-    calculate_clarifications_business_date,
+    calculate_clarif_business_date,
+    check_auction_period,
+    calculate_tender_date,
     extend_next_check_by_complaint_period_ends,
 )
 from openprocurement.tender.belowthreshold.models import Tender as BaseTender
-from openprocurement.tender.core.validation import validate_lotvalue_value, validate_relatedlot
+from openprocurement.tender.core.validation import (
+    validate_lotvalue_value,
+    validate_relatedlot,
+)
 from openprocurement.tender.openua.models import (
     Complaint as BaseComplaint,
     Award as BaseAward,
@@ -67,13 +76,16 @@ from openprocurement.tender.openua.models import (
     Cancellation as BaseCancellation,
     Parameter,
 )
-from openprocurement.tender.openua.constants import COMPLAINT_SUBMIT_TIME, ENQUIRY_STAND_STILL_TIME, AUCTION_PERIOD_TIME
+from openprocurement.tender.openua.constants import COMPLAINT_SUBMIT_TIME, ENQUIRY_STAND_STILL_TIME
 from openprocurement.tender.openeu.constants import (
     TENDERING_DURATION,
     QUESTIONS_STAND_STILL,
     TENDERING_AUCTION,
     BID_UNSUCCESSFUL_FROM,
-    TENDERING_DAYS,
+)
+from openprocurement.tender.openua.validation import (
+    validate_tender_period_start_date,
+    validate_tender_period_duration,
 )
 
 
@@ -215,7 +227,7 @@ class TenderAuctionPeriod(Period):
             return
         start_after = None
         if tender.status == "active.tendering" and tender.tenderPeriod.endDate:
-            start_after = calculate_tender_business_date(tender.tenderPeriod.endDate, TENDERING_AUCTION, tender)
+            start_after = calculate_tender_date(tender.tenderPeriod.endDate, TENDERING_AUCTION, tender)
         elif self.startDate and get_now() > calc_auction_end_time(tender.numberOfBids, self.startDate):
             start_after = calc_auction_end_time(tender.numberOfBids, self.startDate)
         elif tender.qualificationPeriod and tender.qualificationPeriod.endDate:
@@ -230,7 +242,7 @@ class TenderAuctionPeriod(Period):
             decision_dates.append(tender.qualificationPeriod.endDate)
             start_after = max(decision_dates)
         if start_after:
-            return rounding_shouldStartAfter(start_after, tender).isoformat()
+            return normalize_should_start_after(start_after, tender).isoformat()
 
 
 class LotAuctionPeriod(Period):
@@ -242,14 +254,12 @@ class LotAuctionPeriod(Period):
             return
         tender = get_tender(self)
         lot = self.__parent__
-        if (
-            tender.status not in ["active.tendering", "active.pre-qualification.stand-still", "active.auction"]
-            or lot.status != "active"
-        ):
+        statuses = ["active.tendering", "active.pre-qualification.stand-still", "active.auction"]
+        if tender.status not in statuses or lot.status != "active":
             return
         start_after = None
         if tender.status == "active.tendering" and tender.tenderPeriod.endDate:
-            start_after = calculate_tender_business_date(tender.tenderPeriod.endDate, TENDERING_AUCTION, tender)
+            start_after = calculate_tender_date(tender.tenderPeriod.endDate, TENDERING_AUCTION, tender)
         elif self.startDate and get_now() > calc_auction_end_time(lot.numberOfBids, self.startDate):
             start_after = calc_auction_end_time(lot.numberOfBids, self.startDate)
         elif tender.qualificationPeriod and tender.qualificationPeriod.endDate:
@@ -264,7 +274,7 @@ class LotAuctionPeriod(Period):
             decision_dates.append(tender.qualificationPeriod.endDate)
             start_after = max(decision_dates)
         if start_after:
-            return rounding_shouldStartAfter(start_after, tender).isoformat()
+            return normalize_should_start_after(start_after, tender).isoformat()
 
 
 class Lot(BaseLot):
@@ -340,7 +350,7 @@ class LotValue(BaseLotValue):
             validate_relatedlot(get_tender(parent), relatedLot)
 
 
-class Bid(BaseBid):
+class Bid(BidResponsesMixin, BaseBid):
     class Options:
         roles = {
             "Administrator": Administrator_bid_role,
@@ -359,17 +369,26 @@ class Bid(BaseBid):
                 "financialDocuments",
                 "eligibilityDocuments",
                 "qualificationDocuments",
+                "requirementResponses",
             ),
-            "edit": whitelist("value", "tenderers", "parameters", "lotValues", "status", "subcontractingDetails"),
+            "edit": whitelist(
+                "value",
+                "tenderers",
+                "parameters",
+                "lotValues",
+                "status",
+                "subcontractingDetails",
+                "requirementResponses",
+            ),
             "auction_view": whitelist("value", "lotValues", "id", "date", "parameters", "participationUrl", "status"),
             "auction_post": whitelist("value", "lotValues", "id", "date"),
             "auction_patch": whitelist("id", "lotValues", "participationUrl"),
             "active.enquiries": whitelist(),
             "active.tendering": whitelist(),
-            "active.pre-qualification": whitelist("id", "status", "documents", "eligibilityDocuments", "tenderers"),
+            "active.pre-qualification": whitelist(
+                "id", "status", "documents", "eligibilityDocuments", "tenderers", "requirementResponses"),
             "active.pre-qualification.stand-still": whitelist(
-                "id", "status", "documents", "eligibilityDocuments", "tenderers"
-            ),
+                "id", "status", "documents", "eligibilityDocuments", "tenderers", "requirementResponses"),
             "active.auction": whitelist("id", "status", "documents", "eligibilityDocuments", "tenderers"),
             "active.qualification": view_bid_role,
             "active.awarded": view_bid_role,
@@ -385,10 +404,12 @@ class Bid(BaseBid):
                 "selfQualified",
                 "selfEligible",
                 "subcontractingDetails",
+                "requirementResponses",
             ),
             "cancelled": view_bid_role,
             "invalid": whitelist("id", "status"),
-            "invalid.pre-qualification": whitelist("id", "status", "documents", "eligibilityDocuments", "tenderers"),
+            "invalid.pre-qualification": whitelist(
+                "id", "status", "documents", "eligibilityDocuments", "tenderers", "requirementResponses"),
             "deleted": whitelist("id", "status"),
         }
 
@@ -398,7 +419,7 @@ class Bid(BaseBid):
     qualificationDocuments = ListType(ConfidentialDocumentModelType(EUConfidentialDocument, required=True), default=list())
     lotValues = ListType(ModelType(LotValue, required=True), default=list())
     selfQualified = BooleanType(required=True, choices=[True])
-    selfEligible = BooleanType(required=True, choices=[True])
+    selfEligible = BooleanType(choices=[True])
     subcontractingDetails = StringType()
     parameters = ListType(ModelType(Parameter, required=True), default=list(), validators=[validate_parameters_uniq])
     status = StringType(
@@ -476,7 +497,7 @@ class Qualification(QualificationMilestoneListMixin):
 
     class Options:
         roles = {
-            "create": blacklist("id", "status", "documents", "date"),
+            "create": blacklist("id", "status", "documents", "date", "requirementResponses"),
             "edit": whitelist(
                 "status",
                 "qualified",
@@ -487,6 +508,7 @@ class Qualification(QualificationMilestoneListMixin):
                 "description",
                 "description_en",
                 "description_ru",
+                "requirementResponses",
             ),
             "embedded": schematics_embedded_role,
             "view": schematics_default_role,
@@ -507,6 +529,11 @@ class Qualification(QualificationMilestoneListMixin):
     complaints = ListType(ModelType(Complaint, required=True), default=list())
     qualified = BooleanType(default=False)
     eligible = BooleanType(default=False)
+
+    requirementResponses = ListType(
+        ModelType(RequirementResponse, required=True),
+        default=list()
+    )
 
     def validate_qualified(self, data, qualified):
         if data["status"] == "active" and not qualified:
@@ -650,29 +677,34 @@ class Tender(BaseTender):
                 (Allow, "{}_{}".format(self.owner, self.owner_token), "edit_complaint"),
                 (Allow, "{}_{}".format(self.owner, self.owner_token), "edit_contract"),
                 (Allow, "{}_{}".format(self.owner, self.owner_token), "upload_contract_documents"),
+                (Allow, "{}_{}".format(self.owner, self.owner_token), "upload_qualification_documents"),
             ]
         )
 
         self._acl_cancellation_complaint(acl)
         return acl
 
+    def validate_enquiryPeriod(self, data, period):
+        # for deactivate validation to enquiryPeriod from parent class
+        return
+
     @serializable(serialized_name="enquiryPeriod", type=ModelType(EnquiryPeriod))
     def tender_enquiryPeriod(self):
-        endDate = calculate_tender_business_date(self.tenderPeriod.endDate, -QUESTIONS_STAND_STILL, self)
-        clarificationsUntil = calculate_clarifications_business_date(endDate, ENQUIRY_STAND_STILL_TIME, self, True)
+        end_date = calculate_tender_business_date(self.tenderPeriod.endDate, -QUESTIONS_STAND_STILL, self)
+        clarifications_until = calculate_clarif_business_date(end_date, ENQUIRY_STAND_STILL_TIME, self, True)
         return EnquiryPeriod(
             dict(
                 startDate=self.tenderPeriod.startDate,
-                endDate=endDate,
+                endDate=end_date,
                 invalidationDate=self.enquiryPeriod and self.enquiryPeriod.invalidationDate,
-                clarificationsUntil=clarificationsUntil,
+                clarificationsUntil=clarifications_until,
             )
         )
 
     @serializable(type=ModelType(Period))
     def complaintPeriod(self):
-        endDate = calculate_complaint_business_date(self.tenderPeriod.endDate, -COMPLAINT_SUBMIT_TIME, self)
-        return Period(dict(startDate=self.tenderPeriod.startDate, endDate=endDate))
+        end_date = calculate_complaint_business_date(self.tenderPeriod.endDate, -COMPLAINT_SUBMIT_TIME, self)
+        return Period(dict(startDate=self.tenderPeriod.startDate, endDate=end_date))
 
     @serializable(serialize_when_none=False)
     def next_check(self):
@@ -709,8 +741,12 @@ class Tender(BaseTender):
         ):
             if now < self.auctionPeriod.startDate:
                 checks.append(self.auctionPeriod.startDate.astimezone(TZ))
-            elif now < calc_auction_end_time(self.numberOfBids, self.auctionPeriod.startDate).astimezone(TZ):
-                checks.append(calc_auction_end_time(self.numberOfBids, self.auctionPeriod.startDate).astimezone(TZ))
+            else:
+                auction_end_time = calc_auction_end_time(
+                    self.numberOfBids, self.auctionPeriod.startDate
+                ).astimezone(TZ)
+                if now < auction_end_time:
+                    checks.append(auction_end_time)
         elif self.lots and self.status == "active.auction":
             for lot in self.lots:
                 if (
@@ -722,8 +758,12 @@ class Tender(BaseTender):
                     continue
                 if now < lot.auctionPeriod.startDate:
                     checks.append(lot.auctionPeriod.startDate.astimezone(TZ))
-                elif now < calc_auction_end_time(lot.numberOfBids, lot.auctionPeriod.startDate).astimezone(TZ):
-                    checks.append(calc_auction_end_time(lot.numberOfBids, lot.auctionPeriod.startDate).astimezone(TZ))
+                else:
+                    auction_end_time = calc_auction_end_time(
+                        lot.numberOfBids, lot.auctionPeriod.startDate
+                    ).astimezone(TZ)
+                    if now < auction_end_time:
+                        checks.append(auction_end_time)
         elif (
             not self.lots
             and self.status == "active.awarded"
@@ -766,7 +806,7 @@ class Tender(BaseTender):
                     and last_award_status == "unsuccessful"
                 ):
                     checks.append(max(standStillEnds))
-        if self.status.startswith("active"):
+        if self.status and self.status.startswith("active"):
             for award in self.awards:
                 if award.status == "active" and not any([i.awardID == award.id for i in self.contracts]):
                     checks.append(award.date)
@@ -776,11 +816,9 @@ class Tender(BaseTender):
         return min(checks).isoformat() if checks else None
 
     def validate_tenderPeriod(self, data, period):
-        # if data['_rev'] is None when tender was created just now
-        if not data["_rev"] and calculate_tender_business_date(get_now(), -timedelta(minutes=10)) >= period.startDate:
-            raise ValidationError(u"tenderPeriod.startDate should be in greater than current date")
-        if period and calculate_tender_business_date(period.startDate, TENDERING_DURATION, data) > period.endDate:
-            raise ValidationError(u"tenderPeriod should be greater than {} days".format(TENDERING_DAYS))
+        if is_new_created(data):
+            validate_tender_period_start_date(data, period)
+        validate_tender_period_duration(data, period, TENDERING_DURATION)
 
     @serializable
     def numberOfBids(self):
@@ -788,26 +826,10 @@ class Tender(BaseTender):
         return len([bid for bid in self.bids if bid.status in ("active", "pending")])
 
     def check_auction_time(self):
-        if (
-            self.auctionPeriod
-            and self.auctionPeriod.startDate
-            and self.auctionPeriod.shouldStartAfter
-            and self.auctionPeriod.startDate
-            > calculate_tender_business_date(
-                parse_date(self.auctionPeriod.shouldStartAfter), AUCTION_PERIOD_TIME, self, True
-            )
-        ):
+        if check_auction_period(self.auctionPeriod, self):
             self.auctionPeriod.startDate = None
         for lot in self.lots:
-            if (
-                lot.auctionPeriod
-                and lot.auctionPeriod.startDate
-                and lot.auctionPeriod.shouldStartAfter
-                and lot.auctionPeriod.startDate
-                > calculate_tender_business_date(
-                    parse_date(lot.auctionPeriod.shouldStartAfter), AUCTION_PERIOD_TIME, self, True
-                )
-            ):
+            if check_auction_period(lot.auctionPeriod, self):
                 lot.auctionPeriod.startDate = None
 
     def invalidate_bids_data(self):

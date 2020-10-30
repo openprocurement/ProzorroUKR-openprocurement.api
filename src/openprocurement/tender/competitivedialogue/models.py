@@ -32,10 +32,11 @@ from openprocurement.tender.core.models import (
     validate_lots_uniq,
     Lot as BaseLotUA,
     EUConfidentialDocument,
+    ConfidentialDocumentModelType,
 )
 from openprocurement.tender.core.utils import calculate_tender_business_date
 from openprocurement.tender.openua.models import Item as BaseUAItem, Tender as BaseTenderUA
-from openprocurement.tender.openua.constants import TENDER_PERIOD as TENDERING_DURATION_UA
+from openprocurement.tender.openua.constants import TENDERING_DURATION as TENDERING_DURATION_UA
 from openprocurement.tender.openeu.models import (
     Administrator_bid_role,
     view_bid_role,
@@ -117,12 +118,14 @@ class Bid(BidEU):
                 "selfEligible",
                 "subcontractingDetails",
                 "documents",
+                "requirementResponses",
             ),
-            "edit": whitelist("tenderers", "lotValues", "status", "subcontractingDetails"),
+            "edit": whitelist("tenderers", "lotValues", "status", "subcontractingDetails", "requirementResponses"),
             "active.enquiries": whitelist(),
             "active.tendering": whitelist(),
-            "active.pre-qualification": whitelist("id", "status", "documents", "tenderers"),
-            "active.pre-qualification.stand-still": whitelist("id", "status", "documents", "tenderers"),
+            "active.pre-qualification": whitelist("id", "status", "documents", "tenderers", "requirementResponses"),
+            "active.pre-qualification.stand-still": whitelist(
+                "id", "status", "documents", "tenderers", "requirementResponses"),
             "active.auction": whitelist("id", "status", "documents", "tenderers"),
             "active.stage2.pending": whitelist("id", "status", "documents", "tenderers"),
             "active.stage2.waiting": whitelist("id", "status", "documents", "tenderers"),
@@ -134,7 +137,7 @@ class Bid(BidEU):
             "deleted": whitelist("id", "status"),
         }
 
-    documents = ListType(ModelType(Document, required=True), default=list())
+    documents = ListType(ConfidentialDocumentModelType(Document, required=True), default=list())
     value = None
     lotValues = ListType(ModelType(LotValue, required=True), default=list())
 
@@ -321,6 +324,7 @@ class CompetitiveDialogEU(BaseTenderEU):
                 (Allow, "g:competitive_dialogue", "extract_credentials"),
                 (Allow, "g:competitive_dialogue", "edit_tender"),
                 (Allow, "{}_{}".format(self.owner, self.owner_token), "edit_cancellation"),
+                (Allow, "{}_{}".format(self.owner, self.owner_token), "upload_qualification_documents"),
             ]
         )
 
@@ -364,11 +368,12 @@ class CompetitiveDialogUA(CompetitiveDialogEU):
 # stage 2 models
 
 
-def init_PeriodStartEndRequired(tendering_duration):
+def default_period(tendering_duration):
     def wrapper():
-        return PeriodStartEndRequired(
-            {"startDate": get_now(), "endDate": calculate_tender_business_date(get_now(), tendering_duration)}
-        )
+        return PeriodStartEndRequired({
+            "startDate": get_now(),
+            "endDate": calculate_tender_business_date(get_now(), tendering_duration)
+        })
 
     return wrapper
 
@@ -379,8 +384,9 @@ def stage2__acl__(obj):
         (Allow, "{}_{}".format(obj.owner, obj.owner_token), "edit_complaint"),
         (Allow, "{}_{}".format(obj.owner, obj.owner_token), "edit_contract"),
         (Allow, "{}_{}".format(obj.owner, obj.owner_token), "upload_contract_documents"),
+        (Allow, "{}_{}".format(obj.owner, obj.owner_token), "upload_qualification_documents"),
         (Allow, "g:competitive_dialogue", "edit_tender"),
-        (Allow, "g:competitive_dialogue", "edit_cancellation")
+        (Allow, "g:competitive_dialogue", "edit_cancellation"),
     ]
     acl.extend(
         [
@@ -482,7 +488,7 @@ class TenderStage2EU(BaseTenderEU):
     dialogueID = StringType()
     shortlistedFirms = ListType(ModelType(Firms, required=True), min_size=3, required=True)
     tenderPeriod = ModelType(
-        PeriodStartEndRequired, required=False, default=init_PeriodStartEndRequired(TENDERING_DURATION_EU)
+        PeriodStartEndRequired, required=False, default=default_period(TENDERING_DURATION_EU)
     )
     status = StringType(
         choices=[
@@ -607,7 +613,7 @@ class TenderStage2UA(BaseTenderUA):
     dialogueID = StringType()
     shortlistedFirms = ListType(ModelType(Firms, required=True), min_size=3, required=True)
     tenderPeriod = ModelType(
-        PeriodStartEndRequired, required=False, default=init_PeriodStartEndRequired(TENDERING_DURATION_UA)
+        PeriodStartEndRequired, required=False, default=default_period(TENDERING_DURATION_UA)
     )
     status = StringType(
         choices=[

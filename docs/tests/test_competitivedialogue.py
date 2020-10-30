@@ -3,8 +3,10 @@ import os
 from datetime import timedelta
 from hashlib import sha512
 from copy import deepcopy
+from mock import patch
 
 from openprocurement.api.models import get_now
+from openprocurement.tender.competitivedialogue.models import TenderStage2EU, CompetitiveDialogEU
 from openprocurement.tender.competitivedialogue.tests.base import (
     BaseCompetitiveDialogEUWebTest,
     BaseCompetitiveDialogUAStage2WebTest
@@ -77,6 +79,8 @@ class TenderResourceTest(BaseCompetitiveDialogEUWebTest, MockWebTestMixin):
         super(TenderResourceTest, self).tearDown()
 
     def test_stage1(self):
+        self.tender_class = CompetitiveDialogEU
+
         request_path = '/tenders?opt_pretty=1'
 
         #### Exploring basic rules
@@ -130,11 +134,11 @@ class TenderResourceTest(BaseCompetitiveDialogEUWebTest, MockWebTestMixin):
         #### Modifying tender
 
         # Update endDate
-        tenderPeriod_endDate = get_now() + timedelta(days=30, seconds=10)
+        tender_period_end_date = get_now() + timedelta(days=31)
         with open(TARGET_DIR + 'patch-items-value-periods.http', 'w') as self.app.file_obj:
             response = self.app.patch_json(
                 '/tenders/{}?acc_token={}'.format(tender['id'], owner_token),
-                {'data': {"tenderPeriod": {"endDate": tenderPeriod_endDate.isoformat()}}})
+                {'data': {"tenderPeriod": {"endDate": tender_period_end_date.isoformat()}}})
 
         # Show listing after tender patch
         with open(TARGET_DIR + 'tender-listing-after-patch.http', 'w') as self.app.file_obj:
@@ -216,7 +220,7 @@ class TenderResourceTest(BaseCompetitiveDialogEUWebTest, MockWebTestMixin):
                 self.tender_id, question_id))
             self.assertEqual(response.status, '200 OK')
 
-        self.time_shift('enquiryPeriod_ends')
+        self.set_enquiry_period_end()
         self.app.authorization = ('Basic', ('broker', ''))
 
         with open(TARGET_DIR + 'update-tender-after-enqiery.http', 'w') as self.app.file_obj:
@@ -233,7 +237,7 @@ class TenderResourceTest(BaseCompetitiveDialogEUWebTest, MockWebTestMixin):
             self.assertEqual(response.status, '403 Forbidden')
 
         with open(TARGET_DIR + 'update-tender-after-enqiery-with-update-periods.http', 'w') as self.app.file_obj:
-            tenderPeriod_endDate = get_now() + timedelta(days=8)
+            tender_period_end_date = get_now() + timedelta(days=8)
             response = self.app.patch_json(
                 '/tenders/{}?acc_token={}'.format(tender['id'], owner_token),
                 {'data': {
@@ -241,7 +245,7 @@ class TenderResourceTest(BaseCompetitiveDialogEUWebTest, MockWebTestMixin):
                         'amount': 501,
                         'currency': u'UAH'
                     },
-                    'tenderPeriod': {'endDate': tenderPeriod_endDate.isoformat()}
+                    'tenderPeriod': {'endDate': tender_period_end_date.isoformat()}
                 }})
             self.assertEqual(response.status, '200 OK')
 
@@ -498,13 +502,17 @@ class TenderResourceTest(BaseCompetitiveDialogEUWebTest, MockWebTestMixin):
             self.new_tender_token = response.json['access']['token']
 
         with open(TARGET_DIR + 'tender_stage2_modify_status.http', 'w') as self.app.file_obj:
-            response = self.app.patch_json(
-                '/tenders/{}?acc_token={}'.format(new_tender_id, self.new_tender_token),
-                {'data': {'status': 'active.tendering'}})
-            self.assertEqual(response.status, '200 OK')
-            self.assertEqual(response.json['data']['status'], 'active.tendering')
+            with patch("openprocurement.tender.core.validation.RELEASE_ECRITERIA_ARTICLE_17",
+                       get_now() + timedelta(days=1)):
+                response = self.app.patch_json(
+                    '/tenders/{}?acc_token={}'.format(new_tender_id, self.new_tender_token),
+                    {'data': {'status': 'active.tendering'}})
+                self.assertEqual(response.status, '200 OK')
+                self.assertEqual(response.json['data']['status'], 'active.tendering')
 
     def test_stage2_EU(self):
+        self.tender_class = TenderStage2EU
+
         request_path = '/tenders?opt_pretty=1'
 
         #### Creating tender
@@ -530,16 +538,18 @@ class TenderResourceTest(BaseCompetitiveDialogEUWebTest, MockWebTestMixin):
 
         #### Modifying tender
 
-        tenderPeriod_endDate = get_now() + timedelta(days=30, seconds=10)
+        tender_period_end_date = get_now() + timedelta(days=31)
         with open(TARGET_DIR + 'stage2/EU/patch-tender-periods.http', 'w') as self.app.file_obj:
             response = self.app.patch_json(
                 '/tenders/{}?acc_token={}'.format(self.tender_id, owner_token),
-                {'data': {'tenderPeriod': {'endDate': tenderPeriod_endDate.isoformat()}}})
+                {'data': {'tenderPeriod': {'endDate': tender_period_end_date.isoformat()}}})
 
         with open(TARGET_DIR + 'stage2/EU/tender-activate.http', 'w') as self.app.file_obj:
-            response = self.app.patch_json(
-                '/tenders/{}?acc_token={}'.format(self.tender_id, owner_token),
-                {'data': {'status': 'active.tendering'}})
+            with patch("openprocurement.tender.core.validation.RELEASE_ECRITERIA_ARTICLE_17",
+                       get_now() + timedelta(days=1)):
+                response = self.app.patch_json(
+                    '/tenders/{}?acc_token={}'.format(self.tender_id, owner_token),
+                    {'data': {'status': 'active.tendering'}})
 
         response = self.app.get('/tenders')
         with open(TARGET_DIR + 'stage2/EU/tender-listing-after-patch.http', 'w') as self.app.file_obj:
@@ -620,13 +630,14 @@ class TenderResourceTest(BaseCompetitiveDialogEUWebTest, MockWebTestMixin):
             response = self.app.get('/tenders/{}/questions/{}'.format(self.tender_id, question_id))
             self.assertEqual(response.status, '200 OK')
 
-        self.time_shift('enquiryPeriod_ends', {'items': [{"deliveryDate": {
+        extra = {'items': [{"deliveryDate": {
             "startDate": (get_now() + timedelta(days=20)).isoformat(),
             "endDate": (get_now() + timedelta(days=50)).isoformat()
-        }}]})
+        }}]}
+        self.time_shift('active.tendering', extra=extra, startend="enquiry_end")
         self.app.authorization = ('Basic', ('broker', ''))
         response = self.app.get('/tenders/{}?acc_token={}'.format(tender['id'], owner_token))
-        endDate = (get_now() + timedelta(days=30, seconds=10)).isoformat()
+        endDate = (get_now() + timedelta(days=31)).isoformat()
 
         with open(TARGET_DIR + 'stage2/EU/update-tender-after-enqiery.http', 'w') as self.app.file_obj:
             response = self.app.patch_json(
@@ -642,12 +653,12 @@ class TenderResourceTest(BaseCompetitiveDialogEUWebTest, MockWebTestMixin):
 
         with open(TARGET_DIR + 'stage2/EU/update-tender-after-enqiery-with-update-periods.http',
                   'w') as self.app.file_obj:
-            tenderPeriod_endDate = get_now() + timedelta(days=8)
+            tender_period_end_date = get_now() + timedelta(days=8)
             response = self.app.patch_json(
                 '/tenders/{}?acc_token={}'.format(tender['id'], owner_token),
                 {'data': {
                     'items': [{'deliveryDate': {'endDate': endDate}}],
-                    'tenderPeriod': {'endDate': tenderPeriod_endDate.isoformat()}
+                    'tenderPeriod': {'endDate': tender_period_end_date.isoformat()}
                 }})
             self.assertEqual(response.status, '200 OK')
 
@@ -1113,7 +1124,6 @@ class TenderResourceTest(BaseCompetitiveDialogEUWebTest, MockWebTestMixin):
             response = self.app.post_json(
                 '/tenders/{}/bids'.format(tender_id),
                 {'data': {
-                    'selfEligible': True,
                     'selfQualified': True,
                     'tenderers': bid["tenderers"],
                     'lotValues': [{
@@ -1129,7 +1139,6 @@ class TenderResourceTest(BaseCompetitiveDialogEUWebTest, MockWebTestMixin):
             response = self.app.post_json(
                 '/tenders/{}/bids'.format(tender_id),
                 {'data': {
-                    'selfEligible': True,
                     'selfQualified': True,
                     'tenderers': bid2['tenderers'],
                     'lotValues': [{
@@ -1147,7 +1156,6 @@ class TenderResourceTest(BaseCompetitiveDialogEUWebTest, MockWebTestMixin):
             response = self.app.post_json(
                 '/tenders/{}/bids'.format(tender_id),
                 {'data': {
-                    'selfEligible': True,
                     'selfQualified': True,
                     'tenderers': bid3['tenderers'],
                     'lotValues': [{
@@ -1316,7 +1324,6 @@ class TenderResourceTest(BaseCompetitiveDialogEUWebTest, MockWebTestMixin):
             response = self.app.post_json(
                 '/tenders/{}/bids'.format(new_tender_id),
                 {'data': {
-                    'selfEligible': True,
                     'selfQualified': True,
                     'tenderers': bid_with_bad_participant['tenderers'],
                     'lotValues': [{
@@ -1331,7 +1338,6 @@ class TenderResourceTest(BaseCompetitiveDialogEUWebTest, MockWebTestMixin):
             response = self.app.post_json(
                 '/tenders/{}/bids'.format(new_tender_id),
                 {'data': {
-                    'selfEligible': True,
                     'selfQualified': True,
                     'tenderers': bid['tenderers'],
                     'lotValues': [{
@@ -1346,7 +1352,6 @@ class TenderResourceTest(BaseCompetitiveDialogEUWebTest, MockWebTestMixin):
             response = self.app.post_json(
                 '/tenders/{}/bids'.format(new_tender_id),
                 {'data': {
-                    'selfEligible': True,
                     'selfQualified': True,
                     'tenderers': bid['tenderers'],
                     'lotValues': [{
@@ -1402,16 +1407,18 @@ class TenderResourceTestStage2UA(BaseCompetitiveDialogUAStage2WebTest, MockWebTe
 
         #### Modifying tender
 
-        tenderPeriod_endDate = get_now() + timedelta(days=30, seconds=10)
+        tender_period_end_date = get_now() + timedelta(days=31)
         with open(TARGET_DIR + 'stage2/UA/patch-tender-periods.http', 'w') as self.app.file_obj:
             response = self.app.patch_json(
                 '/tenders/{}?acc_token={}'.format(self.tender_id, owner_token),
-                {'data': {'tenderPeriod': {'endDate': tenderPeriod_endDate.isoformat()}}})
+                {'data': {'tenderPeriod': {'endDate': tender_period_end_date.isoformat()}}})
 
         with open(TARGET_DIR + 'stage2/UA/tender-activate.http', 'w') as self.app.file_obj:
-            response = self.app.patch_json(
-                '/tenders/{}?acc_token={}'.format(self.tender_id, owner_token),
-                {'data': {'status': 'active.tendering'}})
+            with patch("openprocurement.tender.core.validation.RELEASE_ECRITERIA_ARTICLE_17",
+                       get_now() + timedelta(days=1)):
+                response = self.app.patch_json(
+                    '/tenders/{}?acc_token={}'.format(self.tender_id, owner_token),
+                    {'data': {'status': 'active.tendering'}})
 
         with open(TARGET_DIR + 'stage2/UA/tender-listing-after-patch.http', 'w') as self.app.file_obj:
             self.app.authorization = None
@@ -1492,7 +1499,7 @@ class TenderResourceTestStage2UA(BaseCompetitiveDialogUAStage2WebTest, MockWebTe
 
         self.set_enquiry_period_end()
         self.app.authorization = ('Basic', ('broker', ''))
-        endDate = (get_now() + timedelta(days=30, seconds=10)).isoformat()
+        endDate = (get_now() + timedelta(days=31)).isoformat()
         with open(TARGET_DIR + 'stage2/UA/update-tender-after-enqiery.http', 'w') as self.app.file_obj:
             response = self.app.patch_json(
                 '/tenders/{}?acc_token={}'.format(tender['id'], owner_token),
@@ -1507,12 +1514,12 @@ class TenderResourceTestStage2UA(BaseCompetitiveDialogUAStage2WebTest, MockWebTe
 
         with open(TARGET_DIR + 'stage2/UA/update-tender-after-enqiery-with-update-periods.http',
                   'w') as self.app.file_obj:
-            tenderPeriod_endDate = get_now() + timedelta(days=8)
+            tender_period_end_date = get_now() + timedelta(days=8)
             response = self.app.patch_json(
                 '/tenders/{}?acc_token={}'.format(tender['id'], owner_token),
                 {'data': {
                     'items': [{'deliveryDate': {'endDate': endDate}}],
-                    'tenderPeriod': {'endDate': tenderPeriod_endDate.isoformat()}
+                    'tenderPeriod': {'endDate': tender_period_end_date.isoformat()}
                 }})
             self.assertEqual(response.status, '200 OK')
 

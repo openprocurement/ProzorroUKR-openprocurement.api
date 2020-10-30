@@ -2,9 +2,9 @@
 from uuid import uuid4
 from datetime import timedelta, time, datetime
 from openprocurement.api.models import OpenprocurementSchematicsDocument, BusinessOrganization, Guarantee
-from schematics.transforms import whitelist, blacklist, export_loop
 from zope.interface import implementer
 from pyramid.security import Allow
+from schematics.transforms import whitelist, blacklist, export_loop
 from schematics.exceptions import ValidationError
 from schematics.types.compound import ModelType, DictType
 from schematics.types.serializable import serializable
@@ -22,17 +22,21 @@ from openprocurement.api.models import (
     IsoDateTimeType,
     ListType,
     Document as BaseDocument,
+    Classification as BaseClassification,
     CPVClassification,
     Location,
     Contract as BaseContract,
     Value,
     PeriodEndRequired as BasePeriodEndRequired,
 )
-from openprocurement.api.models import Item as BaseItem
+from openprocurement.api.models import Item as BaseItem, Reference
 from openprocurement.api.models import schematics_default_role, schematics_embedded_role
 from openprocurement.api.validation import validate_items_uniq
 from openprocurement.api.utils import (
-    get_now, get_first_revision_date, get_root, generate_docservice_url,
+    generate_docservice_url,
+    get_now,
+    get_first_revision_date,
+    get_root,
     get_uah_amount_from_value,
 )
 from openprocurement.api.constants import (
@@ -45,23 +49,33 @@ from openprocurement.api.constants import (
     MILESTONES_VALIDATION_FROM,
     RELEASE_2020_04_19,
     COMPLAINT_IDENTIFIER_REQUIRED_FROM,
+    CPV_ITEMS_CLASS_FROM,
+    RELEASE_ECRITERIA_ARTICLE_17,
 )
 from openprocurement.api.auth import ACCR_1, ACCR_2, ACCR_5
 
 from openprocurement.tender.core.constants import (
     CANT_DELETE_PERIOD_START_DATE_FROM,
     BID_LOTVALUES_VALIDATION_FROM,
-    CPV_ITEMS_CLASS_FROM,
-    COMPLAINT_AMOUNT_RATE, COMPLAINT_MIN_AMOUNT, COMPLAINT_MAX_AMOUNT,
-    COMPLAINT_ENHANCED_AMOUNT_RATE, COMPLAINT_ENHANCED_MIN_AMOUNT, COMPLAINT_ENHANCED_MAX_AMOUNT,
+    COMPLAINT_AMOUNT_RATE,
+    COMPLAINT_MIN_AMOUNT,
+    COMPLAINT_MAX_AMOUNT,
+    COMPLAINT_ENHANCED_AMOUNT_RATE,
+    COMPLAINT_ENHANCED_MIN_AMOUNT,
+    COMPLAINT_ENHANCED_MAX_AMOUNT,
 )
 from openprocurement.tender.core.utils import (
-    calc_auction_end_time, rounding_shouldStartAfter,
-    restrict_value_to_bounds, round_up_to_ten,
-    get_contract_supplier_roles, get_contract_supplier_permissions,
-    calculate_tender_business_date,
-    calculate_complaint_business_date,
+    normalize_should_start_after,
+    calc_auction_end_time,
+    restrict_value_to_bounds,
+    round_up_to_ten,
+    get_contract_supplier_roles,
+    get_contract_supplier_permissions,
+    calculate_tender_date,
     prepare_award_milestones,
+    check_skip_award_complaint_period,
+    calculate_complaint_business_date,
+    get_all_nested_from_the_object,
 )
 from openprocurement.tender.core.validation import (
     validate_lotvalue_value,
@@ -71,6 +85,10 @@ from openprocurement.tender.core.validation import (
     validate_milestones,
     validate_bid_value,
     validate_relatedlot,
+    validate_value_type,
+    validate_requirement_values,
+    validate_minimalstep_limits,
+    validate_econtract_documents,
 )
 from openprocurement.tender.esco.utils import get_complaint_amount as get_esco_complaint_amount
 from openprocurement.planning.api.models import BaseOrganization
@@ -130,7 +148,7 @@ class TenderAuctionPeriod(Period):
             start_after = calc_auction_end_time(tender.numberOfBids, self.startDate)
         else:
             start_after = tender.tenderPeriod.endDate
-        return rounding_shouldStartAfter(start_after, tender).isoformat()
+        return normalize_should_start_after(start_after, tender).isoformat()
 
 
 class ComplaintModelType(ModelType):
@@ -160,10 +178,14 @@ class ComplaintModelType(ModelType):
 
 
 class Document(BaseDocument):
-    documentOf = StringType(required=True, choices=["tender", "item", "lot"], default="tender")
+    format = StringType(regex="^[-\w]+/[-\.\w\+]+$")
+    url = StringType()
+    documentOf = StringType(required=True, choices=[
+                            "tender", "item", "lot",  "document"], default="tender")
+    templateId = StringType()
 
     def validate_relatedItem(self, data, relatedItem):
-        if not relatedItem and data.get("documentOf") in ["item", "lot"]:
+        if not relatedItem and data.get("documentOf") in ["item", "lot", "document"]:
             raise ValidationError(u"This field is required.")
         parent = data["__parent__"]
         if relatedItem and isinstance(parent, Model):
@@ -172,6 +194,25 @@ class Document(BaseDocument):
                 raise ValidationError(u"relatedItem should be one of lots")
             if data.get("documentOf") == "item" and relatedItem not in [i.id for i in tender.items if i]:
                 raise ValidationError(u"relatedItem should be one of items")
+            if data.get("documentOf") == "document":
+                documents = get_all_nested_from_the_object("documents",tender) + get_all_nested_from_the_object("documents",parent)
+                if relatedItem not in [i.id for i in documents]:
+                    raise ValidationError(u"relatedItem should be one of documents")
+
+    def validate_templateId(self, data, templateId):
+        document_type = data.get("documentType")
+        if document_type and document_type == "contractProforma" and not templateId:
+            raise ValidationError(u"templateId is required for documentType 'contractProforma'")
+        elif document_type and document_type != "contractProforma" and templateId:
+            raise ValidationError(u"Rogue field")
+
+    def validate_url(self, data, url):
+        if not url and data.get("documentType", "") != "contractProforma":
+            raise ValidationError(u"This field is required")
+
+    def validate_format(self, data, format):
+        if not format and data.get("documentType", "") != "contractProforma":
+            raise ValidationError(u"This field is required.")
 
 
 class ConfidentialDocumentModelType(ModelType):
@@ -299,6 +340,35 @@ def bids_validation_wrapper(validation_func):
     return validator
 
 
+def bids_response_validation_wrapper(validation_func):
+    def validator(klass, data, value):
+        orig_data = data
+        while not isinstance(data["__parent__"], Tender):
+            # in case this validation wrapper is used for subelement of bid (such as response)
+            # traverse back to the bid to get possibility to check status  # troo-to-to =)
+            data = data["__parent__"]
+
+        tender = data["__parent__"]
+        request = tender.__parent__.request
+
+        # TODO: find better solution for check if object created
+        if (
+            not isinstance(data, (Bid, dict))
+            or (request.method == "POST" and request.authenticated_role == "bid_owner" and data["status"] == "draft")
+        ):
+            return validation_func(klass, orig_data, value)
+
+        if data["status"] in ("deleted", "invalid", "invalid.pre-qualification", "unsuccessful", "draft"):
+            # skip not valid bids
+            return
+        if request.method == "PATCH" and isinstance(tender, Tender) and request.authenticated_role == "tender_owner":
+            # disable bids validation on tender PATCH requests as tender bids will be invalidated
+            return
+        return validation_func(klass, orig_data, value)
+
+    return validator
+
+
 def validate_dkpp(items, *args):
     if items and not any([i.scheme in ADDITIONAL_CLASSIFICATIONS_SCHEMES for i in items]):
         raise ValidationError(
@@ -306,6 +376,22 @@ def validate_dkpp(items, *args):
                 ", ".join(ADDITIONAL_CLASSIFICATIONS_SCHEMES)
             )
         )
+
+
+def validate_object_id_uniq(objs, *args):
+    if objs:
+        obj_name = objs[0].__class__.__name__
+        obj_name_multiple = obj_name[0].lower() + obj_name[1:]
+        ids = [i.id for i in objs]
+        if [i for i in set(ids) if ids.count(i) > 1]:
+            raise ValidationError(u"{} id should be uniq for all {}s".format(obj_name, obj_name_multiple))
+
+
+def validate_criteria_requirement_id_uniq(criteria, *args):
+    if criteria:
+        req_ids = [req.id for c in criteria for rg in c.requirementGroups for req in rg.requirements]
+        if [i for i in set(req_ids) if req_ids.count(i) > 1]:
+            raise ValidationError(u"Requirement id should be uniq for all requirements in tender")
 
 
 def validate_parameters_uniq(parameters, *args):
@@ -326,6 +412,13 @@ def validate_features_uniq(features, *args):
         codes = [i.code for i in features]
         if any([codes.count(i) > 1 for i in set(codes)]):
             raise ValidationError(u"Feature code should be uniq for all features")
+
+
+def validate_response_requirement_uniq(requirement_responses):
+    if requirement_responses:
+        req_ids = [i.requirement.id for i in requirement_responses]
+        if any([i for i in set(req_ids) if req_ids.count(i) > 1]):
+            raise ValidationError(u"Requirement id should be uniq for all requirement responses")
 
 
 def validate_lots_uniq(lots, *args):
@@ -357,7 +450,8 @@ class LotAuctionPeriod(Period):
             return
         tender = get_tender(self)
         lot = self.__parent__
-        if tender.status not in ["active.tendering", "active.auction"] or lot.status != "active":
+        statuses = ["active.tendering", "active.auction"]
+        if tender.status not in statuses or lot.status != "active":
             return
         if self.startDate and get_now() > calc_auction_end_time(lot.numberOfBids, self.startDate):
             start_after = calc_auction_end_time(lot.numberOfBids, self.startDate)
@@ -371,7 +465,7 @@ class LotAuctionPeriod(Period):
             ]
             decision_dates.append(tender.tenderPeriod.endDate)
             start_after = max(decision_dates)
-        return rounding_shouldStartAfter(start_after, tender).isoformat()
+        return normalize_should_start_after(start_after, tender).isoformat()
 
 
 class Item(BaseItem):
@@ -461,15 +555,29 @@ class Contract(BaseContract):
     def validate_dateSigned(self, data, value):
         parent = data["__parent__"]
         if value and isinstance(parent, Model):
+            tender = get_tender(parent)
+            skip_award_complaint_period = check_skip_award_complaint_period(tender)
             award = [i for i in parent.awards if i.id == data["awardID"]][0]
-            if award.complaintPeriod.endDate >= value:
-                raise ValidationError(
-                    u"Contract signature date should be after award complaint period end date ({})".format(
-                        award.complaintPeriod.endDate.isoformat()
-                    )
-                )
+            if award.complaintPeriod:
+                if not skip_award_complaint_period:
+                    if award.complaintPeriod.endDate and value <= award.complaintPeriod.endDate:
+                        raise ValidationError(
+                            u"Contract signature date should be after award complaint period end date ({})".format(
+                                award.complaintPeriod.endDate.isoformat()
+                            )
+                        )
+                elif award.complaintPeriod.startDate and value <= award.complaintPeriod.startDate:
+                        raise ValidationError(
+                            u"Contract signature date should be after award activation date ({})".format(
+                                award.complaintPeriod.startDate.isoformat()
+                            )
+                        )
+
             if value > get_now():
                 raise ValidationError(u"Contract signature date can't be in the future")
+
+    def validate_documents(self, data, value):
+        return validate_econtract_documents("contract", data, value)
 
 
 class LotValue(Model):
@@ -518,14 +626,389 @@ class Parameter(Model):
                 raise ValidationError(u"value should be one of feature value.")
 
 
+class FeatureValue(Model):
+    value = FloatType(required=True, min_value=0.0, max_value=0.3)
+    title = StringType(required=True, min_length=1)
+    title_en = StringType()
+    title_ru = StringType()
+    description = StringType()
+    description_en = StringType()
+    description_ru = StringType()
+
+
+class Feature(Model):
+    code = StringType(required=True, min_length=1, default=lambda: uuid4().hex)
+    featureOf = StringType(required=True, choices=["tenderer", "lot", "item"], default="tenderer")
+    relatedItem = StringType(min_length=1)
+    title = StringType(required=True, min_length=1)
+    title_en = StringType()
+    title_ru = StringType()
+    description = StringType()
+    description_en = StringType()
+    description_ru = StringType()
+    enum = ListType(
+        ModelType(FeatureValue, required=True), default=list(), min_size=1, validators=[validate_values_uniq]
+    )
+
+    def validate_relatedItem(self, data, relatedItem):
+        if not relatedItem and data.get("featureOf") in ["item", "lot"]:
+            raise ValidationError(u"This field is required.")
+        parent = data["__parent__"]
+        if isinstance(parent, Model):
+            if data.get("featureOf") == "item" and relatedItem not in [i.id for i in parent.items if i]:
+                raise ValidationError(u"relatedItem should be one of items")
+            if data.get("featureOf") == "lot" and relatedItem not in [i.id for i in parent.lots if i]:
+                raise ValidationError(u"relatedItem should be one of lots")
+
+
+# ECriteria
+class EligibleEvidence(Model):
+    class Options:
+        namespace = "Evidence"
+        roles = {
+            "create": blacklist(),
+            "edit": blacklist("id"),
+            "embedded": schematics_embedded_role,
+            "view": schematics_default_role,
+        }
+
+    id = MD5Type(required=True, default=lambda: uuid4().hex)
+    title = StringType()
+    title_en = StringType()
+    title_ru = StringType()
+    description = StringType()
+    description_en = StringType()
+    description_ru = StringType()
+    type = StringType(
+        choices=["document", "statement"],
+        default="statement"
+    )
+    relatedDocument = ModelType(Reference)
+
+    def validate_relatedDocument(self, data, document_reference):
+        if document_reference:
+            tender = get_tender(data["__parent__"])
+            if document_reference.id not in [document.id for document in tender.documents if document]:
+                raise ValidationError("relatedDocument.id should be one of tender documents")
+
+
+class Evidence(EligibleEvidence):
+    class Options:
+        namespace = "Evidence"
+        roles = {
+            "create": blacklist(),
+            "edit": blacklist("id"),
+            "embedded": schematics_embedded_role,
+            "view": schematics_default_role,
+        }
+
+    @bids_response_validation_wrapper
+    def validate_relatedDocument(self, data, document_reference):
+        if data["type"] in ["document"] and not document_reference:
+            raise ValidationError("This field is required.")
+
+        if document_reference:
+            requirement_response = data["__parent__"]
+            parent = requirement_response["__parent__"]
+            parent_name = parent.__class__.__name__.lower()
+            docs_id = [document.id for document in parent.documents if document]
+            if "financialDocuments" in parent:
+                docs_id.extend([document.id for document in parent.financialDocuments if document])
+            if "eligibilityDocuments" in parent:
+                docs_id.extend([document.id for document in parent.eligibilityDocuments if document])
+            if "qualificationDocuments" in parent:
+                docs_id.extend([document.id for document in parent.qualificationDocuments if document])
+            if document_reference.id not in docs_id:
+                raise ValidationError("relatedDocument.id should be one of {} documents".format(parent_name))
+
+    @bids_response_validation_wrapper
+    def validate_type(self, data, value):
+        parent = data["__parent__"]
+        requirement_reference = parent.requirement
+        if value and requirement_reference and isinstance(parent, Model):
+            tender = get_tender(parent)
+            requirement = None
+            for criteria in tender.criteria:
+                for group in criteria.requirementGroups:
+                    for req in group.requirements:
+                        if req.id == requirement_reference.id:
+                            requirement = req
+                            break
+            if requirement:
+                evidences_type = [i.type for i in requirement.eligibleEvidences]
+                if evidences_type and value not in evidences_type:
+                    raise ValidationError("type should be one of eligibleEvidences types")
+
+
+class ExtendPeriod(Period):
+    maxExtendDate = IsoDateTimeType()
+    durationInDays = IntType()
+    duration = StringType()
+
+
+class LegislationIdentifier(Identifier):
+    scheme = StringType()
+
+
+class LegislationItem(Model):
+    version = StringType()
+    identifier = ModelType(LegislationIdentifier, required=True)
+    type = StringType(choices=["NATIONAL_LEGISLATION"], default="NATIONAL_LEGISLATION")
+    article = StringType()
+
+
+class Requirement(Model):
+    class Options:
+        roles = {
+            "create": blacklist(),
+            "edit": blacklist("id"),
+            "edit_exclusion": whitelist("eligibleEvidences"),
+            "embedded": schematics_embedded_role,
+            "view": schematics_default_role,
+        }
+
+    id = MD5Type(required=True, default=lambda: uuid4().hex)
+    title = StringType(required=True, min_length=1)
+    title_en = StringType()
+    title_ru = StringType()
+    description = StringType()
+    description_en = StringType()
+    description_ru = StringType()
+    dataType = StringType(required=True,
+                          choices=["string", "number", "integer", "boolean", "date-time"])
+
+    minValue = StringType()
+    maxValue = StringType()
+    period = ModelType(ExtendPeriod)
+    eligibleEvidences = ListType(
+        ModelType(EligibleEvidence, required=True),
+        default=list(),
+        validators=[validate_object_id_uniq],
+    )
+    relatedFeature = MD5Type()
+    expectedValue = StringType()
+
+    def get_role(self):
+        root = self.get_root()
+        request = root.request
+        criterion = self.get("__parent__").get("__parent__")
+        role = "edit"
+        if criterion.classification.id.startswith("CRITERION.EXCLUSION"):
+            role = "edit_exclusion"
+        return role
+
+    def validate_minValue(self, data, value):
+        if value:
+            if data["dataType"] not in ["integer", "number"]:
+                raise ValidationError("minValue must be integer or number")
+            validate_value_type(value, data['dataType'])
+
+    def validate_maxValue(self, data, value):
+        if value:
+            if data["dataType"] not in ["integer", "number"]:
+                raise ValidationError("minValue must be integer or number")
+            validate_value_type(value, data['dataType'])
+
+    def validate_expectedValue(self, data, value):
+        if value:
+            validate_value_type(value, data['dataType'])
+
+    def validate_relatedFeature(self, data, feature_id):
+        parent = data["__parent__"]
+        if feature_id and isinstance(parent, Model):
+            tender = get_tender(parent)
+            features = [] if not tender.get("features") else tender.get("features")
+            if feature_id not in [feature.id for feature in features]:
+                raise ValidationError("relatedFeature should be one of features")
+
+
+class RequirementGroup(Model):
+    class Options:
+        roles = {
+            "create": blacklist(),
+            "edit": blacklist("id"),
+            "embedded": schematics_embedded_role,
+            "view": schematics_default_role,
+        }
+
+    id = MD5Type(required=True, default=lambda: uuid4().hex)
+    description = StringType()
+    description_en = StringType()
+    description_ru = StringType()
+    requirements = ListType(
+        ModelType(Requirement, required=True, validators=[validate_requirement_values]),
+        default=list())
+
+
+class CriterionClassification(BaseClassification):
+    description = StringType()
+
+
+class Criterion(Model):
+    class Options:
+        roles = {
+            "create": blacklist(),
+            "edit": blacklist(
+                "id",
+                "requirementGroups",
+                "additionalClassifications",
+                "legislation",
+            ),
+            "embedded": schematics_embedded_role,
+            "view": schematics_default_role,
+        }
+
+    id = MD5Type(required=True, default=lambda: uuid4().hex)
+    title = StringType(required=True, min_length=1)
+    title_en = StringType()
+    title_ru = StringType()
+    description = StringType()
+    description_en = StringType()
+    description_ru = StringType()
+
+    source = StringType(choices=["tenderer", "buyer", "procuringEntity", "ssrBot", "winner"])
+    relatesTo = StringType(choices=["tenderer", "item", "lot"])
+    relatedItem = MD5Type()
+    classification = ModelType(CriterionClassification, required=True) # TODO: make it required
+    additionalClassifications = ListType(ModelType(BaseClassification, required=True), default=list())
+    legislation = ListType(ModelType(LegislationItem, required=True), default=list())
+    requirementGroups = ListType(
+        ModelType(RequirementGroup, required=True),
+        required=True,
+        min_size=1,
+        validators=[validate_object_id_uniq],
+    )
+
+    def validate_relatedItem(self, data, relatedItem):
+        if not relatedItem and data.get("relatesTo") in ["item", "lot"]:
+            raise ValidationError(u"This field is required.")
+        parent = data["__parent__"]
+        if relatedItem and isinstance(parent, Model):
+            tender = get_tender(parent)
+            if data.get("relatesTo") == "lot" and relatedItem not in [i.id for i in tender.lots if i]:
+                raise ValidationError(u"relatedItem should be one of lots")
+            if data.get("relatesTo") == "item" and relatedItem not in [i.id for i in tender.items if i]:
+                raise ValidationError(u"relatedItem should be one of items")
+
+
+class RequirementResponse(Model):
+    class Options:
+        roles = {
+            "create": blacklist(),
+            "edit": blacklist("id"),
+            "embedded": schematics_embedded_role,
+            "view": schematics_default_role,
+        }
+    id = MD5Type(required=True, default=lambda: uuid4().hex)
+    title = StringType()
+    title_en = StringType()
+    title_ru = StringType()
+    description = StringType()
+    description_en = StringType()
+    description_ru = StringType()
+
+    period = ModelType(ExtendPeriod)
+    requirement = ModelType(Reference, required=True)
+    relatedTenderer = ModelType(Reference)
+    relatedItem = MD5Type()
+    evidences = ListType(
+        ModelType(Evidence, required=True),
+        default=list(),
+        validators=[validate_object_id_uniq],
+    )
+
+    value = StringType(required=True)
+
+    @staticmethod
+    def get_requirement_obj(requirement_id=None, parent=None):
+        if requirement_id and isinstance(parent, Model):
+            tender = get_tender(parent)
+            for criteria in tender.criteria:
+                for group in criteria.requirementGroups:
+                    for req in group.requirements:
+                        if req.id == requirement_id:
+                            return req
+
+    @bids_response_validation_wrapper
+    def validate_relatedItem(self, data, relatedItem):
+        parent = data["__parent__"]
+        if relatedItem and isinstance(parent, Model):
+            tender = get_tender(parent)
+            if relatedItem not in [i.id for i in tender.items if i]:
+                raise ValidationError(u"relatedItem should be one of items")
+
+    @bids_response_validation_wrapper
+    def validate_relatedTenderer(self, data, relatedTenderer):
+        parent = data["__parent__"]
+        if relatedTenderer and isinstance(parent, Model):
+            if relatedTenderer.id not in [
+                organization.identifier.id
+                for organization in parent.get("tenderers", list())
+            ]:
+                raise ValidationError(u"relatedTenderer should be one of bid tenderers")
+
+    @bids_response_validation_wrapper
+    def validate_requirement(self, data, requirement_ref):
+        parent = data["__parent__"]
+        requirement_ref_id = requirement_ref.get("id")
+        requirement = self.get_requirement_obj(requirement_ref_id, parent)
+
+        if not requirement:
+            raise ValidationError("requirement should be one of criteria requirements")
+
+        criterion = requirement["__parent__"]["__parent__"]
+
+        source_map = {
+            "procuringEntity": (BaseAward, QualificationMilestoneListMixin),
+            "tenderer": Bid,
+        }
+        available_parents = source_map.get(criterion.source)
+        if available_parents and not isinstance(parent, available_parents):
+            raise ValidationError("Requirement response in {} can't have requirement criteria with source: {}".format(
+                parent.__class__.__name__, criterion.source
+            ))
+
+        return requirement_ref
+
+    @bids_response_validation_wrapper
+    def validate_value(self, data, value):
+        requirement_ref = data.get("requirement")
+        if not requirement_ref:
+            return
+
+        parent = data["__parent__"]
+        requirement = self.get_requirement_obj(requirement_ref.get("id"), parent)
+
+        if requirement:
+            data_type = requirement.dataType
+            valid_value = validate_value_type(value, data_type)
+            expectedValue = requirement.get("expectedValue")
+            minValue = requirement.get("minValue")
+            maxValue = requirement.get("maxValue")
+            if expectedValue and validate_value_type(expectedValue, data_type) != valid_value:
+                raise ValidationError("value and requirementGroup.expectedValue must be equal")
+            if minValue and valid_value < validate_value_type(minValue, data_type):
+                raise ValidationError("value should be higher than eligibleEvidence.minValue")
+            if maxValue and valid_value > validate_value_type(maxValue, data_type):
+                raise ValidationError("value should be lower than eligibleEvidence.maxValue")
+
+
 class Bid(Model):
     class Options:
         roles = {
             "Administrator": Administrator_bid_role,
             "embedded": view_bid_role,
             "view": view_bid_role,
-            "create": whitelist("value", "status", "tenderers", "parameters", "lotValues", "documents"),
-            "edit": whitelist("value", "status", "tenderers", "parameters", "lotValues"),
+            "create": whitelist(
+                "value",
+                "status",
+                "tenderers",
+                "parameters",
+                "lotValues",
+                "documents",
+                "requirementResponses",
+            ),
+            "edit": whitelist("value", "status", "tenderers", "parameters", "lotValues", "requirementResponses"),
             "auction_view": whitelist("value", "lotValues", "id", "date", "parameters", "participationUrl"),
             "auction_post": whitelist("value", "lotValues", "id", "date"),
             "auction_patch": whitelist("id", "lotValues", "participationUrl"),
@@ -554,6 +1037,11 @@ class Bid(Model):
     owner_token = StringType()
     transfer_token = StringType()
     owner = StringType()
+    requirementResponses = ListType(
+        ModelType(RequirementResponse, required=True),
+        default=list(),
+        validators=[validate_object_id_uniq, validate_response_requirement_uniq],
+    )
 
     __name__ = ""
 
@@ -621,6 +1109,60 @@ class Bid(Model):
                 raise ValidationError(u"This field is required.")
             elif set([i["code"] for i in parameters]) != set([i.code for i in (tender.features or [])]):
                 raise ValidationError(u"All features parameters is required.")
+
+
+class BidResponsesMixin(Model):
+    requirementResponses = ListType(
+        ModelType(RequirementResponse, required=True),
+        default=list(),
+        validators=[validate_response_requirement_uniq],
+    )
+
+    def validate_selfEligible(self, data, value):
+        tender = get_root(data["__parent__"])
+        if get_first_revision_date(tender, default=get_now()) > RELEASE_ECRITERIA_ARTICLE_17:
+            if value is not None:
+                raise ValidationError("Rogue field.")
+        elif value is None:
+            raise ValidationError("This field is required.")
+
+    def validate_requirementResponses(self, data, requirementResponses):
+        tender = data["__parent__"]
+        tender_created = get_first_revision_date(tender, default=get_now())
+
+        if tender_created < RELEASE_ECRITERIA_ARTICLE_17:
+            if requirementResponses:
+                raise ValidationError("Rogue field.")
+            return
+
+        if data["status"] not in ["active", "pending"]:
+            return
+
+        all_answered_requirements = [i.requirement.id for i in requirementResponses]
+
+        for criteria in tender.criteria:
+            if criteria.source != "tenderer":
+                continue
+
+            criteria_ids = {}
+            group_answered_requirement_ids = {}
+            for rg in criteria.requirementGroups:
+                req_ids = {i.id for i in rg.requirements}
+                answered_reqs = {i for i in all_answered_requirements if i in req_ids}
+
+                if answered_reqs:
+                    group_answered_requirement_ids[rg.id] = answered_reqs
+                criteria_ids[rg.id] = req_ids
+
+            if not group_answered_requirement_ids:
+                raise ValidationError("Must be answered on all criteria with source `tenderer`")
+
+            if len(group_answered_requirement_ids) > 1:
+                raise ValidationError("Inside criteria must be answered only one requirement group")
+
+            rg_id = group_answered_requirement_ids.keys()[0]
+            if set(criteria_ids[rg_id]).difference(set(group_answered_requirement_ids[rg_id])):
+                raise ValidationError("Inside requirement group must get answered all of requirements")
 
 
 PROCURING_ENTITY_KINDS = ("authority", "central", "defense", "general", "other", "social", "special")
@@ -1010,6 +1552,12 @@ class BaseAward(Model):
     documents = ListType(ModelType(Document, required=True), default=list())
     items = ListType(ModelType(Item, required=True))
 
+    requirementResponses = ListType(
+        ModelType(RequirementResponse, required=True),
+        default=list(),
+        validators=[validate_response_requirement_uniq],
+    )
+
 
 class QualificationMilestone(Model):
     id = MD5Type(required=True, default=lambda: uuid4().hex)
@@ -1032,12 +1580,12 @@ class QualificationMilestone(Model):
     def set_due_date(self):
         if not self.dueDate:
             if self.code == self.CODE_24_HOURS:
-                self.dueDate = calculate_tender_business_date(
+                self.dueDate = calculate_tender_date(
                     self.date, timedelta(hours=24), get_tender(self)
                 )
             elif self.code == self.CODE_LOW_PRICE:
                 self.dueDate = calculate_complaint_business_date(
-                    self.date, timedelta(days=1), get_tender(self), working_days=True,
+                    self.date, timedelta(days=1), get_tender(self), working_days=True
                 )
         return self.dueDate and self.dueDate.isoformat()
 
@@ -1065,7 +1613,8 @@ class Award(BaseAward):
         roles = {
             "create": blacklist("id", "status", "date", "documents", "complaints", "complaintPeriod"),
             "edit": whitelist(
-                "status", "title", "title_en", "title_ru", "description", "description_en", "description_ru"
+                "status", "title", "title_en", "title_ru", "description",
+                "description_en", "description_ru", "requirementResponses",
             ),
             "embedded": schematics_embedded_role,
             "view": schematics_default_role,
@@ -1084,41 +1633,6 @@ class Award(BaseAward):
                 raise ValidationError(u"This field is required.")
             if lotID and lotID not in [lot.id for lot in parent.lots if lot]:
                 raise ValidationError(u"lotID should be one of lots")
-
-
-class FeatureValue(Model):
-    value = FloatType(required=True, min_value=0.0, max_value=0.3)
-    title = StringType(required=True, min_length=1)
-    title_en = StringType()
-    title_ru = StringType()
-    description = StringType()
-    description_en = StringType()
-    description_ru = StringType()
-
-
-class Feature(Model):
-    code = StringType(required=True, min_length=1, default=lambda: uuid4().hex)
-    featureOf = StringType(required=True, choices=["tenderer", "lot", "item"], default="tenderer")
-    relatedItem = StringType(min_length=1)
-    title = StringType(required=True, min_length=1)
-    title_en = StringType()
-    title_ru = StringType()
-    description = StringType()
-    description_en = StringType()
-    description_ru = StringType()
-    enum = ListType(
-        ModelType(FeatureValue, required=True), default=list(), min_size=1, validators=[validate_values_uniq]
-    )
-
-    def validate_relatedItem(self, data, relatedItem):
-        if not relatedItem and data.get("featureOf") in ["item", "lot"]:
-            raise ValidationError(u"This field is required.")
-        parent = data["__parent__"]
-        if isinstance(parent, Model):
-            if data.get("featureOf") == "item" and relatedItem not in [i.id for i in parent.items if i]:
-                raise ValidationError(u"relatedItem should be one of items")
-            if data.get("featureOf") == "lot" and relatedItem not in [i.id for i in parent.lots if i]:
-                raise ValidationError(u"relatedItem should be one of lots")
 
 
 class BaseLot(Model):
@@ -1215,6 +1729,26 @@ class Lot(BaseLot):
         if value and value.amount and data.get("value"):
             if data.get("value").amount < value.amount:
                 raise ValidationError(u"value should be less than value of lot")
+
+
+class LotWithMinimalStepLimitsValidation(Lot):
+    """Additional minimalStep validation for :
+        belowThreshold
+        aboveThresholdUA
+        aboveThresholdEU
+        aboveThresholdUA.defense
+        competitiveDialogueUA.stage1
+        competitiveDialogueEU.stage1
+        closeFrameworkAgreementUA
+    """
+    class Options:
+        namespace = "Lot"
+
+    def validate_minimalStep(self, data, value):
+        if value and value.amount and data.get("value"):
+            if data.get("value").amount < value.amount:
+                raise ValidationError(u"value should be less than value of lot")
+        validate_minimalstep_limits(data, value)
 
 
 class Duration(Model):
@@ -1323,6 +1857,7 @@ class BaseTender(OpenprocurementSchematicsDocument, Model):
                 "procurementMethod",
                 "owner",
                 "plans",
+                "criteria",
             ),
             "auction_view": whitelist(
                 "tenderID",
@@ -1454,6 +1989,10 @@ class BaseTender(OpenprocurementSchematicsDocument, Model):
         if data.get("procuringEntity", {}).get("kind", "") == "central" and not value:
             raise ValidationError(BaseType.MESSAGES["required"])
 
+    def validate_documents(self, data, value):
+        resource = "lot" if data.get("lots", []) else "tender"
+        return validate_econtract_documents(resource, data, value)
+
     def _acl_cancellation(self, acl):
         acl.extend(
             [(Allow, "{}_{}".format(self.owner, self.owner_token), "edit_cancellation")]
@@ -1549,6 +2088,12 @@ class Tender(BaseTender):
             "unsuccessful",
         ],
         default="active.enquiries",
+    )
+
+    criteria = ListType(
+        ModelType(Criterion, required=True),
+        default=list(),
+        validators=[validate_object_id_uniq, validate_criteria_requirement_id_uniq],
     )
 
     create_accreditations = (ACCR_1, ACCR_5)
