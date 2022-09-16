@@ -14,7 +14,7 @@ oslo.config==2.1.0
 oslo.context==2.1.0
 oslo.i18n==2.1.0
 oslo.middleware==2.1.0
-oslo.utils==3.14.0
+oslo.utils==4.10.1
 debtcollector==1.2.0
 PasteDeploy==1.5.2
 pbr==1.6
