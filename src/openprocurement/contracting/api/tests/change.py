@@ -1,22 +1,24 @@
-# -*- coding: utf-8 -*-
 import unittest
 
 from openprocurement.api.tests.base import snitch
-
-from openprocurement.contracting.api.tests.base import BaseContractContentWebTest, BaseContractTest
-from openprocurement.contracting.api.tests.data import test_contract_data
+from openprocurement.contracting.api.tests.base import (
+    BaseContractContentWebTest,
+    BaseContractTest,
+)
 from openprocurement.contracting.api.tests.change_blanks import (
+    change_date_signed,
+    change_date_signed_very_old_contracts_data,
+    create_change,
+    create_change_invalid,
+    date_signed_on_change_creation,
+    date_signed_on_change_creation_for_very_old_contracts_data,
+    get_change,
     no_items_contract_change,
     not_found,
-    get_change,
-    create_change_invalid,
-    create_change,
     patch_change,
-    change_date_signed,
-    date_signed_on_change_creation,
-    change_date_signed_very_old_contracts_data,
-    date_signed_on_change_creation_for_very_old_contracts_data,
+    patch_change_after_contract_is_already_terminated,
 )
+from openprocurement.contracting.api.tests.data import test_contract_data
 
 
 class ContractNoItemsChangeTest(BaseContractTest):
@@ -25,7 +27,6 @@ class ContractNoItemsChangeTest(BaseContractTest):
 
 
 class ContractChangesResourceTest(BaseContractContentWebTest):
-
     test_not_found = snitch(not_found)
     test_get_change = snitch(get_change)
     test_create_change_invalid = snitch(create_change_invalid)
@@ -37,12 +38,13 @@ class ContractChangesResourceTest(BaseContractContentWebTest):
     test_date_signed_on_change_creation_for_very_old_contracts_data = snitch(
         date_signed_on_change_creation_for_very_old_contracts_data
     )
+    test_patch_change_after_contract_is_already_terminated = snitch(patch_change_after_contract_is_already_terminated)
 
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(ContractNoItemsChangeTest))
-    suite.addTest(unittest.makeSuite(ContractChangesResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(ContractNoItemsChangeTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(ContractChangesResourceTest))
     return suite
 
 

@@ -1,26 +1,18 @@
-# -*- coding: utf-8 -*-
 import unittest
 
-from openprocurement.tender.openua.tests.base import BaseTenderUAContentWebTest
-
 from openprocurement.tender.belowthreshold.tests.document import (
-    TenderDocumentResourceTestMixin,
     TenderDocumentWithDSResourceTestMixin,
 )
+from openprocurement.tender.openua.tests.base import BaseTenderUAContentWebTest
 
 
-class TenderDocumentResourceTest(BaseTenderUAContentWebTest, TenderDocumentResourceTestMixin):
-    docservice = False
-
-
-class TenderDocumentWithDSResourceTest(TenderDocumentResourceTest, TenderDocumentWithDSResourceTestMixin):
+class TenderDocumentWithDSResourceTest(BaseTenderUAContentWebTest, TenderDocumentWithDSResourceTestMixin):
     docservice = True
 
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(TenderDocumentResourceTest))
-    suite.addTest(unittest.makeSuite(TenderDocumentWithDSResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderDocumentWithDSResourceTest))
     return suite
 
 

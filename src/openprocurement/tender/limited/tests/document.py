@@ -1,30 +1,31 @@
-# -*- coding: utf-8 -*-
 import unittest
 
 from openprocurement.tender.belowthreshold.tests.document import (
-    TenderDocumentResourceTestMixin,
     TenderDocumentWithDSResourceTestMixin,
 )
-
 from openprocurement.tender.limited.tests.base import (
     BaseTenderContentWebTest,
-    test_tender_data,
+    test_tender_negotiation_config,
     test_tender_negotiation_data,
+    test_tender_negotiation_quick_config,
     test_tender_negotiation_quick_data,
+    test_tender_reporting_data,
 )
 
 
-class TenderDocumentResourceTest(BaseTenderContentWebTest, TenderDocumentResourceTestMixin):
-    initial_data = test_tender_data
-    docservice = False
+class TenderDocumentResourceTest(BaseTenderContentWebTest, TenderDocumentWithDSResourceTestMixin):
+    initial_data = test_tender_reporting_data
+    docservice = True
 
 
 class TenderNegotiationDocumentResourceTest(TenderDocumentResourceTest):
     initial_data = test_tender_negotiation_data
+    initial_config = test_tender_negotiation_config
 
 
 class TenderNegotiationQuickDocumentResourceTest(TenderNegotiationDocumentResourceTest):
     initial_data = test_tender_negotiation_quick_data
+    initial_config = test_tender_negotiation_quick_config
 
 
 class TenderDocumentWithDSResourceTest(TenderDocumentResourceTest, TenderDocumentWithDSResourceTestMixin):
@@ -33,16 +34,18 @@ class TenderDocumentWithDSResourceTest(TenderDocumentResourceTest, TenderDocumen
 
 class TenderNegotiationDocumentWithDSResourceTest(TenderDocumentWithDSResourceTest):
     initial_data = test_tender_negotiation_data
+    initial_config = test_tender_negotiation_config
 
 
 class TenderNegotiationQuickDocumentWithDSResourceTest(TenderDocumentWithDSResourceTest):
     initial_data = test_tender_negotiation_quick_data
+    initial_config = test_tender_negotiation_quick_config
 
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(TenderDocumentResourceTest))
-    suite.addTest(unittest.makeSuite(TenderDocumentWithDSResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderDocumentResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderDocumentWithDSResourceTest))
     return suite
 
 

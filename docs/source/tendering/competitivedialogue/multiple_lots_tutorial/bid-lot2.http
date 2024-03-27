@@ -1,98 +1,98 @@
-POST /api/2.5/tenders/086edc68f12d4a248ded4f9cea52e69c/bids HTTP/1.0
+POST /api/2.5/tenders/0122f7569ef34718a69b5de8643cccfd/bids HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 1050
 Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
+
 {
   "data": {
-    "selfEligible": true, 
-    "selfQualified": true, 
-    "lotValues": [
-      {
-        "relatedLot": "e928726a47b7461a9d8a00258123cf3d"
-      }, 
-      {
-        "relatedLot": "8de1614007d74757970d83c1d60ebc76", 
-        "subcontractingDetails": "ДКП «Укр Прінт», Україна"
-      }
-    ], 
+    "status": "draft",
+    "selfQualified": true,
     "tenderers": [
       {
-        "contactPoint": {
-          "email": "fake@mail.com", 
-          "telephone": "+380 (322) 12-34-56", 
-          "name": "Іван Іваненко"
-        }, 
-        "scale": "mid", 
-        "name": "«Снігур»", 
-        "identifier": {
-          "scheme": "UA-EDR", 
-          "id": "00137227", 
-          "uri": "http://www.sc.gov.ua/"
-        }, 
         "address": {
-          "countryName": "Україна", 
-          "postalCode": "79013", 
-          "region": "Львівська область", 
-          "streetAddress": "вул. Островського, 35", 
-          "locality": "м. Львів"
-        }
+          "countryName": "Україна",
+          "locality": "м. Львів",
+          "postalCode": "79013",
+          "region": "Львівська область",
+          "streetAddress": "вул. Островського, 35"
+        },
+        "contactPoint": {
+          "email": "fake@mail.com",
+          "name": "Іван Іваненко",
+          "telephone": "+380322123456"
+        },
+        "identifier": {
+          "scheme": "UA-EDR",
+          "id": "00137227",
+          "uri": "http://www.sc.gov.ua/"
+        },
+        "name": "«Снігур»",
+        "scale": "mid"
+      }
+    ],
+    "lotValues": [
+      {
+        "relatedLot": "3d9bd8f913544205bad6df7a3843e883"
+      },
+      {
+        "subcontractingDetails": "ДКП «Укр Прінт», Україна",
+        "relatedLot": "21068d0f3d3849709ec8f44d8bd0c140"
       }
     ]
   }
 }
 
-Response: 201 Created
-Content-Type: application/json; charset=UTF-8
-Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/086edc68f12d4a248ded4f9cea52e69c/bids/eb8b16e4d30d4a81b046cae41632ed2d
+
+HTTP/1.0 201 Created
+Content-Type: application/json
+Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/0122f7569ef34718a69b5de8643cccfd/bids/8f1f20c9676f4c51b1e41855982f5629
+
 {
-  "access": {
-    "transfer": "97c2523def9f4193a899bbe712c3d8d2", 
-    "token": "1be138ca4c9f4d4698c469fa4bdeb29d"
-  }, 
   "data": {
-    "status": "pending", 
-    "selfEligible": true, 
-    "lotValues": [
-      {
-        "relatedLot": "e928726a47b7461a9d8a00258123cf3d", 
-        "date": "2020-05-15T01:00:00+03:00", 
-        "status": "pending"
-      }, 
-      {
-        "relatedLot": "8de1614007d74757970d83c1d60ebc76", 
-        "date": "2020-05-15T01:00:00+03:00", 
-        "status": "pending", 
-        "subcontractingDetails": "ДКП «Укр Прінт», Україна"
-      }
-    ], 
-    "selfQualified": true, 
     "tenderers": [
       {
-        "contactPoint": {
-          "email": "fake@mail.com", 
-          "telephone": "+380 (322) 12-34-56", 
-          "name": "Іван Іваненко"
-        }, 
-        "scale": "mid", 
-        "name": "«Снігур»", 
+        "name": "«Снігур»",
         "identifier": {
-          "scheme": "UA-EDR", 
-          "id": "00137227", 
+          "scheme": "UA-EDR",
+          "id": "00137227",
           "uri": "http://www.sc.gov.ua/"
-        }, 
+        },
         "address": {
-          "postalCode": "79013", 
-          "countryName": "Україна", 
-          "streetAddress": "вул. Островського, 35", 
-          "region": "Львівська область", 
-          "locality": "м. Львів"
-        }
+          "streetAddress": "вул. Островського, 35",
+          "locality": "м. Львів",
+          "region": "Львівська область",
+          "postalCode": "79013",
+          "countryName": "Україна"
+        },
+        "contactPoint": {
+          "name": "Іван Іваненко",
+          "email": "fake@mail.com",
+          "telephone": "+380322123456"
+        },
+        "scale": "mid"
       }
-    ], 
-    "date": "2020-05-15T01:00:00+03:00", 
-    "id": "eb8b16e4d30d4a81b046cae41632ed2d"
+    ],
+    "lotValues": [
+      {
+        "relatedLot": "3d9bd8f913544205bad6df7a3843e883",
+        "status": "pending",
+        "date": "2023-10-10T01:00:00+03:00"
+      },
+      {
+        "relatedLot": "21068d0f3d3849709ec8f44d8bd0c140",
+        "subcontractingDetails": "ДКП «Укр Прінт», Україна",
+        "status": "pending",
+        "date": "2023-10-10T01:00:00+03:00"
+      }
+    ],
+    "selfQualified": true,
+    "status": "draft",
+    "id": "8f1f20c9676f4c51b1e41855982f5629",
+    "date": "2023-10-10T01:00:00+03:00"
+  },
+  "access": {
+    "token": "c962dec9949240f9aa7733143f3c8165",
+    "transfer": "ffe1ac45b2174e578dd1033be926afcc"
   }
 }
 

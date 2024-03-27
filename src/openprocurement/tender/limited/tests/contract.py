@@ -1,79 +1,101 @@
-# -*- coding: utf-8 -*-
 import unittest
+from copy import deepcopy
+from datetime import timedelta
+from unittest.mock import patch
 
 from openprocurement.api.constants import SANDBOX_MODE
 from openprocurement.api.tests.base import snitch
-
-from openprocurement.tender.belowthreshold.tests.base import test_organization
-from openprocurement.tender.belowthreshold.tests.contract import (
-    TenderContractResourceTestMixin,
-    TenderContractDocumentResourceTestMixin,
+from openprocurement.api.utils import get_now
+from openprocurement.tender.belowthreshold.tests.base import (
+    test_tender_below_organization,
 )
-
+from openprocurement.tender.belowthreshold.tests.contract import (
+    TenderContractDocumentResourceTestMixin,
+    TenderContractResourceTestMixin,
+    TenderEContractMultiBuyersResourceTestMixin,
+    TenderEcontractResourceTestMixin,
+)
+from openprocurement.tender.belowthreshold.tests.contract_blanks import (
+    patch_contract_single_item_unit_value,
+    patch_contract_single_item_unit_value_with_status,
+    patch_tender_contract_value,
+    patch_tender_contract_value_vat_not_included,
+    patch_tender_multi_contracts,
+    patch_tender_multi_contracts_cancelled,
+    patch_tender_multi_contracts_cancelled_validate_amount,
+    patch_tender_multi_contracts_cancelled_with_one_activated,
+)
 from openprocurement.tender.limited.tests.base import (
     BaseTenderContentWebTest,
     test_lots,
-    test_tender_data,
+    test_tender_data_multi_buyers,
+    test_tender_negotiation_config,
     test_tender_negotiation_data,
+    test_tender_negotiation_data_2items,
+    test_tender_negotiation_data_multi_buyers,
+    test_tender_negotiation_quick_config,
     test_tender_negotiation_quick_data,
+    test_tender_negotiation_quick_data_multi_buyers,
+    test_tender_reporting_data,
 )
-from openprocurement.tender.limited.tests.contract_blanks import (
-    # TenderNegotiationQuickAccelerationTest
-    create_tender_contract_negotiation_quick,
-    # TenderNegotiationLot2ContractResourceTest
-    sign_second_contract,
-    create_two_contract,
-    # TenderNegotiationLotContractResourceTest
-    lot_items,
-    lot_award_id_change_is_not_allowed,
+from openprocurement.tender.limited.tests.contract_blanks import (  # EContract
     activate_contract_cancelled_lot,
-    # TenderNegotiationContractResourceTest
-    patch_tender_negotiation_contract,
-    tender_negotiation_contract_signature_date,
-    items,
-    # TenderContractResourceTest
-    create_tender_contract,
-    patch_tender_contract,
-    tender_contract_signature_date,
     award_id_change_is_not_allowed,
+    create_tender_contract,
     create_tender_contract_document,
+    create_tender_contract_negotiation_quick,
+    create_two_contract,
+    items,
+    lot_award_id_change_is_not_allowed,
+    lot_items,
+    patch_tender_contract,
     patch_tender_contract_document,
+    patch_tender_negotiation_contract,
+    patch_tender_negotiation_econtract,
     put_tender_contract_document,
+    sign_second_contract,
+    tender_contract_signature_date,
+    tender_negotiation_contract_signature_date,
 )
-from openprocurement.tender.belowthreshold.tests.contract_blanks import (
-    patch_tender_contract_value_vat_not_included,
-    patch_tender_contract_value,
-)
 
 
-class TenderContractResourceTest(BaseTenderContentWebTest, TenderContractResourceTestMixin):
-    initial_status = "active"
-    initial_data = test_tender_data
-    initial_bids = None  # test_bids
-
+class CreateActiveAwardMixin:
     def create_award(self):
-        # Create award
         response = self.app.post_json(
             "/tenders/{}/awards?acc_token={}".format(self.tender_id, self.tender_token),
             {
                 "data": {
-                    "suppliers": [test_organization],
+                    "suppliers": [test_tender_below_organization],
                     "status": "pending",
-                    "qualified": True,
                     "value": {"amount": 469, "currency": "UAH", "valueAddedTaxIncluded": True},
                 }
             },
         )
-
         award = response.json["data"]
         self.award_id = award["id"]
-        response = self.app.patch_json(
+        self.app.patch_json(
             "/tenders/{}/awards/{}?acc_token={}".format(self.tender_id, self.award_id, self.tender_token),
-            {"data": {"status": "active"}},
+            {
+                "data": {
+                    "status": "active",
+                    "qualified": True,
+                }
+            },
         )
+        response = self.app.get(f"/tenders/{self.tender_id}")
+        self.contracts_ids = [i["id"] for i in response.json["data"].get("contracts", "")]
+        self.bid_token = self.tender_token
 
+
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
+class TenderContractResourceTest(BaseTenderContentWebTest, CreateActiveAwardMixin, TenderContractResourceTestMixin):
+    initial_status = "active"
+    initial_data = test_tender_reporting_data
+    initial_bids = None  # test_bids
+
+    @patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
     def setUp(self):
-        super(TenderContractResourceTest, self).setUp()
+        super().setUp()
         self.create_award()
 
     test_create_tender_contract = snitch(create_tender_contract)
@@ -81,11 +103,14 @@ class TenderContractResourceTest(BaseTenderContentWebTest, TenderContractResourc
     test_patch_tender_contract_value = snitch(patch_tender_contract_value)
     test_tender_contract_signature_date = snitch(tender_contract_signature_date)
     test_award_id_change_is_not_allowed = snitch(award_id_change_is_not_allowed)
+    test_patch_contract_single_item_unit_value = snitch(patch_contract_single_item_unit_value)
+    test_patch_contract_single_item_unit_value_with_status = snitch(patch_contract_single_item_unit_value_with_status)
 
 
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
 class TenderContractVATNotIncludedResourceTest(BaseTenderContentWebTest, TenderContractResourceTestMixin):
     initial_status = "active"
-    initial_data = test_tender_data
+    initial_data = test_tender_reporting_data
     initial_bids = None
 
     def create_award(self):
@@ -93,7 +118,7 @@ class TenderContractVATNotIncludedResourceTest(BaseTenderContentWebTest, TenderC
             "/tenders/{}/awards?acc_token={}".format(self.tender_id, self.tender_token),
             {
                 "data": {
-                    "suppliers": [test_organization],
+                    "suppliers": [test_tender_below_organization],
                     "status": "pending",
                     "qualified": True,
                     "value": {"amount": 469, "currency": "UAH", "valueAddedTaxIncluded": False},
@@ -107,16 +132,19 @@ class TenderContractVATNotIncludedResourceTest(BaseTenderContentWebTest, TenderC
             {"data": {"status": "active"}},
         )
 
+    @patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
     def setUp(self):
-        super(TenderContractVATNotIncludedResourceTest, self).setUp()
+        super().setUp()
         self.create_award()
 
     test_patch_tender_contract_value_vat_not_included = snitch(patch_tender_contract_value_vat_not_included)
 
 
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
 class TenderNegotiationContractResourceTest(TenderContractResourceTest):
     initial_data = test_tender_negotiation_data
     stand_still_period_days = 10
+    initial_config = test_tender_negotiation_config
 
     test_patch_tender_contract = snitch(patch_tender_negotiation_contract)
     test_patch_tender_contract_value = snitch(patch_tender_contract_value)
@@ -124,107 +152,78 @@ class TenderNegotiationContractResourceTest(TenderContractResourceTest):
     test_items = snitch(items)
 
 
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
 class TenderNegotiationContractVATNotIncludedResourceTest(TenderContractVATNotIncludedResourceTest):
     initial_data = test_tender_negotiation_data
+    initial_config = test_tender_negotiation_config
 
 
-class TenderNegotiationLotContractResourceTest(TenderNegotiationContractResourceTest):
-    initial_data = test_tender_negotiation_data
-    stand_still_period_days = 10
-
+class TenderNegotiationLotMixin:
     def create_award(self):
-        self.app.patch_json(
-            "/tenders/{}?acc_token={}".format(self.tender_id, self.tender_token),
-            {"data": {"items": self.initial_data["items"]}},
-        )
+        response = self.app.get(f"/tenders/{self.tender_id}")
+        self.lot1 = response.json["data"]["lots"][0]
 
-        # create lot
-        response = self.app.post_json(
-            "/tenders/{}/lots?acc_token={}".format(self.tender_id, self.tender_token), {"data": test_lots[0]}
-        )
-
-        self.assertEqual(response.status, "201 Created")
-        self.assertEqual(response.content_type, "application/json")
-        lot1 = response.json["data"]
-        self.lot1 = lot1
-
-        self.app.patch_json(
-            "/tenders/{}?acc_token={}".format(self.tender_id, self.tender_token),
-            {"data": {"items": [{"relatedLot": lot1["id"]}]}},
-        )
         # Create award
         response = self.app.post_json(
             "/tenders/{}/awards?acc_token={}".format(self.tender_id, self.tender_token),
             {
                 "data": {
-                    "suppliers": [test_organization],
+                    "suppliers": [test_tender_below_organization],
                     "status": "pending",
                     "qualified": True,
                     "value": {"amount": 469, "currency": "UAH", "valueAddedTaxIncluded": True},
-                    "lotID": lot1["id"],
+                    "lotID": self.lot1["id"],
                 }
             },
         )
         award = response.json["data"]
         self.award_id = award["id"]
-        response = self.app.patch_json(
+        self.app.patch_json(
             "/tenders/{}/awards/{}?acc_token={}".format(self.tender_id, self.award_id, self.tender_token),
             {"data": {"status": "active"}},
         )
+
+
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
+class TenderNegotiationLotContractResourceTest(TenderNegotiationLotMixin, TenderNegotiationContractResourceTest):
+    initial_status = "active"
+    initial_data = test_tender_negotiation_data
+    initial_config = test_tender_negotiation_config
+    stand_still_period_days = 10
+    initial_lots = test_lots
 
     test_items = snitch(lot_items)
     test_award_id_change_is_not_allowed = snitch(lot_award_id_change_is_not_allowed)
     test_activate_contract_cancelled_lot = snitch(activate_contract_cancelled_lot)
 
 
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
 class TenderNegotiationLot2ContractResourceTest(BaseTenderContentWebTest):
-    initial_data = test_tender_negotiation_data
+    initial_data = test_tender_negotiation_data_2items
+    initial_config = test_tender_negotiation_config
+    initial_lots = test_lots * 2
     stand_still_period_days = 10
 
+    @patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
     def setUp(self):
-        super(TenderNegotiationLot2ContractResourceTest, self).setUp()
+        super().setUp()
         self.create_award()
 
     def create_award(self):
-        self.app.patch_json(
-            "/tenders/{}?acc_token={}".format(self.tender_id, self.tender_token),
-            {"data": {"items": self.initial_data["items"] * 2}},
-        )
-
-        # create lot
-        response = self.app.post_json(
-            "/tenders/{}/lots?acc_token={}".format(self.tender_id, self.tender_token), {"data": test_lots[0]}
-        )
-
-        self.assertEqual(response.status, "201 Created")
-        self.assertEqual(response.content_type, "application/json")
-        lot1 = response.json["data"]
-        self.lot1 = lot1
-
-        response = self.app.post_json(
-            "/tenders/{}/lots?acc_token={}".format(self.tender_id, self.tender_token), {"data": test_lots[0]}
-        )
-
-        self.assertEqual(response.status, "201 Created")
-        self.assertEqual(response.content_type, "application/json")
-        lot2 = response.json["data"]
-        self.lot2 = lot2
-
-        self.app.patch_json(
-            "/tenders/{}?acc_token={}".format(self.tender_id, self.tender_token),
-            {"data": {"items": [{"relatedLot": lot1["id"]}, {"relatedLot": lot2["id"]}]}},
-        )
+        response = self.app.get(f"/tenders/{self.tender_id}")
+        self.lot1 = response.json["data"]["lots"][0]
+        self.lot2 = response.json["data"]["lots"][1]
 
         # Create award
         response = self.app.post_json(
             "/tenders/{}/awards?acc_token={}".format(self.tender_id, self.tender_token),
             {
                 "data": {
-                    "suppliers": [test_organization],
+                    "suppliers": [test_tender_below_organization],
                     "status": "pending",
                     "qualified": True,
                     "value": {"amount": 469, "currency": "UAH", "valueAddedTaxIncluded": True},
-                    "lotID": lot1["id"],
+                    "lotID": self.lot1["id"],
                 }
             },
         )
@@ -241,11 +240,11 @@ class TenderNegotiationLot2ContractResourceTest(BaseTenderContentWebTest):
             "/tenders/{}/awards?acc_token={}".format(self.tender_id, self.tender_token),
             {
                 "data": {
-                    "suppliers": [test_organization],
+                    "suppliers": [test_tender_below_organization],
                     "status": "pending",
                     "qualified": True,
                     "value": {"amount": 469, "currency": "UAH", "valueAddedTaxIncluded": True},
-                    "lotID": lot2["id"],
+                    "lotID": self.lot2["id"],
                 }
             },
         )
@@ -261,27 +260,43 @@ class TenderNegotiationLot2ContractResourceTest(BaseTenderContentWebTest):
     test_create_two_contract = snitch(create_two_contract)
 
 
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
 class TenderNegotiationQuickContractResourceTest(TenderNegotiationContractResourceTest):
     initial_data = test_tender_negotiation_quick_data
+    initial_config = test_tender_negotiation_quick_config
     stand_still_period_days = 5
 
 
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
 class TenderNegotiationQuickLotContractResourceTest(TenderNegotiationLotContractResourceTest):
     initial_data = test_tender_negotiation_quick_data
+    initial_config = test_tender_negotiation_quick_config
     stand_still_period_days = 5
 
 
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
 class TenderNegotiationQuickAccelerationTest(BaseTenderContentWebTest):
     initial_data = test_tender_negotiation_quick_data
+    initial_config = test_tender_negotiation_quick_config
     stand_still_period_days = 5
     accelerator = "quick,accelerator=172800"  # 5 days=432000 sec; 432000/172800=2.5 sec
     time_sleep_in_sec = 3  # time which reduced
+    initial_lots = test_lots
 
     def create_award(self):
+        response = self.app.get(f"/tenders/{self.tender_id}")
+        tender_lots = response.json["data"]["lots"]
         # Create award
         response = self.app.post_json(
             "/tenders/{}/awards?acc_token={}".format(self.tender_id, self.tender_token),
-            {"data": {"suppliers": [test_organization], "status": "pending"}},
+            {
+                "data": {
+                    "lotID": tender_lots[0]["id"],
+                    "suppliers": [test_tender_below_organization],
+                    "status": "pending",
+                    "value": {"amount": 469, "currency": "UAH", "valueAddedTaxIncluded": True},
+                }
+            },
         )
         award = response.json["data"]
         self.award_id = award["id"]
@@ -291,13 +306,13 @@ class TenderNegotiationQuickAccelerationTest(BaseTenderContentWebTest):
                 "data": {
                     "status": "active",
                     "qualified": True,
-                    "value": {"amount": 469, "currency": "UAH", "valueAddedTaxIncluded": True},
                 }
             },
         )
 
+    @patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
     def setUp(self):
-        super(TenderNegotiationQuickAccelerationTest, self).setUp()
+        super().setUp()
         if SANDBOX_MODE:
             response = self.app.patch_json(
                 "/tenders/{}?acc_token={}".format(self.tender_id, self.tender_token),
@@ -309,8 +324,10 @@ class TenderNegotiationQuickAccelerationTest(BaseTenderContentWebTest):
     test_create_tender_contract_negotiation_quick = snitch(create_tender_contract_negotiation_quick)
 
 
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
 class TenderNegotiationQuickLotAccelerationTest(TenderNegotiationQuickAccelerationTest):
     initial_data = test_tender_negotiation_quick_data
+    initial_config = test_tender_negotiation_quick_config
     stand_still_period_days = 5
     accelerator = "quick,accelerator=172800"  # 5 days=432000 sec; 432000/172800=2.5 sec
     time_sleep_in_sec = 3  # time which reduced
@@ -331,16 +348,20 @@ class TenderNegotiationQuickLotAccelerationTest(TenderNegotiationQuickAccelerati
         lot1 = response.json["data"]
         self.lot1 = lot1
 
+        response = self.app.get("/tenders/{}".format(self.tender_id))
+        tender = response.json["data"]
+        items = deepcopy(tender["items"])
+        items[0]["relatedLot"] = self.lot1["id"]
         self.app.patch_json(
             "/tenders/{}?acc_token={}".format(self.tender_id, self.tender_token),
-            {"data": {"items": [{"relatedLot": lot1["id"]}]}},
+            {"data": {"items": items}},
         )
         # Create award
         response = self.app.post_json(
             "/tenders/{}/awards?acc_token={}".format(self.tender_id, self.tender_token),
             {
                 "data": {
-                    "suppliers": [test_organization],
+                    "suppliers": [test_tender_below_organization],
                     "status": "pending",
                     "qualified": True,
                     "value": {"amount": 469, "currency": "UAH", "valueAddedTaxIncluded": True},
@@ -356,36 +377,25 @@ class TenderNegotiationQuickLotAccelerationTest(TenderNegotiationQuickAccelerati
         )
 
 
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
 class TenderNegotiationAccelerationTest(TenderNegotiationQuickAccelerationTest):
     stand_still_period_days = 10
     time_sleep_in_sec = 6
 
 
-class TenderContractDocumentResourceTest(BaseTenderContentWebTest, TenderContractDocumentResourceTestMixin):
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
+class TenderContractDocumentResourceTest(
+    BaseTenderContentWebTest,
+    CreateActiveAwardMixin,
+    TenderContractDocumentResourceTestMixin,
+):
     initial_status = "active"
     initial_bids = None
+    docservice = True
 
-    def create_award(self):
-        # Create award
-        response = self.app.post_json(
-            "/tenders/{}/awards?acc_token={}".format(self.tender_id, self.tender_token),
-            {"data": {"suppliers": [test_organization], "status": "pending"}},
-        )
-        award = response.json["data"]
-        self.award_id = award["id"]
-        self.app.patch_json(
-            "/tenders/{}/awards/{}?acc_token={}".format(self.tender_id, self.award_id, self.tender_token),
-            {
-                "data": {
-                    "status": "active",
-                    "qualified": True,
-                    "value": {"amount": 469, "currency": "UAH", "valueAddedTaxIncluded": True},
-                }
-            },
-        )
-
+    @patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
     def setUp(self):
-        super(TenderContractDocumentResourceTest, self).setUp()
+        super().setUp()
         self.create_award()
         response = self.app.get("/tenders/{}/contracts".format(self.tender_id))
         self.contract_id = response.json["data"][0]["id"]
@@ -395,12 +405,17 @@ class TenderContractDocumentResourceTest(BaseTenderContentWebTest, TenderContrac
     test_put_tender_contract_document = snitch(put_tender_contract_document)
 
 
-class TenderContractNegotiationDocumentResourceTest(TenderContractDocumentResourceTest):
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
+class TenderContractNegotiationDocumentResourceTest(TenderContractDocumentResourceTest, TenderNegotiationLotMixin):
     initial_data = test_tender_negotiation_data
+    initial_config = test_tender_negotiation_config
 
 
-class TenderContractNegotiationLotDocumentResourceTest(TenderContractDocumentResourceTest):
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
+class TenderContractNegotiationLotDocumentResourceTest(TenderContractDocumentResourceTest, TenderNegotiationLotMixin):
     initial_data = test_tender_negotiation_data
+    initial_config = test_tender_negotiation_config
+    initial_lots = test_lots
 
     def create_award(self):
         self.app.patch_json(
@@ -418,9 +433,13 @@ class TenderContractNegotiationLotDocumentResourceTest(TenderContractDocumentRes
         lot1 = response.json["data"]
         self.lot1 = lot1
 
+        response = self.app.get("/tenders/{}".format(self.tender_id))
+        tender = response.json["data"]
+        items = deepcopy(tender["items"])
+        items[0]["relatedLot"] = self.lot1["id"]
         self.app.patch_json(
             "/tenders/{}?acc_token={}".format(self.tender_id, self.tender_token),
-            {"data": {"items": [{"relatedLot": lot1["id"]}]}},
+            {"data": {"items": items}},
         )
 
         # Create award
@@ -428,7 +447,7 @@ class TenderContractNegotiationLotDocumentResourceTest(TenderContractDocumentRes
             "/tenders/{}/awards?acc_token={}".format(self.tender_id, self.tender_token),
             {
                 "data": {
-                    "suppliers": [test_organization],
+                    "suppliers": [test_tender_below_organization],
                     "status": "pending",
                     "qualified": True,
                     "value": {"amount": 469, "currency": "UAH", "valueAddedTaxIncluded": True},
@@ -445,18 +464,111 @@ class TenderContractNegotiationLotDocumentResourceTest(TenderContractDocumentRes
         )
 
 
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
 class TenderContractNegotiationQuickDocumentResourceTest(TenderContractNegotiationDocumentResourceTest):
     initial_data = test_tender_negotiation_quick_data
+    initial_config = test_tender_negotiation_quick_config
 
 
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
 class TenderContractNegotiationQuickLotDocumentResourceTest(TenderContractNegotiationLotDocumentResourceTest):
     initial_data = test_tender_negotiation_quick_data
+    initial_config = test_tender_negotiation_quick_config
+
+
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
+class TenderContractMultiBuyersResourceTest(BaseTenderContentWebTest):
+    initial_data = test_tender_data_multi_buyers
+    stand_still_period_days = 10
+
+    @patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
+    def setUp(self):
+        super().setUp()
+        TenderContractResourceTest.create_award(self)
+
+    test_patch_tender_multi_contracts = snitch(patch_tender_multi_contracts)
+    test_patch_tender_multi_contracts_cancelled = snitch(patch_tender_multi_contracts_cancelled)
+    test_patch_tender_multi_contracts_cancelled_with_one_activated = snitch(
+        patch_tender_multi_contracts_cancelled_with_one_activated
+    )
+    test_patch_tender_multi_contracts_cancelled_validate_amount = snitch(
+        patch_tender_multi_contracts_cancelled_validate_amount
+    )
+
+
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
+class TenderNegotiationMultiBuyersContractResourceTest(TenderContractMultiBuyersResourceTest):
+    initial_data = test_tender_negotiation_data_multi_buyers
+    initial_config = test_tender_negotiation_config
+    stand_still_period_days = 10
+
+
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() + timedelta(days=1))
+class TenderNegotiationQuickMultiBuyersContractResourceTest(TenderNegotiationMultiBuyersContractResourceTest):
+    initial_data = test_tender_negotiation_quick_data_multi_buyers
+    initial_config = test_tender_negotiation_quick_config
+    stand_still_period_days = 10
+
+
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() - timedelta(days=1))
+class TenderReportingEContractResourceTest(
+    BaseTenderContentWebTest, CreateActiveAwardMixin, TenderEcontractResourceTestMixin
+):
+    initial_status = "active"
+    initial_data = test_tender_reporting_data
+    initial_bids = None
+
+    def setUp(self):
+        super().setUp()
+        self.create_award()
+
+
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() - timedelta(days=1))
+class TenderNegotiationEContractResourceTest(TenderReportingEContractResourceTest):
+    initial_data = test_tender_negotiation_data
+    initial_config = test_tender_negotiation_config
+    stand_still_period_days = 10
+
+    test_patch_tender_econtract = snitch(patch_tender_negotiation_econtract)
+
+
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() - timedelta(days=1))
+class TenderNegotiationQuickEContractResourceTest(TenderNegotiationEContractResourceTest):
+    initial_data = test_tender_negotiation_quick_data
+    initial_config = test_tender_negotiation_quick_config
+    stand_still_period_days = 5
+
+
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() - timedelta(days=1))
+class TenderReportingEContractMultiBuyersResourceTest(
+    BaseTenderContentWebTest,
+    CreateActiveAwardMixin,
+    TenderEContractMultiBuyersResourceTestMixin,
+):
+    initial_data = test_tender_data_multi_buyers
+    stand_still_period_days = 10
+
+    def setUp(self):
+        super().setUp()
+        self.create_award()
+
+
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() - timedelta(days=1))
+class TenderNegotiationEContractMultiBuyersResourceTest(TenderReportingEContractMultiBuyersResourceTest):
+    initial_data = test_tender_negotiation_data_multi_buyers
+    initial_config = test_tender_negotiation_config
+
+
+@patch("openprocurement.tender.core.procedure.utils.NEW_CONTRACTING_FROM", get_now() - timedelta(days=1))
+class TenderNegotiationEContractMultiBuyersResourceTest(TenderReportingEContractMultiBuyersResourceTest):
+    initial_data = test_tender_negotiation_quick_data_multi_buyers
+    initial_config = test_tender_negotiation_quick_config
 
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(TenderContractResourceTest))
-    suite.addTest(unittest.makeSuite(TenderContractDocumentResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderContractResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderContractDocumentResourceTest))
     return suite
 
 

@@ -1,0 +1,76 @@
+GET /api/2.5/tenders/0f776099eb8344b4a149200a8657a9df/awards/91ac65b9beb54606b75e117055a42ea4/complaints/c4977860749648c98c3c5eb180f8b1fc HTTP/1.0
+Host: public-api-sandbox.prozorro.gov.ua
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "id": "c4977860749648c98c3c5eb180f8b1fc",
+    "complaintID": "UA-2023-01-01-000001-a.1",
+    "date": "2023-01-01T00:00:03+02:00",
+    "type": "complaint",
+    "author": {
+      "name": "ДКП «Школяр»",
+      "address": {
+        "streetAddress": "вул. Островського, 33",
+        "locality": "м. Вінниця",
+        "region": "Вінницька область",
+        "postalCode": "21100",
+        "countryName": "Україна"
+      },
+      "contactPoint": {
+        "name": "Сергій Олексюк",
+        "email": "soleksuk@gmail.com",
+        "telephone": "+380432216930"
+      },
+      "identifier": {
+        "scheme": "UA-EDR",
+        "id": "00137256",
+        "legalName": "ДКП «Школяр»",
+        "uri": "http://www.sc.gov.ua/"
+      }
+    },
+    "title": "Недостатньо інформації",
+    "description": "Умови виставлені замовником не містять достатньо інформації, щоб заявка мала сенс.",
+    "dateSubmitted": "2023-01-01T00:00:03+02:00",
+    "dateDecision": "2023-01-01T00:00:03+02:00",
+    "value": {
+      "amount": 3000.0,
+      "currency": "UAH"
+    },
+    "status": "satisfied",
+    "acceptance": true,
+    "dateAccepted": "2023-01-01T00:00:03+02:00",
+    "reviewDate": "2023-01-01T00:00:03+02:00",
+    "reviewPlace": "Place of review",
+    "documents": [
+      {
+        "id": "645505840531412998ad5f5082639ad7",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "Complaint_Attachment.pdf",
+        "format": "application/pdf",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/c4131fd62e1246fe984547bddecceb84?Signature=9QRUeKsj3r1nMsnB9SGcga8ybnoDsYvuADXSmHrtt%2BVG2vv05KN0XKKy4idM%2BSoounPI1UIjiIohfBWiQNdtAQ%3D%3D&KeyID=a8968c46",
+        "datePublished": "2023-01-01T00:00:03+02:00",
+        "dateModified": "2023-01-01T00:00:03+02:00",
+        "author": "complaint_owner",
+        "documentOf": "tender",
+        "language": "uk"
+      },
+      {
+        "id": "34d0c121a4714b18a43285d593142dc2",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "ComplaintResolution.pdf",
+        "format": "application/pdf",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/9490e878261f4fd1a919a65843a13df3?Signature=QhRB642BNnFgEyW6IBU89grmEfwAOSpfsSr9U0dcaIl6QPDLAm9bd4bBkawvJ9XKQbqrKCsUH0qjuU7KWiV%2BDQ%3D%3D&KeyID=a8968c46",
+        "datePublished": "2023-01-01T00:00:03+02:00",
+        "dateModified": "2023-01-01T00:00:03+02:00",
+        "author": "aboveThresholdReviewers",
+        "documentOf": "tender",
+        "language": "uk"
+      }
+    ]
+  }
+}
+

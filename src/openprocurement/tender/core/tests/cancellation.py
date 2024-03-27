@@ -1,18 +1,15 @@
-import mock
-from datetime import timedelta
-
-from openprocurement.api.utils import get_now
 from openprocurement.api.constants import RELEASE_2020_04_19
+from openprocurement.api.utils import get_now
 
 
 def skip_complaint_period_2020_04_19(func):
     def wrapper(self):
-
         set_complaint_period_end = getattr(self, "set_complaint_period_end", None)
 
         if RELEASE_2020_04_19 < get_now() and set_complaint_period_end:
             set_complaint_period_end()
         return func(self)
+
     return wrapper
 
 
@@ -23,7 +20,7 @@ def activate_cancellation_after_2020_04_19(self, cancellation_id, tender_id=None
     if not tender_token:
         tender_token = self.tender_token
 
-    tender = self.db.get(self.tender_id)
+    tender = self.mongodb.tenders.get(self.tender_id)
 
     without_complaints = [
         "reporting",
@@ -31,6 +28,7 @@ def activate_cancellation_after_2020_04_19(self, cancellation_id, tender_id=None
         "closeFrameworkAgreementSelectionUA",
         "negotiation",
         "negotiation.quick",
+        "competitiveOrdering",
     ]
     tender_type = tender["procurementMethodType"]
 
@@ -50,39 +48,41 @@ def activate_cancellation_with_complaints_after_2020_04_19(self, cancellation_id
     if not tender_token:
         tender_token = self.tender_token
 
-    auth = self.app.authorization
-    self.app.authorization = ("Basic", ("token", ""))
-
-    response = self.app.post(
-        "/tenders/{}/cancellations/{}/documents?acc_token={}".format(
-            tender_id, cancellation_id, tender_token
-        ),
-        upload_files=[("file", "name.doc", "content")],
+    response = self.app.post_json(
+        "/tenders/{}/cancellations/{}/documents?acc_token={}".format(tender_id, cancellation_id, tender_token),
+        {
+            "data": {
+                "title": "name.doc",
+                "url": self.generate_docservice_url(),
+                "hash": "md5:" + "0" * 32,
+                "format": "application/msword",
+            }
+        },
     )
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.content_type, "application/json")
 
     response = self.app.patch_json(
-        "/tenders/{}/cancellations/{}?acc_token={}".format(
-            tender_id, cancellation_id, tender_token
-        ),
+        "/tenders/{}/cancellations/{}?acc_token={}".format(tender_id, cancellation_id, tender_token),
         {"data": {"status": "pending"}},
     )
     cancellation = response.json["data"]
     self.assertEqual(response.status, "200 OK")
     self.assertEqual(cancellation["status"], "pending")
 
-    with mock.patch(
-            "openprocurement.tender.core.utils.get_now",
-            return_value=get_now() + timedelta(days=11)):
-        response = self.check_chronograph()
+    # go to complaintPeriod end
+    tender = self.mongodb.tenders.get(tender_id)
+    for c in tender["cancellations"]:
+        if c["status"] == "pending":
+            c["complaintPeriod"]["endDate"] = get_now().isoformat()
+    self.mongodb.tenders.save(tender)
+
+    self.check_chronograph()
 
     response = self.app.get("/tenders/{}/cancellations/{}".format(self.tender_id, cancellation_id))
     self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["data"]["status"], "active")
-
-    self.app.authorization = auth
 
 
 def activate_cancellation_without_complaints_after_2020_04_19(self, cancellation_id, tender_id=None, tender_token=None):
@@ -92,27 +92,25 @@ def activate_cancellation_without_complaints_after_2020_04_19(self, cancellation
     if not tender_token:
         tender_token = self.tender_token
 
-    auth = self.app.authorization
-    self.app.authorization = ("Basic", ("token", ""))
-
-    response = self.app.post(
-        "/tenders/{}/cancellations/{}/documents?acc_token={}".format(
-            tender_id, cancellation_id, tender_token
-        ),
-        upload_files=[("file", "name.doc", "content")],
+    response = self.app.post_json(
+        "/tenders/{}/cancellations/{}/documents?acc_token={}".format(tender_id, cancellation_id, tender_token),
+        {
+            "data": {
+                "title": "name.doc",
+                "url": self.generate_docservice_url(),
+                "hash": "md5:" + "0" * 32,
+                "format": "application/msword",
+            }
+        },
     )
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.content_type, "application/json")
 
     response = self.app.patch_json(
-        "/tenders/{}/cancellations/{}?acc_token={}".format(
-            tender_id, cancellation_id, tender_token
-        ),
+        "/tenders/{}/cancellations/{}?acc_token={}".format(tender_id, cancellation_id, tender_token),
         {"data": {"status": "active"}},
     )
 
     self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["data"]["status"], "active")
-
-    self.app.authorization = auth

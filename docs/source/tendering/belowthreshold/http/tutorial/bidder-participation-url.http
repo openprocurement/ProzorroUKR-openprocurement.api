@@ -1,0 +1,67 @@
+GET /api/2.5/tenders/2f5e224866d0459cbaa950a15be70946/bids/df2b366b648c4f6eb9855c8a1e3c9ea4?acc_token=26d2b3996f0241b48c3804764bed2bb7 HTTP/1.0
+Authorization: Bearer broker
+Host: public-api-sandbox.prozorro.gov.ua
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "tenderers": [
+      {
+        "name": "ДКП «Школяр»",
+        "identifier": {
+          "scheme": "UA-EDR",
+          "id": "00137256",
+          "legalName": "Державне комунальне підприємство громадського харчування «Школяр»",
+          "uri": "http://www.sc.gov.ua/"
+        },
+        "address": {
+          "streetAddress": "вул. Островського, 33",
+          "locality": "м. Вінниця",
+          "region": "Вінницька область",
+          "postalCode": "21100",
+          "countryName": "Україна"
+        },
+        "contactPoint": {
+          "name": "Сергій Олексюк",
+          "email": "soleksuk@gmail.com",
+          "telephone": "+380432216930"
+        },
+        "scale": "micro"
+      }
+    ],
+    "status": "active",
+    "id": "df2b366b648c4f6eb9855c8a1e3c9ea4",
+    "date": "2023-10-16T01:00:02+03:00",
+    "lotValues": [
+      {
+        "value": {
+          "amount": 500.0,
+          "currency": "UAH",
+          "valueAddedTaxIncluded": true
+        },
+        "relatedLot": "987404b67a4c4d888112d4e9755edefc",
+        "status": "active",
+        "date": "2023-10-16T01:00:02+03:00",
+        "participationUrl": "http://auction-sandbox.prozorro.gov.ua/tenders/2f5e224866d0459cbaa950a15be70946_987404b67a4c4d888112d4e9755edefc?key_for_bid=df2b366b648c4f6eb9855c8a1e3c9ea4"
+      }
+    ],
+    "documents": [
+      {
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "Proposal.pdf",
+        "format": "application/pdf",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/20d128e9e0d94b378f0d20eff02ff88a?Signature=QS7hf8dU8Isr0Gx2mdwGuwjLDNmtMoB5LiUhr9Tr9YS6ojYM4GK8efB0rqFu%2FXzy7Uma7Qi50c5nWl%2BFVfzqDQ%3D%3D&KeyID=a8968c46",
+        "documentOf": "tender",
+        "language": "uk",
+        "id": "d9d97777da46409e8a84ed5f9d61860b",
+        "confidentiality": "public",
+        "datePublished": "2023-10-16T01:00:02+03:00",
+        "dateModified": "2023-10-16T01:00:02+03:00"
+      }
+    ]
+  }
+}
+

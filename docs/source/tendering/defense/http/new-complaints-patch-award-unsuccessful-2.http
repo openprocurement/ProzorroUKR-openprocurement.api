@@ -1,0 +1,55 @@
+PATCH /api/2.5/tenders/3e9fd6ac911442ae885681a8d3f842de/awards/18222e2329f14b2cab7b67b2a1426929?acc_token=b7ec4924ad964a0180f3b4a7e87ca3dd HTTP/1.0
+Authorization: Bearer broker
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "status": "unsuccessful"
+  }
+}
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/3e9fd6ac911442ae885681a8d3f842de/awards/6725addd23ec470e98ee92b878cff492
+
+{
+  "data": {
+    "id": "18222e2329f14b2cab7b67b2a1426929",
+    "status": "unsuccessful",
+    "date": "2023-10-10T01:00:00+03:00",
+    "value": {
+      "amount": 479.0,
+      "currency": "UAH",
+      "valueAddedTaxIncluded": true
+    },
+    "suppliers": [
+      {
+        "name": "Державне управління справами",
+        "identifier": {
+          "scheme": "UA-EDR",
+          "id": "00037256",
+          "legalName": "Державне управління справами",
+          "uri": "http://www.dus.gov.ua/"
+        },
+        "address": {
+          "streetAddress": "вул. Банкова, 11, корпус 1",
+          "locality": "м. Київ",
+          "region": "м. Київ",
+          "postalCode": "01220",
+          "countryName": "Україна"
+        },
+        "contactPoint": {
+          "name": "Державне управління справами",
+          "telephone": "+0440000000"
+        },
+        "scale": "micro"
+      }
+    ],
+    "bid_id": "e46f8f0d801948559ac59fb85a66abaa",
+    "qualified": false,
+    "eligible": false
+  }
+}
+

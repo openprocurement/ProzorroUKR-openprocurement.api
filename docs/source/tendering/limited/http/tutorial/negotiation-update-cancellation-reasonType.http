@@ -1,25 +1,26 @@
-PATCH /api/2.5/tenders/26b780552e084bbcb2b53c5383a6e976/cancellations/4c7f6d0311634a6094eca6ccf61256d1?acc_token=df3d7d3c62c74918a4905630dbce126b HTTP/1.0
+PATCH /api/2.5/tenders/f082eef1f646440d9089b9620ea0bb9a/cancellations/7d78c621c00a4dfc8e5a047a816d1d7e?acc_token=876109ab3fbf46ca81bae8f2e668687a HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 41
 Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
+
 {
   "data": {
     "reasonType": "dateViolation"
   }
 }
 
-Response: 200 OK
-Content-Type: application/json; charset=UTF-8
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
 {
   "data": {
-    "status": "draft", 
-    "reason": "cancellation reason", 
-    "reasonType": "dateViolation", 
-    "date": "2020-05-15T01:00:00+03:00", 
-    "cancellationOf": "tender", 
-    "id": "4c7f6d0311634a6094eca6ccf61256d1"
+    "id": "7d78c621c00a4dfc8e5a047a816d1d7e",
+    "status": "draft",
+    "date": "2023-10-10T01:00:00+03:00",
+    "reasonType": "dateViolation",
+    "reason": "cancellation reason",
+    "cancellationOf": "tender"
   }
 }
 

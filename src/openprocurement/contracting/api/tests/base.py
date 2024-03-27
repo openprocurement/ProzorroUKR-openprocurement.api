@@ -1,10 +1,10 @@
-# -*- coding: utf-8 -*-
 import os
 from copy import deepcopy
 
 from openprocurement.api.tests.base import BaseWebTest
 from openprocurement.contracting.api.tests.data import (
     test_contract_data,
+    test_contract_data_two_items,
 )
 from openprocurement.tender.core.tests.base import BaseWebTest as BaseCoreWebTest
 
@@ -21,10 +21,9 @@ class BaseContractWebTest(BaseCoreWebTest):
     relative_to = os.path.dirname(__file__)
     initial_data = test_contract_data
     initial_auth = ("Basic", ("broker", ""))
-    docservice = True
 
     def setUp(self):
-        super(BaseContractWebTest, self).setUp()
+        super().setUp()
         self.create_contract()
 
     def create_contract(self):
@@ -37,16 +36,16 @@ class BaseContractWebTest(BaseCoreWebTest):
         self.contract_id = self.contract["id"]
         self.app.authorization = orig_auth
 
-    def tearDown(self):
-        del self.db[self.contract_id]
-        super(BaseContractWebTest, self).tearDown()
-
 
 class BaseContractContentWebTest(BaseContractWebTest):
     def setUp(self):
-        super(BaseContractContentWebTest, self).setUp()
+        super().setUp()
         response = self.app.patch_json(
             "/contracts/{}/credentials?acc_token={}".format(self.contract_id, self.initial_data["tender_token"]),
             {"data": {}},
         )
         self.contract_token = response.json["access"]["token"]
+
+
+class BaseContractWebTestTwoItems(BaseContractWebTest):
+    initial_data = test_contract_data_two_items

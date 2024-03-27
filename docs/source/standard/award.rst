@@ -87,7 +87,11 @@ Schema
     All documents and attachments related to the award, including any notices. 
     
 :complaints:
-    List of :ref:`Complaint` objects
+    |    List of :ref:`Complaint` and :ref:`Claim` objects.
+
+    |    List of :ref:`Claim` objects for  `belowThreshold`.
+    |    List of :ref:`Complaint` objects for  `negotiation` and `negotiation.quick`.
+
 
 :complaintPeriod:
     :ref:`period`
@@ -129,6 +133,8 @@ Additionally in :ref:`limited`:
 
     Confirms that Procuring entity has no grounds to reject a participant in accordance with Article 17 of the Law of Ukraine "On Public Procurement".
 
+:requirementResponses:
+        List of :ref:`RequirementResponse` objects.
 
 Award workflow in :ref:`limited`:
 ---------------------------------

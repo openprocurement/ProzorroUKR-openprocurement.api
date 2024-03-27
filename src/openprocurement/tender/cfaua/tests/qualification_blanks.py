@@ -1,22 +1,22 @@
-from iso8601 import parse_date
 from copy import deepcopy
-from openprocurement.tender.core.tests.base import change_auth
-from openprocurement.tender.belowthreshold.tests.base import test_complaint, test_draft_claim, test_draft_complaint
-from openprocurement.api.constants import SANDBOX_MODE, RELEASE_2020_04_19
-from openprocurement.tender.core.tests.base import change_auth
 from math import ceil
 
+from openprocurement.api.constants import RELEASE_2020_04_19, SANDBOX_MODE
+from openprocurement.api.procedure.utils import parse_date
 from openprocurement.api.utils import get_now
+from openprocurement.tender.belowthreshold.tests.base import (
+    test_tender_below_complaint,
+    test_tender_below_draft_claim,
+)
+from openprocurement.tender.core.tests.utils import change_auth
 
 
 def create_tender_lot_qualification_complaint(self):
     response = self.app.post_json(
         "/tenders/{}/qualifications/{}/complaints?acc_token={}".format(
-            self.tender_id, self.qualification_id, self.initial_bids_tokens.values()[0]
+            self.tender_id, self.qualification_id, list(self.initial_bids_tokens.values())[0]
         ),
-        {
-            "data": test_complaint
-        },
+        {"data": test_tender_below_complaint},
     )
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.content_type, "application/json")
@@ -32,8 +32,9 @@ def create_tender_lot_qualification_complaint(self):
         self.assertEqual(response.json["data"]["status"], "draft")
         with change_auth(self.app, ("Basic", ("bot", ""))):
             response = self.app.patch_json(
-                 "/tenders/{}/qualifications/{}/complaints/{}".format(
-                     self.tender_id, self.qualification_id, complaint["id"]),
+                "/tenders/{}/qualifications/{}/complaints/{}".format(
+                    self.tender_id, self.qualification_id, complaint["id"]
+                ),
                 {"data": {"status": "pending"}},
             )
         self.assertEqual(response.status, "200 OK")
@@ -46,10 +47,7 @@ def create_tender_lot_qualification_complaint(self):
             "/tenders/{}/qualifications/{}/complaints/{}?acc_token={}".format(
                 self.tender_id, self.qualification_id, complaint["id"], complaint_token
             ),
-            {"data": {
-                "status": "invalid",
-                "rejectReason": "buyerViolationsCorrected"
-            }},
+            {"data": {"status": "invalid", "rejectReason": "buyerViolationsCorrected"}},
         )
         self.assertEqual(response.status, "200 OK")
 
@@ -60,9 +58,9 @@ def create_tender_lot_qualification_complaint(self):
 
         response = self.app.post_json(
             "/tenders/{}/qualifications/{}/complaints?acc_token={}".format(
-                self.tender_id, self.qualification_id, self.initial_bids_tokens.values()[0]
+                self.tender_id, self.qualification_id, list(self.initial_bids_tokens.values())[0]
             ),
-            {"data": test_draft_claim},
+            {"data": test_tender_below_draft_claim},
             status=403,
         )
         self.assertEqual(response.status, "403 Forbidden")
@@ -73,26 +71,21 @@ def create_tender_lot_qualification_complaint(self):
 
 
 def create_tender_qualification_complaint(self):
-    complaint_data = deepcopy(test_draft_complaint)
-    complaint_data['status'] = "claim"
+    complaint_data = deepcopy(test_tender_below_draft_claim)
     response = self.app.post_json(
         "/tenders/{}/qualifications/{}/complaints?acc_token={}".format(
-            self.tender_id, self.qualification_id, self.initial_bids_tokens.values()[0]
+            self.tender_id, self.qualification_id, list(self.initial_bids_tokens.values())[0]
         ),
-        {
-            "data": complaint_data
-        },
+        {"data": complaint_data},
     )
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.json["data"]["status"], "draft")
 
     response = self.app.post_json(
         "/tenders/{}/qualifications/{}/complaints?acc_token={}".format(
-            self.tender_id, self.qualification_id, self.initial_bids_tokens.values()[0]
+            self.tender_id, self.qualification_id, list(self.initial_bids_tokens.values())[0]
         ),
-        {
-            "data": test_complaint
-        },
+        {"data": test_tender_below_complaint},
     )
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.content_type, "application/json")
@@ -107,8 +100,9 @@ def create_tender_qualification_complaint(self):
         self.assertEqual(response.json["data"]["status"], "draft")
         with change_auth(self.app, ("Basic", ("bot", ""))):
             response = self.app.patch_json(
-                 "/tenders/{}/qualifications/{}/complaints/{}".format(
-                     self.tender_id, self.qualification_id, complaint["id"]),
+                "/tenders/{}/qualifications/{}/complaints/{}".format(
+                    self.tender_id, self.qualification_id, complaint["id"]
+                ),
                 {"data": {"status": "pending"}},
             )
         self.assertEqual(response.status, "200 OK")
@@ -121,10 +115,7 @@ def create_tender_qualification_complaint(self):
             "/tenders/{}/qualifications/{}/complaints/{}?acc_token={}".format(
                 self.tender_id, self.qualification_id, complaint["id"], complaint_token
             ),
-            {"data": {
-                "status": "invalid",
-                "rejectReason": "buyerViolationsCorrected"
-            }},
+            {"data": {"status": "invalid", "rejectReason": "buyerViolationsCorrected"}},
         )
         self.assertEqual(response.status, "200 OK")
 
@@ -135,9 +126,9 @@ def create_tender_qualification_complaint(self):
 
         response = self.app.post_json(
             "/tenders/{}/qualifications/{}/complaints?acc_token={}".format(
-                self.tender_id, self.qualification_id, self.initial_bids_tokens.values()[0]
+                self.tender_id, self.qualification_id, list(self.initial_bids_tokens.values())[0]
             ),
-            {"data": test_draft_claim},
+            {"data": test_tender_below_draft_claim},
             status=403,
         )
         self.assertEqual(response.status, "403 Forbidden")
@@ -148,7 +139,7 @@ def create_tender_qualification_complaint(self):
 
 
 def switch_bid_status_unsuccessul_to_active(self):
-    bid_id, bid_token = self.initial_bids_tokens.items()[0]
+    bid_id, bid_token = list(self.initial_bids_tokens.items())[0]
 
     response = self.app.get("/tenders/{}/qualifications?acc_token={}".format(self.tender_id, self.tender_token))
     self.assertEqual(response.content_type, "application/json")
@@ -182,9 +173,7 @@ def switch_bid_status_unsuccessul_to_active(self):
     # create complaint
     response = self.app.post_json(
         "/tenders/{}/qualifications/{}/complaints?acc_token={}".format(self.tender_id, qualification_id, bid_token),
-        {
-            "data": test_complaint
-        },
+        {"data": test_tender_below_complaint},
     )
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.content_type, "application/json")
@@ -195,8 +184,7 @@ def switch_bid_status_unsuccessul_to_active(self):
         self.assertEqual(response.json["data"]["status"], "draft")
         with change_auth(self.app, ("Basic", ("bot", ""))):
             response = self.app.patch_json(
-                 "/tenders/{}/qualifications/{}/complaints/{}".format(
-                     self.tender_id, qualification_id, complaint["id"]),
+                "/tenders/{}/qualifications/{}/complaints/{}".format(self.tender_id, qualification_id, complaint["id"]),
                 {"data": {"status": "pending"}},
             )
         self.assertEqual(response.status, "200 OK")
@@ -207,10 +195,12 @@ def switch_bid_status_unsuccessul_to_active(self):
     now = get_now()
     data = {"status": "accepted"}
     if RELEASE_2020_04_19 < now:
-        data.update({
-            "reviewDate": now.isoformat(),
-            "reviewPlace": "some",
-        })
+        data.update(
+            {
+                "reviewDate": now.isoformat(),
+                "reviewPlace": "some",
+            }
+        )
     response = self.app.patch_json(
         "/tenders/{}/qualifications/{}/complaints/{}".format(self.tender_id, qualification_id, complaint["id"]),
         {"data": data},

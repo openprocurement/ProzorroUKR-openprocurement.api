@@ -1,0 +1,12 @@
+name,values,default
+hasAuction,"true,false",true
+hasAwardingOrder,"true,false",true
+hasValueRestriction,"true,false",true
+valueCurrencyEquality,"true,false",true
+hasPrequalification,"true,false",false
+minBidsNumber,1 - 9,1
+hasPreSelectionAgreement,false,false
+hasTenderComplaints,false,false
+hasAwardComplaints,false,false
+hasCancellationComplaints,false,false
+restricted,false,false

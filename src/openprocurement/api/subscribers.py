@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
-from pyramid.events import subscriber
-from pyramid.events import NewRequest, BeforeRender, ContextFound
+from pyramid.events import BeforeRender, ContextFound, NewRequest, subscriber
+
 from openprocurement.api.constants import VERSION
-from openprocurement.api.utils import get_now, update_logging_context, fix_url
+from openprocurement.api.utils import fix_url, get_now, update_logging_context
 
 
 @subscriber(NewRequest)
@@ -44,7 +43,7 @@ def set_renderer(event):
     request = event.request
 
     try:
-        json = request.json_body
+        json = request.json
     except ValueError:
         json = {}
     pretty = isinstance(json, dict) and json.get("options", {}).get("pretty") or request.params.get("opt_pretty")

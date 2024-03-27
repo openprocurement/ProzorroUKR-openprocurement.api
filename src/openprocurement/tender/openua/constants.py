@@ -1,12 +1,13 @@
-# -*- coding: utf8 -*-
-from openprocurement.api.constants import TZ
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 
+from openprocurement.api.constants import TZ
+
+TENDERING_DAYS = 15
+TENDERING_DURATION = timedelta(days=TENDERING_DAYS)
 STAND_STILL_TIME = timedelta(days=10)
 ENQUIRY_STAND_STILL_TIME = timedelta(days=3)
 CLAIM_SUBMIT_TIME = timedelta(days=10)
 COMPLAINT_SUBMIT_TIME = timedelta(days=4)
-TENDER_PERIOD = timedelta(days=15)
 ENQUIRY_PERIOD_TIME = timedelta(days=10)
 TENDERING_EXTRA_PERIOD = timedelta(days=7)
 AUCTION_PERIOD_TIME = timedelta(days=2)
@@ -17,3 +18,5 @@ STATUS4ROLE = {
     "tender_owner": ["claim", "pending", "accepted", "satisfied"],
 }
 POST_SUBMIT_TIME = timedelta(days=3)
+ABOVE_THRESHOLD_UA = "aboveThresholdUA"
+UA_KINDS = ("authority", "central", "defense", "general", "social", "special")

@@ -1,9 +1,10 @@
-# -*- coding: utf-8 -*-
 import binascii
-from hashlib import sha512
-from pyramid.authentication import BasicAuthAuthenticationPolicy, b64decode
 from configparser import ConfigParser
+from hashlib import sha512
+
+from pyramid.authentication import BasicAuthAuthenticationPolicy, b64decode
 from pyramid.interfaces import IAuthenticationPolicy
+from pyramid.location import lineage
 
 ACCR_1 = '1'
 ACCR_2 = '2'
@@ -13,6 +14,7 @@ ACCR_5 = '5'
 ACCR_COMPETITIVE = 'c'
 ACCR_EXIT = 'x'
 ACCR_TEST = 't'
+ACCR_RESTRICTED = 'r'
 
 DEFAULT_ACCRS = ''.join([ACCR_1, ACCR_2, ACCR_3, ACCR_4, ACCR_5])
 
@@ -57,8 +59,9 @@ class AuthenticationPolicy(BasicAuthAuthenticationPolicy):
         steps.  The output from debugging is useful for reporting to maillist
         or IRC channels when asking for support.
     """
+
     def __init__(self, auth_file, realm="OpenProcurement", debug=False):
-        super(AuthenticationPolicy, self).__init__(None, realm=realm, debug=debug)
+        super().__init__(None, realm=realm, debug=debug)
         self.users = read_auth_users(auth_file, encoding="utf8", default_level=DEFAULT_ACCRS)
 
     def unauthenticated_userid(self, request):
@@ -78,7 +81,7 @@ class AuthenticationPolicy(BasicAuthAuthenticationPolicy):
         Returns ``None`` if the user doesn't exist or a sequence
         of principal identifiers (possibly empty) if the user does exist.
         """
-        user =  self.users.get(key)
+        user = self.users.get(key)
         if user:
             principals = ["g:%s" % user["group"]]
             for i in user["level"]:
@@ -86,14 +89,12 @@ class AuthenticationPolicy(BasicAuthAuthenticationPolicy):
             acc_token = extract_access_token(request)
             if acc_token:
                 acc_token_hex = sha512(acc_token.encode("utf-8")).hexdigest()
-                principals.append("%s_%s" % (user["name"], acc_token))
-                principals.append("%s_%s" % (user["name"], acc_token_hex))
+                principals.append("{}_{}".format(user["name"], acc_token))
+                principals.append("{}_{}".format(user["name"], acc_token_hex))
             return principals
 
 
 def get_local_roles(context):
-    from pyramid.location import lineage
-
     roles = {}
     for location in reversed(list(lineage(context))):
         try:
@@ -122,7 +123,7 @@ def check_accreditation(request, level):
 
 
 def check_accreditations(request, levels):
-    return any([check_accreditation(request, level) for level in levels])
+    return any(check_accreditation(request, level) for level in levels)
 
 
 def check_user_accreditation(request, userid, level, default=False):
@@ -134,7 +135,7 @@ def check_user_accreditation(request, userid, level, default=False):
 
 
 def check_user_accreditations(request, userid, levels, default=False):
-    return any([check_user_accreditation(request, userid, level, default=default) for level in levels])
+    return any(check_user_accreditation(request, userid, level, default=default) for level in levels)
 
 
 def extract_http_credentials(request):
@@ -160,7 +161,7 @@ def extract_http_credentials(request):
 
     try:
         authbytes = b64decode(auth.strip())
-    except (TypeError, binascii.Error): # can't decode
+    except (TypeError, binascii.Error):  # can't decode
         return None
 
     # try utf-8 first, then latin-1; see discussion in
@@ -172,16 +173,15 @@ def extract_http_credentials(request):
 
     try:
         return auth.split(':', 1)[0]
-    except ValueError: # not enough values to unpack
+    except ValueError:  # not enough values to unpack
         return None
-
 
 
 def extract_access_token(request):
     token = request.params.get("acc_token") or request.headers.get("X-Access-Token")
     if not token and request.method in ["POST", "PUT", "PATCH"] and request.content_type == "application/json":
         try:
-            json = request.json_body
+            json = request.json
         except ValueError:
             json = None
         token = json.get("access", {}).get("token") if isinstance(json, dict) else None
