@@ -1,50 +1,53 @@
-GET /api/2.5/tenders/35f93e8dd5484abb8b90687952c82010/bids/9161500fb17744ce90346052ddf8479c/documents?acc_token=3779418188014a5197c514e6dd1908a2 HTTP/1.0
+GET /api/2.5/tenders/e01d495b72a74a27ae9a485bbdccc84a/bids/bef46d74750b4f74b30d46b87c69df0c/documents?acc_token=f845f0ce950540b480b48d5f4ef3f1c6 HTTP/1.0
 Authorization: Bearer broker
-Host: lb-api-sandbox.prozorro.gov.ua
+Host: public-api-sandbox.prozorro.gov.ua
 
-Response: 200 OK
-Content-Type: application/json; charset=UTF-8
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
 {
   "data": [
     {
-      "hash": "md5:00000000000000000000000000000000", 
-      "confidentiality": "public", 
-      "language": "uk", 
-      "title": "Proposal.pdf", 
-      "url": "http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/35f93e8dd5484abb8b90687952c82010/bids/9161500fb17744ce90346052ddf8479c/documents/bdf03760f26641e6b662ddd1eb2e1e1f?download=752bdc92fce4442596aec7342e050667", 
-      "format": "application/pdf", 
-      "isDescriptionDecision": false, 
-      "documentOf": "tender", 
-      "datePublished": "2020-05-15T01:00:00+03:00", 
-      "id": "bdf03760f26641e6b662ddd1eb2e1e1f", 
-      "dateModified": "2020-05-15T01:00:00+03:00"
-    }, 
+      "confidentiality": "public",
+      "documentType": "proposal",
+      "id": "a7a69098c804461aa8380adf5771905e",
+      "datePublished": "2023-10-10T01:01:00+03:00",
+      "hash": "md5:00000000000000000000000000000000",
+      "title": "sign.p7s",
+      "format": "sign/p7s",
+      "url": "http://public-docs-sandbox.prozorro.gov.ua/get/8bc99af3284943cda1dcf1d362c36767?Signature=cdisunJhbJoADi9HRJLyrFEjfgKtlaXa6zLM3FyLWQkj3hskZssC%2BaYkpYcQ05FUee54Xy7JveLugXQME0rpAA%3D%3D&KeyID=a8968c46",
+      "documentOf": "tender",
+      "dateModified": "2023-10-10T01:01:00+03:00",
+      "language": "uk",
+      "isDescriptionDecision": false
+    },
     {
-      "hash": "md5:00000000000000000000000000000000", 
-      "confidentiality": "buyerOnly", 
-      "language": "uk", 
-      "title": "DescriptiveProposal.pdf", 
-      "url": "http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/35f93e8dd5484abb8b90687952c82010/bids/9161500fb17744ce90346052ddf8479c/documents/b3ba98a293ec412b966a9cb2c035020a?download=ec4c001ffaee4fb494eaa38e6bfe7bd7", 
-      "format": "application/pdf", 
-      "isDescriptionDecision": true, 
-      "documentOf": "tender", 
-      "datePublished": "2020-05-15T01:00:00+03:00", 
-      "id": "b3ba98a293ec412b966a9cb2c035020a", 
-      "dateModified": "2020-05-15T01:00:00+03:00"
-    }, 
+      "confidentiality": "buyerOnly",
+      "id": "443d1bc006e84ddeb2e2e42daa2830cb",
+      "datePublished": "2023-10-10T01:01:00+03:00",
+      "hash": "md5:00000000000000000000000000000000",
+      "title": "DescriptiveProposal.pdf",
+      "format": "application/pdf",
+      "url": "http://public-api-sandbox.prozorro.gov.ua/api/2.5/tenders/e01d495b72a74a27ae9a485bbdccc84a/bids/bef46d74750b4f74b30d46b87c69df0c/documents/443d1bc006e84ddeb2e2e42daa2830cb?download=d55cf7685594417eafcd6a81cf099e54",
+      "documentOf": "tender",
+      "dateModified": "2023-10-10T01:01:00+03:00",
+      "language": "uk",
+      "isDescriptionDecision": true
+    },
     {
-      "hash": "md5:00000000000000000000000000000000", 
-      "confidentiality": "buyerOnly", 
-      "language": "uk", 
-      "format": "application/pdf", 
-      "url": "http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/35f93e8dd5484abb8b90687952c82010/bids/9161500fb17744ce90346052ddf8479c/documents/c1b944c8854543e58b0d043843de553c?download=f47657026ea64bf6b5a840519258f836", 
-      "confidentialityRationale": "Only our company sells badgers with pink hair.", 
-      "title": "Proposal_top_secrets.pdf", 
-      "isDescriptionDecision": false, 
-      "documentOf": "tender", 
-      "datePublished": "2020-05-15T01:00:00+03:00", 
-      "id": "c1b944c8854543e58b0d043843de553c", 
-      "dateModified": "2020-05-15T01:00:00+03:00"
+      "confidentiality": "buyerOnly",
+      "confidentialityRationale": "Only our company sells badgers with pink hair.",
+      "id": "bf5c6b2858994bc08ed99aaf624d12c7",
+      "datePublished": "2023-10-10T01:01:00+03:00",
+      "hash": "md5:00000000000000000000000000000000",
+      "title": "Proposal_top_secrets.pdf",
+      "format": "application/pdf",
+      "url": "http://public-api-sandbox.prozorro.gov.ua/api/2.5/tenders/e01d495b72a74a27ae9a485bbdccc84a/bids/bef46d74750b4f74b30d46b87c69df0c/documents/bf5c6b2858994bc08ed99aaf624d12c7?download=8b781eec9f744181a275c6919de639dc",
+      "documentOf": "tender",
+      "dateModified": "2023-10-10T01:01:00+03:00",
+      "language": "uk",
+      "isDescriptionDecision": false
     }
   ]
 }

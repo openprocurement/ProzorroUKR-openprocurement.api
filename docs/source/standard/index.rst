@@ -16,16 +16,31 @@ areas that were not covered by it.
    cancellation
    change
    complaint
+   claim
+   complaint-objection
+   complaint-objection-argument
+   complaint-objection-argument-evidence
+   complaint-objection-classification
+   complaint-objection-requested-remedy
    complaintpost
    confidentialdocument
    contract
+   criterion
+   dimension
    document
+   econtract
+   eligibleevidence
+   evidence
    feature
    firm
    qualificationmilestone
    item
+   item_attribute
    lot
+   metric
    milestone
+   milestoneReference
+   observation
    organization
    plan
    procuringentity
@@ -33,9 +48,19 @@ areas that were not covered by it.
    planmilestone
    planrelation
    planorganization
+   requirement
+   requirementgroup
+   requirementresponse
+   signer_info
    qualification
    question
    tender
+   unit
    unitPrice
    util
    transfer
+   implementation
+   transaction
+   framework
+   submission
+   framework_qualification

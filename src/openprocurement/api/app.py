@@ -1,36 +1,65 @@
-# -*- coding: utf-8 -*-
-def is_test():
-    return any([
-        "test" in __import__("sys").argv[0],
-        "setup.py" in __import__("sys").argv[0],
-        "PYTEST_XDIST_WORKER" in __import__("os").environ,
-    ])
+# pylint: disable=wrong-import-position
+import os
+import sys
 
-if not is_test():
+if not any(
+    [
+        "test" in sys.argv[0],
+        "setup.py" in sys.argv[0],
+        "PYTEST_XDIST_WORKER" in os.environ,
+    ]
+):
     import gevent.monkey
+
     gevent.monkey.patch_all()
 
-import os
-import simplejson
-import sentry_sdk
-from libnacl.sign import Signer, Verifier
-from libnacl.public import SecretKey, PublicKey
+from datetime import datetime
 from logging import getLogger
-from openprocurement.api.auth import AuthenticationPolicy, authenticated_role, check_accreditations
-from openprocurement.api.database import set_api_security
-from openprocurement.api.utils import forbidden, request_params, couchdb_json_decode, precondition, get_currency_rates
-from openprocurement.api.constants import ROUTE_PREFIX
+
+import sentry_sdk
+import simplejson
+from nacl.encoding import HexEncoder
+from nacl.signing import SigningKey, VerifyKey
 from pkg_resources import iter_entry_points
 from pyramid.authorization import ACLAuthorizationPolicy as AuthorizationPolicy
 from pyramid.config import Configurator
+from pyramid.httpexceptions import HTTPPreconditionFailed
 from pyramid.renderers import JSON, JSONP
 from pyramid.settings import asbool
-from pyramid.httpexceptions import HTTPPreconditionFailed
+from pytz import utc
 from sentry_sdk.integrations.logging import LoggingIntegration
 from sentry_sdk.integrations.pyramid import PyramidIntegration
 
+from openprocurement.api.auth import (
+    AuthenticationPolicy,
+    authenticated_role,
+    check_accreditations,
+)
+from openprocurement.api.constants import ROUTE_PREFIX, TZ
+from openprocurement.api.database import MongodbStore
+from openprocurement.api.utils import (
+    forbidden,
+    get_currency_rates,
+    precondition,
+    request_params,
+)
 
 LOGGER = getLogger("{}.init".format(__name__))
+
+
+class CustomJSONEncoder(simplejson.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            if not obj.tzinfo:
+                obj = utc.localize(obj).astimezone(TZ)
+            return obj.isoformat()
+        return super().default(obj)
+
+
+def json_dumps(data, **kw):
+    kw["cls"] = CustomJSONEncoder
+    del kw["default"]  # ignore pyramids default function provided, to use CustomJSONEncoder.default
+    return simplejson.dumps(data, **kw)
 
 
 def main(global_config, **settings):
@@ -41,7 +70,8 @@ def main(global_config, **settings):
             dsn=dsn,
             integrations=[
                 LoggingIntegration(level=None, event_level=None),
-                PyramidIntegration()],
+                PyramidIntegration(),
+            ],
             send_default_pii=True,
             request_bodies="always",
             environment=settings.get("sentry.environment", None),
@@ -63,10 +93,13 @@ def main(global_config, **settings):
     config.add_request_method(authenticated_role, reify=True)
     config.add_request_method(check_accreditations)
     config.add_request_method(get_currency_rates, name="currency_rates", reify=True)
-    config.add_renderer("json", JSON(serializer=simplejson.dumps))
-    config.add_renderer("prettyjson", JSON(indent=4, serializer=simplejson.dumps))
-    config.add_renderer("jsonp", JSONP(param_name="opt_jsonp", serializer=simplejson.dumps))
-    config.add_renderer("prettyjsonp", JSONP(indent=4, param_name="opt_jsonp", serializer=simplejson.dumps))
+    config.add_renderer("json", JSON(serializer=json_dumps))
+    config.add_renderer("prettyjson", JSON(indent=4, serializer=json_dumps))
+    config.add_renderer("jsonp", JSONP(param_name="opt_jsonp", serializer=json_dumps))
+    config.add_renderer("prettyjsonp", JSONP(indent=4, param_name="opt_jsonp", serializer=json_dumps))
+
+    # mongodb
+    config.registry.mongodb = MongodbStore(settings)
 
     # search for plugins
     plugins = settings.get("plugins") and [plugin.strip() for plugin in settings["plugins"].split(",")]
@@ -75,35 +108,28 @@ def main(global_config, **settings):
             plugin = entry_point.load()
             plugin(config)
 
-    # CouchDB connection
-    aserver, server, db = set_api_security(settings)
-    config.registry.couchdb_server = server
-    if aserver:
-        config.registry.admin_couchdb_server = aserver
-    config.registry.db = db
-    # readjust couchdb json decoder
-    couchdb_json_decode()
-
     # Document Service key
     config.registry.docservice_url = settings.get("docservice_url")
     config.registry.docservice_username = settings.get("docservice_username")
     config.registry.docservice_password = settings.get("docservice_password")
     config.registry.docservice_upload_url = settings.get("docservice_upload_url")
-    config.registry.docservice_key = dockey = Signer(settings.get("dockey", "").decode("hex"))
-    config.registry.keyring = keyring = {}
-    dockeys = settings.get("dockeys") if "dockeys" in settings else dockey.hex_vk()
+    config.registry.catalog_api_host = settings.get("catalog_api_host")
+
+    # deprecated doc service url (for switching to the new host)
+    # you can upload documents from it, then urls will be changed to registry.docservice_url
+    # so they both must be the same document service
+    config.registry.dep_docservice_url = settings.get("dep_docservice_url")
+
+    signing_key = settings.get("dockey", "")
+    signer = SigningKey(signing_key, encoder=HexEncoder) if signing_key else SigningKey.generate()
+    config.registry.docservice_key = signer
+    verifier = signer.verify_key
+
+    config.registry.keyring = {verifier.encode(encoder=HexEncoder)[:8].decode(): verifier}
+    dockeys = settings.get("dockeys", "")
     for key in dockeys.split("\0"):
-        keyring[key[:8]] = Verifier(key)
-
-    # Archive keys
-    arch_pubkey = settings.get("arch_pubkey", None)
-    config.registry.arch_pubkey = PublicKey(arch_pubkey.decode("hex") if arch_pubkey else SecretKey().pk)
-
-    # migrate data
-    if not os.environ.get("MIGRATION_SKIP"):
-        for entry_point in iter_entry_points("openprocurement.api.migrations"):
-            plugin = entry_point.load()
-            plugin(config.registry)
+        if key:
+            config.registry.keyring[key[:8]] = VerifyKey(key, encoder=HexEncoder)
 
     config.registry.server_id = settings.get("id", "")
 
@@ -120,4 +146,7 @@ def main(global_config, **settings):
     config.registry.health_threshold = float(settings.get("health_threshold", 512))
     config.registry.health_threshold_func = settings.get("health_threshold_func", "all")
     config.registry.update_after = asbool(settings.get("update_after", True))
-    return config.make_wsgi_app()
+
+    config.add_tween("openprocurement.api.middlewares.DBSessionCookieMiddleware")
+    app = config.make_wsgi_app()
+    return app

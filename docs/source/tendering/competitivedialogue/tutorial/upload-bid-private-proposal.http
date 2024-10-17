@@ -1,33 +1,35 @@
-POST /api/2.5/tenders/35f93e8dd5484abb8b90687952c82010/bids/9161500fb17744ce90346052ddf8479c/documents?acc_token=3779418188014a5197c514e6dd1908a2 HTTP/1.0
+POST /api/2.5/tenders/e01d495b72a74a27ae9a485bbdccc84a/bids/bef46d74750b4f74b30d46b87c69df0c/documents?acc_token=f845f0ce950540b480b48d5f4ef3f1c6 HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 156
-Content-Type: multipart/form-data; boundary=---BOUNDARY
+Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
------BOUNDARY
-Content-Disposition: form-data; name="file"; filename="Proposal_top_secrets.pdf"
-Content-Type: application/pdf
 
-content
------BOUNDARY--
-
-
-Response: 201 Created
-Content-Type: application/json; charset=UTF-8
-Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/35f93e8dd5484abb8b90687952c82010/bids/9161500fb17744ce90346052ddf8479c/documents/c1b944c8854543e58b0d043843de553c
 {
   "data": {
-    "hash": "md5:00000000000000000000000000000000", 
-    "confidentiality": "public", 
-    "language": "uk", 
-    "title": "Proposal_top_secrets.pdf", 
-    "url": "http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/35f93e8dd5484abb8b90687952c82010/bids/9161500fb17744ce90346052ddf8479c/documents/c1b944c8854543e58b0d043843de553c?download=f47657026ea64bf6b5a840519258f836", 
-    "format": "application/pdf", 
-    "isDescriptionDecision": false, 
-    "documentOf": "tender", 
-    "datePublished": "2020-05-15T01:00:00+03:00", 
-    "id": "c1b944c8854543e58b0d043843de553c", 
-    "dateModified": "2020-05-15T01:00:00+03:00"
+    "title": "Proposal_top_secrets.pdf",
+    "url": "http://public-docs-sandbox.prozorro.gov.ua/get/8b781eec9f744181a275c6919de639dc?Signature=EzMVPKxxZKaIQE8V2qTKkCejhS6nxDOOnJRPsFOGlvv14krEZBodyjj6Gia4%2Fjq4GoZwl909K8VstaFVJda4Dw%3D%3D&KeyID=a8968c46",
+    "hash": "md5:00000000000000000000000000000000",
+    "format": "application/pdf"
+  }
+}
+
+
+HTTP/1.0 201 Created
+Content-Type: application/json
+Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/e01d495b72a74a27ae9a485bbdccc84a/bids/bef46d74750b4f74b30d46b87c69df0c/documents/bf5c6b2858994bc08ed99aaf624d12c7
+
+{
+  "data": {
+    "confidentiality": "public",
+    "hash": "md5:00000000000000000000000000000000",
+    "title": "Proposal_top_secrets.pdf",
+    "format": "application/pdf",
+    "url": "http://public-docs-sandbox.prozorro.gov.ua/get/8b781eec9f744181a275c6919de639dc?Signature=IILh4Y63cTxfiu1HvljkhIZl8XtvbMh1vZQWC27xuUK3IU3HuRTUA4dpBHaRniidh38b%2F0z2Q49ReRqizXqRAw%3D%3D&KeyID=a8968c46",
+    "documentOf": "tender",
+    "language": "uk",
+    "id": "bf5c6b2858994bc08ed99aaf624d12c7",
+    "isDescriptionDecision": false,
+    "datePublished": "2023-10-10T01:01:00+03:00",
+    "dateModified": "2023-10-10T01:01:00+03:00"
   }
 }
 

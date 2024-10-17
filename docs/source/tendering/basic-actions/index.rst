@@ -12,14 +12,17 @@ Contents:
    confidential-documents
    questions
    tenders
-   qualifications
    complaints
    complaint-payments
+   etd
    procuring
    lots
    bidding
    meat
    milestones
+   technical-features
    24hours
+   prolongation_awards
    2pc
+   sign-data
 

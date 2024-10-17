@@ -93,6 +93,42 @@ Additionally in :ref:`openeu`:
     * `mid`
     * `not specified`
 
+    Validation depends on:
+
+        * :ref:`ORGANIZATION_SCALE_FROM` constant
+
+
+.. index:: EContractOrganization, Company
+
+.. _EContractOrganization:
+
+EContractOrganization
+=====================
+
+Schema
+------
+
+:name:
+    string, multilingual
+
+    |ocdsDescription|
+    The common name of the organization.
+
+:identifier:
+    :ref:`Identifier`
+
+    |ocdsDescription|
+    The primary identifier for this organization.
+
+:additionalIdentifiers:
+    List of :ref:`identifier` objects
+
+:address:
+    :ref:`Address`, required
+
+:signerInfo:
+    :ref:`SignerInfo`
+
 
 .. index:: Company, id
 
@@ -105,7 +141,7 @@ Schema
 ------
 
 :scheme:
-   string, required
+   string, required(in `Legislation` object is not required)
 
    |ocdsDescription|
    Organization identifiers be drawn from an existing identification scheme. 
@@ -143,6 +179,8 @@ Schema
    Corporates or some other relevant URI provider.  This is not for listing
    the website of the organization: that can be done through the url field
    of the Organization contact point.
+
+   Regular expression for this field: ``^https?://\S+$``
 
 
 .. index:: Address, City, Street, Country
@@ -231,6 +269,8 @@ Schema
     
     |ocdsDescription|
     A web address for the contact point/person.
+
+    Regular expression for this field: ``^https?://\S+$``
 
 
 Additionally in :ref:`contracting`, :ref:`openeu` and :ref:`competitivedialogue`:

@@ -1,19 +1,19 @@
-# -*- coding: utf-8 -*-
 import jmespath
 
 from openprocurement.api.constants import RELEASE_2020_04_19
 from openprocurement.api.utils import get_now
+from openprocurement.tender.belowthreshold.tests.base import (
+    test_tender_below_claim,
+    test_tender_below_complaint,
+)
+from openprocurement.tender.core.tests.utils import change_auth
 
-from openprocurement.tender.core.tests.base import change_auth
-from openprocurement.tender.belowthreshold.tests.base import test_complaint, test_claim
-from openprocurement.tender.cfaua.tests.base import test_cancellation
 
-
-def assert_statuses(self, rules={}):
+def assert_statuses(self, rules: dict):
     data = self.get_tender(role="broker").json
     for rule in rules:
         value = jmespath.search(rule, data)
-        self.assertEqual(value, rules[rule])
+        self.assertEqual(value, rules[rule], f"{rule} is not {rules[rule]}: {value}")
 
 
 def add_tender_complaints(self, statuses):
@@ -22,9 +22,7 @@ def add_tender_complaints(self, statuses):
         self.app.authorization = ("Basic", ("broker", ""))
         response = self.app.post_json(
             "/tenders/{}/complaints".format(self.tender_id),
-            {
-                "data": test_complaint
-            },
+            {"data": test_tender_below_complaint},
         )
         self.assertEqual(response.status, "201 Created")
         self.assertEqual(response.content_type, "application/json")
@@ -57,10 +55,9 @@ def add_tender_complaints(self, statuses):
             data = {"decision": "decision", "status": status}
             if RELEASE_2020_04_19 < now:
                 if status in ["invalid", "stopped"]:
-                    data.update({
-                        "rejectReason": "tenderCancelled",
-                        "rejectReasonDescription": "reject reason description"
-                    })
+                    data.update(
+                        {"rejectReason": "tenderCancelled", "rejectReasonDescription": "reject reason description"}
+                    )
             response = self.app.patch_json(url_patch_complaint, {"data": data})
             self.assertEqual(response.status, "200 OK")
             self.assertEqual(response.content_type, "application/json")
@@ -71,13 +68,10 @@ def add_tender_complaints(self, statuses):
 def cancellation_tender_active_tendering(self):
     response = self.get_tender(role="broker")
     self.assertEqual(response.json["data"]["status"], "active.tendering")
-    response = self.app.post_json(
-        "/tenders/{}/complaints".format(self.tender_id),
-        {
-            "data": test_claim
-        },
-    )
-    self.assertEqual(response.status, "201 Created")
+    # as POST claim already doesn't work, create claim via database just to test old tenders
+    tender = self.mongodb.tenders.get(self.tender_id)
+    tender["complaints"] = [test_tender_below_claim]
+    self.mongodb.tenders.save(tender)
 
     if RELEASE_2020_04_19 < get_now():
         self.set_complaint_period_end()
@@ -92,7 +86,6 @@ def cancellation_tender_active_tendering(self):
             "data.qualifications[*].status": None,
             "data.awards[*].status": None,
             "data.agreements[*].status": None,
-            "data.complaints[*].status": ["claim"],
         },
     )
 
@@ -129,9 +122,7 @@ def cancellation_tender_active_pre_qualification_stand_still(self):
     self.assertEqual(response.json["data"]["status"], "active.tendering")
     response = self.app.post_json(
         "/tenders/{}/complaints".format(self.tender_id),
-        {
-            "data": test_complaint
-        },
+        {"data": test_tender_below_complaint},
     )
     self.assertEqual(response.status, "201 Created")
     complaint_id = response.json["data"]["id"]
@@ -140,8 +131,7 @@ def cancellation_tender_active_pre_qualification_stand_still(self):
     if RELEASE_2020_04_19 < get_now():
         with change_auth(self.app, ("Basic", ("bot", ""))):
             response = self.app.patch_json(
-                "/tenders/{}/complaints/{}".format(
-                    self.tender_id, complaint_id),
+                "/tenders/{}/complaints/{}".format(self.tender_id, complaint_id),
                 {"data": {"status": "pending"}},
             )
         self.assertEqual(response.status, "200 OK")
@@ -153,13 +143,8 @@ def cancellation_tender_active_pre_qualification_stand_still(self):
     now = get_now()
     data = {"status": "invalid"}
     if RELEASE_2020_04_19 < now:
-        data.update({
-            "rejectReason": "tenderCancelled",
-            "rejectReasonDescription": "reject reason description"
-        })
-    response = self.app.patch_json(
-        "/tenders/{}/complaints/{}".format(self.tender_id, complaint_id), {"data": data}
-    )
+        data.update({"rejectReason": "tenderCancelled", "rejectReasonDescription": "reject reason description"})
+    response = self.app.patch_json("/tenders/{}/complaints/{}".format(self.tender_id, complaint_id), {"data": data})
     self.assertEqual(response.status, "200 OK")
     self.check_chronograph()
     self.set_status("active.pre-qualification.stand-still")
@@ -255,10 +240,8 @@ def cancellation_tender_active_qualification_stand_still(self):
         award_id = response.json["data"]["awards"][0]["id"]
         owner_token = self.initial_bids_tokens[response.json["data"]["bids"][0]["id"]]
         response = self.app.post_json(
-            "/tenders/{0}/awards/{1}/complaints?acc_token={2}".format(self.tender_id, award_id, owner_token),
-            {
-                "data": test_complaint
-            },
+            "/tenders/{}/awards/{}/complaints?acc_token={}".format(self.tender_id, award_id, owner_token),
+            {"data": test_tender_below_complaint},
         )
         self.assertEqual(response.status, "201 Created")
         complaint = response.json["data"]
@@ -267,8 +250,7 @@ def cancellation_tender_active_qualification_stand_still(self):
         if RELEASE_2020_04_19 < get_now():
             with change_auth(self.app, ("Basic", ("bot", ""))):
                 response = self.app.patch_json(
-                     "/tenders/{}/awards/{}/complaints/{}".format(
-                         self.tender_id, award_id, complaint["id"]),
+                    "/tenders/{}/awards/{}/complaints/{}".format(self.tender_id, award_id, complaint["id"]),
                     {"data": {"status": "pending"}},
                 )
             self.assertEqual(response.status, "200 OK")
@@ -281,10 +263,12 @@ def cancellation_tender_active_qualification_stand_still(self):
                 "/tenders/{}/awards/{}/complaints/{}?acc_token={}".format(
                     self.tender_id, award_id, complaint["id"], complaint_token
                 ),
-                {"data": {
-                    "status": "stopping",
-                    "cancellationReason": "want this test to pass",
-                }},
+                {
+                    "data": {
+                        "status": "stopping",
+                        "cancellationReason": "want this test to pass",
+                    }
+                },
             )
             assert response.status_code == 200
         else:
@@ -293,11 +277,7 @@ def cancellation_tender_active_qualification_stand_still(self):
                     "/tenders/{}/awards/{}/complaints/{}?acc_token={}".format(
                         self.tender_id, award_id, complaint["id"], complaint_token
                     ),
-                    {"data": {
-                        "status": "accepted",
-                        "reviewDate": get_now().isoformat(),
-                        "reviewPlace": "some place"
-                    }},
+                    {"data": {"status": "accepted", "reviewDate": get_now().isoformat(), "reviewPlace": "some place"}},
                 )
                 assert response.status_code == 200
 
@@ -305,10 +285,12 @@ def cancellation_tender_active_qualification_stand_still(self):
                     "/tenders/{}/awards/{}/complaints/{}?acc_token={}".format(
                         self.tender_id, award_id, complaint["id"], complaint_token
                     ),
-                    {"data": {
-                        "status": "stopped",
-                        "rejectReason": "tenderCancelled",
-                    }},
+                    {
+                        "data": {
+                            "status": "stopped",
+                            "rejectReason": "tenderCancelled",
+                        }
+                    },
                 )
                 assert response.status_code == 200
 
@@ -398,7 +380,7 @@ def cancel_lot_active_pre_qualification(self):
                 "invalid.pre-qualification",
                 "invalid.pre-qualification",
             ],
-            "data.qualifications[*].status": ["cancelled", "cancelled", "cancelled"],
+            "data.qualifications[*].status": ["pending", "pending", "pending"],
             "data.awards[*].status": None,
             "data.agreements[*].status": None,
             "data.complaints[*].status": statuses,
@@ -428,7 +410,7 @@ def cancel_lot_active_pre_qualification_stand_still(self):
                     "invalid.pre-qualification",
                     "invalid.pre-qualification",
                 ],
-                "data.qualifications[*].status": ["cancelled", "cancelled", "cancelled"],
+                "data.qualifications[*].status": ["active", "active", "active"],
                 "data.awards[*].status": None,
                 "data.agreements[*].status": None,
                 "data.complaints[*].status": statuses,
@@ -456,7 +438,7 @@ def cancel_lot_active_auction(self):
                     "invalid.pre-qualification",
                     "invalid.pre-qualification",
                 ],
-                "data.qualifications[*].status": ["cancelled", "cancelled", "cancelled"],
+                "data.qualifications[*].status": ["active", "active", "active"],
                 "data.awards[*].status": None,
                 "data.agreements[*].status": None,
                 "data.complaints[*].status": statuses,
@@ -466,12 +448,12 @@ def cancel_lot_active_auction(self):
         response = self.app.post_json(
             "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),
             {"data": {"reasonType": "noDemand", "reason": "cancellation reason"}},
-            status=403
+            status=403,
         )
         self.assertEqual(response.status, "403 Forbidden")
         self.assertEqual(
             response.json["errors"][0]["description"],
-            "Can't create cancellation in current (active.auction) tender status",
+            "Can't perform cancellation in current (active.auction) tender status",
         )
 
 
@@ -487,7 +469,7 @@ def cancel_lot_active_qualification(self):
             "data.status": "cancelled",
             "data.lots[*].status": ["cancelled"],
             "data.bids[*].status": ["active", "active", "active"],
-            "data.qualifications[*].status": ["cancelled", "cancelled", "cancelled"],
+            "data.qualifications[*].status": ["active", "active", "active"],
             "data.awards[*].status": ["pending", "pending", "pending"],
             "data.agreements[*].status": None,
             "data.complaints[*].status": None,
@@ -510,7 +492,7 @@ def cancel_lot_active_qualification_stand_still(self):
                 "data.status": "cancelled",
                 "data.lots[*].status": ["cancelled"],
                 "data.bids[*].status": ["active", "active", "active"],
-                "data.qualifications[*].status": ["cancelled", "cancelled", "cancelled"],
+                "data.qualifications[*].status": ["active", "active", "active"],
                 "data.awards[*].status": ["active", "active", "active"],
                 "data.agreements[*].status": None,
                 "data.complaints[*].status": None,
@@ -530,7 +512,7 @@ def cancel_lot_active_awarded(self):
             "data.status": "cancelled",
             "data.lots[*].status": ["cancelled"],
             "data.bids[*].status": ["active", "active", "active"],
-            "data.qualifications[*].status": ["cancelled", "cancelled", "cancelled"],
+            "data.qualifications[*].status": ["active", "active", "active"],
             "data.awards[*].status": ["active", "active", "active"],
             "data.agreements[*].status": ["cancelled"],
             "data.complaints[*].status": None,

@@ -1,0 +1,21 @@
+GET /api/2.5/tenders?opt_pretty=1 HTTP/1.0
+Host: public-api-sandbox.prozorro.gov.ua
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": [
+    {
+      "dateModified": "2023-10-10T01:00:00+03:00",
+      "id": "5fd17b367a75453582bffe24ae83b896"
+    }
+  ],
+  "next_page": {
+    "offset": "1696888800.0000000002",
+    "path": "/api/2.5/tenders?offset=1696888800.0000000002",
+    "uri": "http://public-api-sandbox.prozorro.gov.ua/api/2.5/tenders?offset=1696888800.0000000002"
+  }
+}
+

@@ -1,8 +1,9 @@
-# -*- coding: utf-8 -*-
-from pyramid.events import subscriber
-from pyramid.events import NewRequest, BeforeRender, ContextFound
-from openprocurement.api.constants import VERSION
-from openprocurement.api.utils import get_now, update_logging_context, fix_url
+from hashlib import new
+
+from pyramid.events import BeforeRender, ContextFound, NewRequest, subscriber
+
+from openprocurement.api.constants import CRITICAL_HEADERS_LOG_ENABLED, VERSION
+from openprocurement.api.utils import fix_url, get_now, update_logging_context
 
 
 @subscriber(NewRequest)
@@ -21,6 +22,13 @@ def add_logging_context(event):
         "REQUEST_ID": request.environ.get("REQUEST_ID", ""),
         "CLIENT_REQUEST_ID": request.headers.get("X-Client-Request-ID", ""),
     }
+    if CRITICAL_HEADERS_LOG_ENABLED:
+        params.update(
+            {
+                "AUTHORIZATION": new("md5", request.headers.get("Authorization", "").encode()).hexdigest(),
+                "X_REQUEST_ID": request.headers.get("X-Request-ID", ""),
+            }
+        )
 
     request.logging_context = params
 
@@ -44,7 +52,7 @@ def set_renderer(event):
     request = event.request
 
     try:
-        json = request.json_body
+        json = request.json
     except ValueError:
         json = {}
     pretty = isinstance(json, dict) and json.get("options", {}).get("pretty") or request.params.get("opt_pretty")

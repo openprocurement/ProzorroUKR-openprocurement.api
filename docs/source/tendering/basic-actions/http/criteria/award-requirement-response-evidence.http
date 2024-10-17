@@ -1,0 +1,20 @@
+GET /api/2.5/tenders/1f57390f567248e78a17e2dbd55d6a10/awards/4733603c425b4815a5d9e919883dc101/requirement_responses/964e2ab697e7453498a24de1bdaf9f10/evidences/70fbf2a0a6cd4038bff8f9438ac216f2 HTTP/1.0
+Authorization: Bearer broker
+Host: public-api-sandbox.prozorro.gov.ua
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "title": "Update evidence title",
+    "type": "document",
+    "relatedDocument": {
+      "id": "d4388d25ad9d444aa3205e564dceccdb",
+      "title": "name.doc"
+    },
+    "id": "70fbf2a0a6cd4038bff8f9438ac216f2"
+  }
+}
+

@@ -1,78 +1,84 @@
-PATCH /api/2.5/tenders/e5172ebc4c4c411f84f376ce6ede43b8/agreements/85b5a0dd7da441c08eb664e2412cc5d5/contracts/713faef521cf4366b30696f427b2f171?acc_token=1e40f3cf3fd64b8ebca3076b70a86e71 HTTP/1.0
+PATCH /api/2.5/tenders/30730028a07b4aee97ed094ebd250c58/agreements/b996fbc0afc54062aac0fbaa492eb9e0/contracts/9a0c84972c4b468788d51e716c0ea464?acc_token=216c4c5722b74bbbaaaf1498070dc772 HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 184
 Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
+
 {
   "data": {
     "unitPrices": [
       {
+        "relatedItem": "fec087d72d65432bb5300282a222cd05",
         "value": {
-          "amount": 0.5
-        }, 
-        "relatedItem": "c9f1001e9cf04ec9b6dba5517f0be455"
-      }, 
+          "amount": 0.5,
+          "currency": "UAH",
+          "valueAddedTaxIncluded": true
+        }
+      },
       {
+        "relatedItem": "716051ad684148d9a80d20739ee3691c",
         "value": {
-          "amount": 0.5
-        }, 
-        "relatedItem": "d2921287716245e095f67d91b9ceafa6"
+          "amount": 0.5,
+          "currency": "UAH",
+          "valueAddedTaxIncluded": true
+        }
       }
     ]
   }
 }
 
-Response: 200 OK
-Content-Type: application/json; charset=UTF-8
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
 {
   "data": {
-    "status": "active", 
-    "unitPrices": [
-      {
-        "value": {
-          "currency": "UAH", 
-          "amount": 0.5, 
-          "valueAddedTaxIncluded": true
-        }, 
-        "relatedItem": "c9f1001e9cf04ec9b6dba5517f0be455"
-      }, 
-      {
-        "value": {
-          "currency": "UAH", 
-          "amount": 0.5, 
-          "valueAddedTaxIncluded": true
-        }, 
-        "relatedItem": "d2921287716245e095f67d91b9ceafa6"
-      }
-    ], 
+    "id": "9a0c84972c4b468788d51e716c0ea464",
+    "status": "active",
     "suppliers": [
       {
-        "contactPoint": {
-          "email": "soleksuk@gmail.com", 
-          "telephone": "+380 (432) 21-69-30", 
-          "name": "Сергій Олексюк"
-        }, 
-        "scale": "micro", 
-        "name": "ДКП «Школяр»", 
+        "name": "Школяр",
         "identifier": {
-          "scheme": "UA-EDR", 
-          "id": "00137256", 
+          "scheme": "UA-EDR",
+          "id": "00137256",
+          "legalName": "Державне комунальне підприємство громадського харчування «Школяр»",
           "uri": "http://www.sc.gov.ua/"
-        }, 
+        },
         "address": {
-          "postalCode": "21100", 
-          "countryName": "Україна", 
-          "streetAddress": "вул. Островського, 33", 
-          "region": "Вінницька область", 
-          "locality": "м. Вінниця"
+          "streetAddress": "вул. Островського, 33",
+          "locality": "м. Вінниця",
+          "region": "Вінницька область",
+          "postalCode": "21100",
+          "countryName": "Україна"
+        },
+        "contactPoint": {
+          "name": "Сергій Олексюк",
+          "email": "soleksuk@gmail.com",
+          "telephone": "+380432216930"
+        },
+        "scale": "micro"
+      }
+    ],
+    "unitPrices": [
+      {
+        "relatedItem": "fec087d72d65432bb5300282a222cd05",
+        "value": {
+          "currency": "UAH",
+          "amount": 0.5,
+          "valueAddedTaxIncluded": true
+        }
+      },
+      {
+        "relatedItem": "716051ad684148d9a80d20739ee3691c",
+        "value": {
+          "currency": "UAH",
+          "amount": 0.5,
+          "valueAddedTaxIncluded": true
         }
       }
-    ], 
-    "bidID": "410cb59a0945497eb61cc4461f661569", 
-    "date": "2020-05-15T01:00:00+03:00", 
-    "awardID": "fead43daad534c50b0dc2da8b64ccfbb", 
-    "id": "713faef521cf4366b30696f427b2f171"
+    ],
+    "awardID": "5b914088f3394751918ca1a47c417efa",
+    "bidID": "b5da67b11f7643f78cdf909b0d5c4595",
+    "date": "2023-10-10T01:02:01+03:00"
   }
 }
 

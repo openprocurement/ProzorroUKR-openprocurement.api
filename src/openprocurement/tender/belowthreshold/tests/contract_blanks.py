@@ -1,261 +1,386 @@
-# -*- coding: utf-8 -*-
-import jmespath
-from datetime import timedelta
 from copy import deepcopy
+from datetime import timedelta
+from unittest.mock import patch
+
 from openprocurement.api.utils import get_now
+from openprocurement.tender.belowthreshold.procedure.utils import (
+    prepare_tender_item_for_contract,
+)
+from openprocurement.tender.belowthreshold.tests.base import test_tender_below_claim
 
-from openprocurement.tender.belowthreshold.tests.base import test_claim, test_cancellation
-from openprocurement.tender.core.tests.cancellation import activate_cancellation_after_2020_04_19
 
-# TenderContractResourceTest
-from openprocurement.api.constants import RELEASE_2020_04_19
+def patch_tender_multi_contracts(self):
+    contracts_response = self.app.get("/tenders/{}/contracts".format(self.tender_id))
+    contracts = contracts_response.json["data"]
 
-def create_tender_contract_invalid(self):
-    self.app.authorization = ("Basic", ("token", ""))
-    response = self.app.post_json(
-        "/tenders/some_id/contracts",
-        {"data": {"title": "contract title", "description": "contract description", "awardID": self.award_id}},
-        status=404,
+    response = self.app.get(f"/contracts/{contracts[0]['id']}")
+    contract_1 = response.json["data"]
+    response = self.app.get(f"/contracts/{contracts[1]['id']}")
+    contract_2 = response.json["data"]
+    # 1st contract contains 1 item, 2nd contract contains 2 items
+    self.assertEqual(len(contract_1["items"]), 1)
+    self.assertEqual(len(contract_2["items"]), 2)
+
+    self.assertEqual(contract_1["value"]["amount"], 0)
+    self.assertEqual(contract_2["value"]["amount"], 0)
+
+    self.assertEqual(contract_1["value"]["valueAddedTaxIncluded"], True)
+    self.assertEqual(contract_2["value"]["valueAddedTaxIncluded"], True)
+
+    response = self.app.patch_json(
+        f"/contracts/{contract_1['id']}?acc_token={self.tender_token}",
+        {"data": {"value": {"amount": 200, "amountNet": 201, "currency": "UAH"}}},
+        status=403,
     )
-    self.assertEqual(response.status, "404 Not Found")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"tender_id"}]
-    )
+    self.assertEqual(response.status, "403 Forbidden")
 
-    request_path = "/tenders/{}/contracts".format(self.tender_id)
-
-    response = self.app.post(request_path, "data", status=415)
-    self.assertEqual(response.status, "415 Unsupported Media Type")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
     self.assertEqual(
         response.json["errors"],
         [
             {
-                u"description": u"Content-Type header should be one of ['application/json']",
-                u"location": u"header",
-                u"name": u"Content-Type",
+                'location': 'body',
+                'name': 'value',
+                'description': 'Amount should be equal or greater than amountNet and differ by no more than 20.0%',
+            }
+        ],
+    )
+    # patch 1st contract
+    response = self.app.patch_json(
+        f"/contracts/{contract_1['id']}?acc_token={self.tender_token}",
+        {"data": {"value": {"amount": 200, "amountNet": 195, "currency": "UAH"}}},
+    )
+    self.assertEqual(response.status, "200 OK")
+    self.assertEqual(response.json["data"]["value"]["amount"], 200)
+    self.assertEqual(response.json["data"]["value"]["amountNet"], 195)
+
+    # patch 2nd contract
+    response = self.app.patch_json(
+        f"/contracts/{contract_2['id']}?acc_token={self.tender_token}",
+        {"data": {"value": {"amount": 400, "amountNet": 390, "currency": "UAH"}}},
+        status=403,
+    )
+    self.assertEqual(response.status, "403 Forbidden")
+
+    self.assertEqual(
+        response.json["errors"],
+        [{'location': 'body', 'name': 'value', 'description': 'Amount should be less or equal to awarded amount'}],
+    )
+
+    # 1st contract.value + 2nd contract.value <= award.amount.value
+    response = self.app.patch_json(
+        f"/contracts/{contract_2['id']}?acc_token={self.tender_token}",
+        {"data": {"value": {"amount": 190, "amountNet": 185, "currency": "UAH"}}},
+    )
+    self.assertEqual(response.status, "200 OK")
+    self.assertEqual(response.json["data"]["value"]["amount"], 190)
+    self.assertEqual(response.json["data"]["value"]["amountNet"], 185)
+
+    # prepare contract for activating
+    doc = self.mongodb.tenders.get(self.tender_id)
+    for i in doc.get("awards", []):
+        if 'complaintPeriod' in i:
+            i["complaintPeriod"]["endDate"] = i["complaintPeriod"]["startDate"]
+    self.mongodb.tenders.save(doc)
+
+    # in case any contract become active and there are no pending contracts -> tender should have complete status
+    response = self.app.patch_json(
+        f"/contracts/{contract_1['id']}?acc_token={self.tender_token}",
+        {
+            "data": {
+                "status": "active",
+                "contractNumber": "123",
+                "period": {
+                    "startDate": "2016-03-18T18:47:47.155143+02:00",
+                    "endDate": "2016-05-18T18:47:47.155143+02:00",
+                },
+            }
+        },
+    )
+    self.assertEqual(response.status, "200 OK")
+
+    response = self.app.get("/tenders/{}".format(self.tender_id))
+    self.assertEqual(response.status, "200 OK")
+    self.assertNotEqual(response.json["data"]["status"], "complete")  # because second contract still in pending
+
+    response = self.app.patch_json(
+        f"/contracts/{contract_2['id']}?acc_token={self.tender_token}",
+        {
+            "data": {
+                "status": "active",
+                "contractNumber": "124",
+                "period": {
+                    "startDate": "2016-03-18T18:47:47.155143+02:00",
+                    "endDate": "2016-05-18T18:47:47.155143+02:00",
+                },
+            }
+        },
+    )
+    self.assertEqual(response.status, "200 OK")
+
+    response = self.app.get("/tenders/{}".format(self.tender_id))
+    self.assertEqual(response.status, "200 OK")
+    self.assertEqual(response.json["data"]["status"], "complete")
+
+
+def patch_tender_multi_contracts_cancelled(self):
+    contracts_response = self.app.get(f"/tenders/{self.tender_id}/contracts")
+    contracts = contracts_response.json["data"]
+    self.assertEqual(len(contracts), 2)
+
+    # cancel 1st contract
+    response = self.app.patch_json(
+        f"/contracts/{contracts[0]['id']}?acc_token={self.tender_token}",
+        {"data": {"status": "cancelled"}},
+    )
+    self.assertEqual(response.status, "200 OK")
+    self.assertEqual(response.json["data"]["status"], "cancelled")
+
+    # try to cancel 2nd contract
+    response = self.app.patch_json(
+        f"/contracts/{contracts[1]['id']}?acc_token={self.tender_token}",
+        {"data": {"status": "cancelled"}},
+        status=403,
+    )
+    self.assertEqual(response.status, "403 Forbidden")
+    self.assertEqual(
+        response.json["errors"],
+        [
+            {
+                "location": "body",
+                "name": "data",
+                "description": (
+                    "Can't update contract status from pending to cancelled for last not "
+                    "cancelled contract. Cancel award instead."
+                ),
             }
         ],
     )
 
-    response = self.app.post(request_path, "data", content_type="application/json", status=422)
-    self.assertEqual(response.status, "422 Unprocessable Entity")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"],
-        [{u"description": u"No JSON object could be decoded", u"location": u"body", u"name": u"data"}],
+    # check 2nd contract not cancelled
+    response = self.app.get(
+        f"/contracts/{contracts[1]['id']}",
     )
-
-    response = self.app.post_json(request_path, "data", status=422)
-    self.assertEqual(response.status, "422 Unprocessable Entity")
+    self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Data not available", u"location": u"body", u"name": u"data"}]
-    )
+    self.assertEqual(response.json["data"]["status"], "pending")
 
-    response = self.app.post_json(request_path, {"not_data": {}}, status=422)
-    self.assertEqual(response.status, "422 Unprocessable Entity")
+    # cancel award
+    response = self.app.patch_json(
+        f"/tenders/{self.tender_id}/awards/{self.award_id}?acc_token={self.tender_token}",
+        {"data": {"status": "cancelled"}},
+    )
+    self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Data not available", u"location": u"body", u"name": u"data"}]
-    )
 
-    response = self.app.post_json(request_path, {"data": {"invalid_field": "invalid_value"}}, status=422)
-    self.assertEqual(response.status, "422 Unprocessable Entity")
+    # check 2nd contract also cancelled
+    response = self.app.get(
+        f"/contracts/{contracts[1]['id']}",
+    )
+    self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Rogue field", u"location": u"body", u"name": u"invalid_field"}]
+    self.assertEqual(response.json["data"]["status"], "cancelled")
+
+
+def patch_tender_multi_contracts_cancelled_with_one_activated(self):
+    contracts_response = self.app.get(f"/tenders/{self.tender_id}/contracts")
+    contracts = contracts_response.json["data"]
+    self.assertEqual(len(contracts), 2)
+
+    # patch 1st contract
+    response = self.app.patch_json(
+        f"/contracts/{contracts[0]['id']}?acc_token={self.tender_token}",
+        {"data": {"value": {"amount": 200, "amountNet": 195, "currency": "UAH"}}},
     )
+    self.assertEqual(response.status, "200 OK")
+    self.assertEqual(response.json["data"]["value"]["amount"], 200)
+    self.assertEqual(response.json["data"]["value"]["amountNet"], 195)
 
-    response = self.app.post_json(request_path, {"data": {"awardID": "invalid_value"}}, status=422)
-    self.assertEqual(response.status, "422 Unprocessable Entity")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"],
-        [{u"description": [u"awardID should be one of awards"], u"location": u"body", u"name": u"awardID"}],
-    )
+    # prepare contract for activating
+    doc = self.mongodb.tenders.get(self.tender_id)
+    for i in doc.get("awards", []):
+        if 'complaintPeriod' in i:
+            i["complaintPeriod"]["endDate"] = i["complaintPeriod"]["startDate"]
+    self.mongodb.tenders.save(doc)
 
-
-def create_tender_contract(self):
-    self.app.authorization = ("Basic", ("token", ""))
-    contract_items = deepcopy(self.award_items)
-    for item in contract_items:
-        item["quantity"] += 0.5
-
-    response = self.app.post_json(
-        "/tenders/{}/contracts".format(self.tender_id),
+    # activate 1st contract
+    response = self.app.patch_json(
+        f"/contracts/{contracts[0]['id']}?acc_token={self.tender_token}",
         {
             "data": {
-                "title": "contract title",
-                "description": "contract description",
-                "awardID": self.award_id,
-                "value": {
-                    "amount": self.award_value["amount"],
-                    "valueAddedTaxIncluded": self.award_value["valueAddedTaxIncluded"],
-                    "currency": self.award_value["currency"],
-                    "amountNet": self.award_value["amount"],
+                "status": "active",
+                "contractNumber": "123",
+                "period": {
+                    "startDate": "2016-03-18T18:47:47.155143+02:00",
+                    "endDate": "2016-05-18T18:47:47.155143+02:00",
                 },
-                "suppliers": self.award_suppliers,
-                "items": contract_items,
             }
         },
     )
-    self.assertEqual(response.status, "201 Created")
-    self.assertEqual(response.content_type, "application/json")
-    contract = response.json["data"]
-    self.assertIn("id", contract)
-    self.assertIn("value", contract)
-    self.assertIn("suppliers", contract)
-    self.assertIn(contract["id"], response.headers["Location"])
-    self.assertEqual(contract["items"], contract_items)
+    self.assertEqual(response.status, "200 OK")
 
-    tender = self.db.get(self.tender_id)
-    tender["contracts"][-1]["status"] = "terminated"
-    self.db.save(tender)
-
-    self.set_status("unsuccessful")
-
-    response = self.app.post_json(
-        "/tenders/{}/contracts".format(self.tender_id),
-        {"data": {"title": "contract title", "description": "contract description", "awardID": self.award_id}},
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(
-        response.json["errors"][0]["description"], "Can't add contract in current (unsuccessful) tender status"
-    )
-
-    self.app.authorization = ("Basic", ("broker", ""))
+    # try to cancel award
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"status": "active"}},
+        f"/tenders/{self.tender_id}/awards/{self.award_id}?acc_token={self.tender_token}",
+        {"data": {"status": "cancelled"}},
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
     self.assertEqual(
-        response.json["errors"][0]["description"], "Can't update contract in current (unsuccessful) tender status"
+        response.json["errors"],
+        [{"location": "body", "name": "data", "description": "Can\'t cancel award contract in active status"}],
     )
 
 
-def create_tender_contract_in_complete_status(self):
-    self.app.authorization = ("Basic", ("token", ""))
-    response = self.app.post_json(
-        "/tenders/{}/contracts".format(self.tender_id),
-        {"data": {"title": "contract title", "description": "contract description", "awardID": self.award_id}},
-    )
-    self.assertEqual(response.status, "201 Created")
-    self.assertEqual(response.content_type, "application/json")
-    contract = response.json["data"]
-    self.assertIn("id", contract)
-    self.assertIn(contract["id"], response.headers["Location"])
+def patch_tender_multi_contracts_cancelled_validate_amount(self):
+    contracts_response = self.app.get(f"/tenders/{self.tender_id}/contracts")
+    contracts = contracts_response.json["data"]
+    self.assertEqual(len(contracts), 2)
 
-    tender = self.db.get(self.tender_id)
-    tender["contracts"][-1]["status"] = "terminated"
-    self.db.save(tender)
-
-    self.set_status("complete")
-
-    response = self.app.post_json(
-        "/tenders/{}/contracts".format(self.tender_id),
-        {"data": {"title": "contract title", "description": "contract description", "awardID": self.award_id}},
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(
-        response.json["errors"][0]["description"], "Can't add contract in current (complete) tender status"
-    )
-
-    self.app.authorization = ("Basic", ("broker", ""))
+    # patch 2nd contract
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"status": "active"}},
+        f"/contracts/{contracts[1]['id']}?acc_token={self.tender_token}",
+        {"data": {"value": {"amount": 200, "amountNet": 195, "currency": "UAH"}}},
+    )
+    self.assertEqual(response.status, "200 OK")
+    self.assertEqual(response.json["data"]["value"]["amount"], 200)
+    self.assertEqual(response.json["data"]["value"]["amountNet"], 195)
+
+    # patch 1st contract
+    response = self.app.patch_json(
+        f"/contracts/{contracts[0]['id']}?acc_token={self.tender_token}",
+        {"data": {"value": {"amount": 400, "amountNet": 395, "currency": "UAH"}}},
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
     self.assertEqual(
-        response.json["errors"][0]["description"], "Can't update contract in current (complete) tender status"
+        response.json["errors"],
+        [{"location": "body", "name": "value", "description": "Amount should be less or equal to awarded amount"}],
     )
+
+    # cancel 2nd contract
+    response = self.app.patch_json(
+        f"/contracts/{contracts[1]['id']}?acc_token={self.tender_token}",
+        {"data": {"status": "cancelled"}},
+    )
+    self.assertEqual(response.status, "200 OK")
+    self.assertEqual(response.json["data"]["status"], "cancelled")
+
+    # patch 1st contract (2nd attempt)
+    # should success because 2nd contract value does not taken into account (now its cancelled)
+    response = self.app.patch_json(
+        f"/contracts/{contracts[0]['id']}?acc_token={self.tender_token}",
+        {"data": {"value": {"amount": 400, "amountNet": 395, "currency": "UAH"}}},
+    )
+    self.assertEqual(response.status, "200 OK")
+    self.assertEqual(response.json["data"]["value"]["amount"], 400)
+    self.assertEqual(response.json["data"]["value"]["amountNet"], 395)
+
+    # prepare contract for activating
+    doc = self.mongodb.tenders.get(self.tender_id)
+    for i in doc.get("awards", []):
+        if 'complaintPeriod' in i:
+            i["complaintPeriod"]["endDate"] = i["complaintPeriod"]["startDate"]
+    self.mongodb.tenders.save(doc)
+
+    # activate 1st contract
+    response = self.app.patch_json(
+        f"/contracts/{contracts[0]['id']}?acc_token={self.tender_token}",
+        {
+            "data": {
+                "status": "active",
+                "contractNumber": "123",
+                "period": {
+                    "startDate": "2016-03-18T18:47:47.155143+02:00",
+                    "endDate": "2016-05-18T18:47:47.155143+02:00",
+                },
+            }
+        },
+    )
+    self.assertEqual(response.status, "200 OK")
+
+    response = self.app.get(f"/tenders/{self.tender_id}")
+    self.assertEqual(response.status, "200 OK")
+    self.assertEqual(response.json["data"]["status"], "complete")
 
 
 def patch_tender_contract(self):
     self.app.authorization = ("Basic", ("token", ""))
-    response = self.app.get("/tenders/{}/contracts".format(self.tender_id))
+    response = self.app.get(f"/tenders/{self.tender_id}/contracts")
     contract = response.json["data"][0]
+    response = self.app.get(f"/contracts/{contract['id']}")
+    contract = response.json["data"]
 
     self.assertEqual(contract["value"]["amount"], contract["value"]["amountNet"])
 
     self.app.authorization = ("Basic", ("broker", ""))
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"status": "active"}},
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertIn("Can't sign contract before stand-still period end (", response.json["errors"][0]["description"])
 
     self.set_status("complete", {"status": "active.awarded"})
 
-    token = self.initial_bids_tokens.values()[0]
+    token = list(self.initial_bids_tokens.values())[0]
     response = self.app.post_json(
-        "/tenders/{}/awards/{}/complaints?acc_token={}".format(self.tender_id, self.award_id, token),
-        {
-            "data": test_claim
-        },
+        f"/tenders/{self.tender_id}/awards/{self.award_id}/complaints?acc_token={token}",
+        {"data": test_tender_below_claim},
     )
     self.assertEqual(response.status, "201 Created")
     complaint = response.json["data"]
     owner_token = response.json["access"]["token"]
 
-    tender = self.db.get(self.tender_id)
+    tender = self.mongodb.tenders.get(self.tender_id)
+
     for i in tender.get("awards", []):
         i["complaintPeriod"]["endDate"] = i["complaintPeriod"]["startDate"]
-    self.db.save(tender)
+    self.mongodb.tenders.save(tender)
+
+    value = contract["value"]
+    value["amountNet"] = value["amount"] - 1
 
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"value": {"amountNet": contract["value"]["amount"] - 1}}},
-    )
-    self.assertEqual(response.status, "200 OK")
-
-    self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
+        f"/contracts/{contract['id']}?acc_token={self.tender_token}",
         {
             "data": {
                 "contractID": "myselfID",
-                "items": [{"description": "New Description"}],
-                "suppliers": [{"name": "New Name"}],
             }
         },
+        status=422,
+    )
+    self.assertEqual(
+        response.json["errors"][0], {"location": "body", "name": "contractID", "description": "Rogue field"}
     )
 
-    response = self.app.get("/tenders/{}/contracts/{}".format(self.tender_id, contract["id"]))
+    new_items = deepcopy(contract["items"])
+    new_items[0]["description"] = "New Description"
+    response = self.app.patch_json(
+        f"/contracts/{contract['id']}?acc_token={self.tender_token}",
+        {
+            "data": {
+                "items": new_items,
+            }
+        },
+        status=403,
+    )
+    self.assertEqual(
+        response.json["errors"][0]["description"],
+        "Updated could be only ('unit', 'quantity') in item, description change forbidden",
+    )
+
+    response = self.app.get(f"/contracts/{contract['id']}")
     self.assertEqual(response.json["data"]["contractID"], contract["contractID"])
     self.assertEqual(response.json["data"]["items"], contract["items"])
     self.assertEqual(response.json["data"]["suppliers"], contract["suppliers"])
 
+    old_currency = value["currency"]
+    value["currency"] = "USD"
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"value": {"currency": "USD"}}},
+        f"/contracts/{contract['id']}?acc_token={self.tender_token}",
+        {"data": {"value": value}},
         status=403,
     )
+    value["currency"] = old_currency
     self.assertEqual(response.status, "403 Forbidden")
     self.assertEqual(response.json["errors"][0]["description"], "Can't update currency for contract value")
 
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
+        f"/contracts/{contract['id']}?acc_token={self.tender_token}",
         {"data": {"dateSigned": i["complaintPeriod"]["endDate"]}},
         status=422,
     )
@@ -264,20 +389,20 @@ def patch_tender_contract(self):
         response.json["errors"],
         [
             {
-                u"description": [
-                    u"Contract signature date should be after award complaint period end date ({})".format(
+                "description": [
+                    "Contract signature date should be after award activation date ({})".format(
                         i["complaintPeriod"]["endDate"]
                     )
                 ],
-                u"location": u"body",
-                u"name": u"dateSigned",
+                "location": "body",
+                "name": "dateSigned",
             }
         ],
     )
 
     one_hour_in_furure = (get_now() + timedelta(hours=1)).isoformat()
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
+        f"/contracts/{contract['id']}?acc_token={self.tender_token}",
         {"data": {"dateSigned": one_hour_in_furure}},
         status=422,
     )
@@ -286,24 +411,22 @@ def patch_tender_contract(self):
         response.json["errors"],
         [
             {
-                u"description": [u"Contract signature date can't be in the future"],
-                u"location": u"body",
-                u"name": u"dateSigned",
+                "description": ["Contract signature date can't be in the future"],
+                "location": "body",
+                "name": "dateSigned",
             }
         ],
     )
 
     custom_signature_date = get_now().isoformat()
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
+        f"/contracts/{contract['id']}?acc_token={self.tender_token}",
         {"data": {"dateSigned": custom_signature_date}},
     )
     self.assertEqual(response.status, "200 OK")
 
     response = self.app.patch_json(
-        "/tenders/{}/awards/{}/complaints/{}?acc_token={}".format(
-            self.tender_id, self.award_id, complaint["id"], self.tender_token
-        ),
+        f"/tenders/{self.tender_id}/awards/{self.award_id}/complaints/{complaint['id']}?acc_token={self.tender_token}",
         {"data": {"status": "answered", "resolutionType": "resolved", "resolution": "resolution text " * 2}},
     )
     self.assertEqual(response.status, "200 OK")
@@ -311,15 +434,6 @@ def patch_tender_contract(self):
     self.assertEqual(response.json["data"]["status"], "answered")
     self.assertEqual(response.json["data"]["resolutionType"], "resolved")
     self.assertEqual(response.json["data"]["resolution"], "resolution text " * 2)
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"status": "active"}},
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["errors"][0]["description"], "Can't sign contract before reviewing all complaints")
 
     response = self.app.patch_json(
         "/tenders/{}/awards/{}/complaints/{}?acc_token={}".format(
@@ -332,89 +446,23 @@ def patch_tender_contract(self):
     self.assertEqual(response.json["data"]["status"], "resolved")
 
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"status": "active"}},
+        f"/contracts/{contract['id']}?acc_token={self.tender_token}",
+        {
+            "data": {
+                "status": "active",
+                "contractNumber": "123",
+                "period": {
+                    "startDate": "2016-03-18T18:47:47.155143+02:00",
+                    "endDate": "2016-05-18T18:47:47.155143+02:00",
+                },
+            }
+        },
     )
     self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["data"]["status"], "active")
 
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"value": {"amount": 232}}},
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(
-        response.json["errors"][0]["description"], "Can't update contract in current (complete) tender status"
-    )
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"contractID": "myselfID"}},
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(
-        response.json["errors"][0]["description"], "Can't update contract in current (complete) tender status"
-    )
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"items": [{"description": "New Description"}]}},
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(
-        response.json["errors"][0]["description"], "Can't update contract in current (complete) tender status"
-    )
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"suppliers": [{"name": "New Name"}]}},
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(
-        response.json["errors"][0]["description"], "Can't update contract in current (complete) tender status"
-    )
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"status": "active"}},
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(
-        response.json["errors"][0]["description"], "Can't update contract in current (complete) tender status"
-    )
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/some_id?acc_token={}".format(self.tender_id, self.tender_token),
-        {"data": {"status": "active"}},
-        status=404,
-    )
-    self.assertEqual(response.status, "404 Not Found")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"contract_id"}]
-    )
-
-    response = self.app.patch_json(
-        "/tenders/some_id/contracts/some_id?acc_token={}".format(self.tender_token),
-        {"data": {"status": "active"}},
-        status=404,
-    )
-    self.assertEqual(response.status, "404 Not Found")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"tender_id"}]
-    )
-
-    response = self.app.get("/tenders/{}/contracts/{}".format(self.tender_id, contract["id"]))
+    response = self.app.get(f"/contracts/{contract['id']}")
     self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["data"]["status"], "active")
@@ -424,70 +472,119 @@ def patch_tender_contract(self):
     self.assertEqual(response.json["data"]["dateSigned"], custom_signature_date)
 
 
-def patch_tender_contract_value(self):
-    response = self.app.get("/tenders/{}/contracts".format(self.tender_id))
+def patch_tender_contract_rationale_simple(self):
+    # make tender procurementMethodRationale simple
+    doc = self.mongodb.tenders.get(self.tender_id)
+    doc["procurementMethodRationale"] = "simple"
+    self.mongodb.tenders.save(doc)
+
+    self.app.authorization = ("Basic", ("token", ""))
+    response = self.app.get(f"/tenders/{self.tender_id}/contracts")
     contract = response.json["data"][0]
 
+    self.assertEqual(contract["value"]["amount"], contract["value"]["amountNet"])
+
+    value = contract["value"]
+    value["amountNet"] = value["amount"] - 1
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"value": {"amount": 501}}},
+        f"/contracts/{contract['id']}?acc_token={self.tender_token}",
+        {"data": {"value": value}},
+    )
+    self.assertEqual(response.status, "200 OK")
+
+    self.app.authorization = ("Basic", ("broker", ""))
+    response = self.app.patch_json(
+        f"/contracts/{contract['id']}?acc_token={self.tender_token}",
+        {
+            "data": {
+                "contractNumber": "123",
+                "period": {
+                    "startDate": "2016-03-18T18:47:47.155143+02:00",
+                    "endDate": "2016-05-18T18:47:47.155143+02:00",
+                },
+                "status": "active",
+            }
+        },
+        status=200,
+    )
+    self.assertEqual(response.status, "200 OK")
+    self.assertEqual(response.content_type, "application/json")
+    self.assertEqual(response.json["data"]["status"], "active")
+
+    response = self.app.get(f"/tenders/{self.tender_id}")
+    self.assertEqual(response.json["data"]["status"], "complete")
+
+
+def patch_tender_contract_value(self):
+    response = self.app.get(f"/tenders/{self.tender_id}/contracts")
+    contract = response.json["data"][0]
+
+    value = {"amount": 501, "amountNet": 501, "currency": "UAH"}
+    response = self.app.patch_json(
+        f"/contracts/{contract['id']}?acc_token={self.tender_token}",
+        {"data": {"value": value}},
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
     self.assertEqual(response.json["errors"][0]["description"], "Amount should be less or equal to awarded amount")
 
+    value["amount"] = 502
+    value["amountNet"] = 501
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"value": {"amount": 502, "amountNet": 501}}},
+        f"/contracts/{contract['id']}?acc_token={self.tender_token}",
+        {"data": {"value": value}},
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
     self.assertEqual(response.json["errors"][0]["description"], "Amount should be less or equal to awarded amount")
 
+    value["amount"] = 238
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"value": {"amount": 238}}},
+        f"/contracts/{contract['id']}?acc_token={self.tender_token}",
+        {"data": {"value": value}},
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
     self.assertEqual(
         response.json["errors"][0]["description"],
-        "Amount should be greater than amountNet and differ by no more than 20.0%",
+        "Amount should be equal or greater than amountNet and differ by no more than 20.0%",
     )
 
+    value["amount"] = 100
+    value["amountNet"] = 80
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"value": {"amount": 100, "amountNet": 80}}},
+        f"/contracts/{contract['id']}?acc_token={self.tender_token}",
+        {"data": {"value": value}},
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
     self.assertEqual(
         response.json["errors"][0]["description"],
-        "Amount should be greater than amountNet and differ by no more than 20.0%",
+        "Amount should be equal or greater than amountNet and differ by no more than 20.0%",
     )
 
+    value["amount"] = 238
+    value["amountNet"] = 238
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"value": {"amount": 238, "amountNet": 238}}},
-        status=403,
+        f"/contracts/{contract['id']}?acc_token={self.tender_token}",
+        {"data": {"value": value}},
     )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(
-        response.json["errors"][0]["description"],
-        "Amount should be greater than amountNet and differ by no more than 20.0%",
-    )
+    self.assertEqual(response.status, "200 OK")
 
+    value["amount"] = 100
+    value["amountNet"] = 85
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"value": {"amount": 100, "amountNet": 85}}},
+        f"/contracts/{contract['id']}?acc_token={self.tender_token}",
+        {"data": {"value": {"amount": 100, "amountNet": 85, "currency": "UAH"}}},
     )
     self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.json["data"]["value"]["amount"], 100)
     self.assertEqual(response.json["data"]["value"]["amountNet"], 85)
 
+    value["valueAddedTaxIncluded"] = False
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"value": {"valueAddedTaxIncluded": False}}},
+        f"/contracts/{contract['id']}?acc_token={self.tender_token}",
+        {"data": {"value": value}},
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
@@ -495,1709 +592,764 @@ def patch_tender_contract_value(self):
 
 
 def patch_tender_contract_value_vat_not_included(self):
-    response = self.app.get("/tenders/{}/contracts".format(self.tender_id))
-    contract = response.json["data"][0]
+    contract_id = self.contracts_ids[0]
+    response = self.app.get(f"/contracts/{contract_id}")
+    contract = response.json["data"]
+    new_value = contract["value"]
 
+    new_value["currency"] = "USD"
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"value": {"currency": "USD"}}},
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+        {"data": {"value": new_value}},
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
     self.assertEqual(response.json["errors"][0]["description"], "Can't update currency for contract value")
 
+    new_value["currency"] = "UAH"
+    new_value["amount"] = 468
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"value": {"amount": 468}}},
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+        {"data": {"value": new_value}},
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
     self.assertEqual(response.json["errors"][0]["description"], "Amount and amountNet should be equal")
 
+    new_value["amount"] = 600
+    new_value["amountNet"] = 600
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"value": {"amount": 600, "amountNet": 600}}},
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+        {"data": {"value": new_value}},
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
     self.assertEqual(response.json["errors"][0]["description"], "Amount should be less or equal to awarded amount")
 
+    new_value["amount"] = 400
+    new_value["amountNet"] = 400
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"value": {"amount": 400, "amountNet": 400}}},
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+        {"data": {"value": new_value}},
     )
     self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.json["data"]["value"]["amount"], 400)
     self.assertEqual(response.json["data"]["value"]["amountNet"], 400)
 
+    new_value["valueAddedTaxIncluded"] = True
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
-        {"data": {"value": {"valueAddedTaxIncluded": True}}},
-        status=403,
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+        {"data": {"value": new_value}},
     )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(
-        response.json["errors"][0]["description"],
-        "Amount should be greater than amountNet and differ by no more than 20.0%",
-    )
+    self.assertEqual(response.status, "200 OK")
+    self.assertEqual(response.json["data"]["value"]["valueAddedTaxIncluded"], True)
+    self.assertEqual(response.json["data"]["value"]["amount"], 400)
+    self.assertEqual(response.json["data"]["value"]["amountNet"], 400)
 
 
-def patch_tender_contract_status_by_owner(self):
-    response = self.app.get("/tenders/{}/contracts".format(self.tender_id))
-    contract = response.json["data"][0]
+def patch_contract_single_item_unit_value(self):
+    response = self.app.get(f"/contracts/{self.contracts_ids[0]}")
+    contract = response.json["data"]
     contract_id = contract["id"]
-    self.set_status("complete", {"status": "active.awarded"})
+    self.assertEqual(len(contract["items"]), len(self.initial_data["items"]))
+    expected_item_unit_currency = contract["items"][0]["unit"]["value"]["currency"]  # "UAH"
+
+    new_items = deepcopy(contract["items"])
+    new_items[0]["unit"]["value"]["amount"] = 2000
+    new_items[0]["unit"]["value"]["currency"] = "GBP"
+    response = self.app.patch_json(
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+        {"data": {"items": new_items}},
+        status=422,
+    )
+    self.assertEqual(
+        response.json["errors"],
+        [
+            {
+                "location": "body",
+                "name": "items",
+                "description": ["Value mismatch. Expected: currency UAH"],
+            }
+        ],
+    )
 
     # prepare contract
-    doc = self.db.get(self.tender_id)
+    doc = self.mongodb.tenders.get(self.tender_id)
     for i in doc.get("awards", []):
         if 'complaintPeriod' in i:
             i["complaintPeriod"]["endDate"] = i["complaintPeriod"]["startDate"]
-    if doc['contracts'][0]['value']['valueAddedTaxIncluded']:
-        doc['contracts'][0]['value']['amountNet'] = str(float(doc['contracts'][0]['value']['amount']) - 1)
-    self.db.save(doc)
+    self.mongodb.tenders.save(doc)
+    doc = self.mongodb.contracts.get(contract_id)
 
-    # Tender onwer
-    self.app.authorization = ("Basic", ("broker", ""))
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract_id, self.tender_token),
-        {"data": {"status": "pending.winner-signing"}},
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
+    if doc['value']['valueAddedTaxIncluded']:
+        doc['value']['amountNet'] = str(float(doc['value']['amount']) - 1)
+        doc["items"][0]["unit"]["value"]["amount"] = 2000
+    self.mongodb.contracts.save(doc)
 
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract_id, self.tender_token),
-        {"data": {"status": "pending"}},
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+        {
+            "data": {
+                "status": "active",
+                "contractNumber": "123",
+                "period": {
+                    "startDate": "2016-03-18T18:47:47.155143+02:00",
+                    "endDate": "2016-05-18T18:47:47.155143+02:00",
+                },
+            }
+        },
+        status=403,
     )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending")
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract_id, self.tender_token),
-        {"data": {"status": "active"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], u"active")
-
-
-def patch_tender_contract_status_by_supplier(self):
-    response = self.app.get("/tenders/{}/contracts".format(self.tender_id))
-    contract = response.json["data"][0]
-    contract_id = contract["id"]
-    self.set_status("complete", {"status": "active.awarded"})
-
-    doc = self.db.get(self.tender_id)
-    bid_id = jmespath.search("awards[?id=='{}'].bid_id".format(contract["awardID"]), doc)[0]
-    bid_token = jmespath.search("bids[?id=='{}'].owner_token".format(bid_id), doc)[0]
-
-    for bid in doc.get("bids", []):
-        if bid["id"] == bid_id and bid["status"] == "pending":
-            bid["status"] = "active"
-    for i in doc.get("awards", []):
-        if "complaintPeriod" in i:
-            i["complaintPeriod"]["endDate"] = i["complaintPeriod"]["startDate"]
-    if doc["contracts"][0]["value"]["valueAddedTaxIncluded"]:
-        doc["contracts"][0]["value"]["amountNet"] = str(float(doc["contracts"][0]["value"]["amount"]) - 1)
-    self.db.save(doc)
-
-    # Supplier
-    self.app.authorization = ("Basic", ("broker", ""))
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract_id, bid_token),
-        {"data": {"status": "pending.winner-signing"}},
-        status=403
-    )
-    self.assertEqual(response.status, "403 Forbidden")
     self.assertEqual(
         response.json["errors"],
-        [{u'description': u'Supplier can change status to `pending`', u'location': u'body', u'name': u'data'}]
+        [
+            {
+                "description": "Total amount of unit values can't be greater than contract.value.amount",
+                "location": "body",
+                "name": "data",
+            }
+        ],
     )
 
+    new_items = deepcopy(contract["items"])
+    new_items[0]["unit"]["value"]["amount"] = 15
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract_id, bid_token),
-        {"data": {"value": {"amount": 10000}}},
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+        {"data": {"items": new_items}},
+    )
+    self.assertEqual(response.status, "200 OK")
+    self.assertEqual(response.json["data"]["items"][0]["unit"]["value"]["amount"], 15.0)
+
+    response = self.app.patch_json(
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+        {
+            "data": {
+                "status": "active",
+                "contractNumber": "123",
+                "period": {
+                    "startDate": "2016-03-18T18:47:47.155143+02:00",
+                    "endDate": "2016-05-18T18:47:47.155143+02:00",
+                },
+            }
+        },
+        status=200,
+    )
+    self.assertEqual(response.status, "200 OK")
+    self.assertEqual(response.json["data"]["status"], "active")
+
+    new_items = deepcopy(contract["items"])
+    new_items[0]["unit"]["value"]["amount"] = 555555
+
+
+def patch_contract_single_item_unit_value_with_status(self):
+    response = self.app.get(f"/contracts/{self.contracts_ids[0]}")
+    contract = response.json["data"]
+    contract_id = contract["id"]
+    self.assertEqual(len(contract["items"]), len(self.initial_data["items"]))
+
+    new_items = deepcopy(contract["items"])
+    new_items[0]["unit"]["value"]["amount"] = 2000
+    response = self.app.patch_json(
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+        {"data": {"items": new_items}},
+    )
+    self.assertEqual(response.json["data"]["items"][0]["unit"]["value"]["amount"], 2000.0)
+
+    # prepare contract
+    doc = self.mongodb.tenders.get(self.tender_id)
+    for i in doc.get("awards", []):
+        if 'complaintPeriod' in i:
+            i["complaintPeriod"]["endDate"] = i["complaintPeriod"]["startDate"]
+    self.mongodb.tenders.save(doc)
+
+    doc = self.mongodb.contracts.get(contract_id)
+    if doc['value']['valueAddedTaxIncluded']:
+        doc['value']['amountNet'] = str(float(doc['value']['amount']) - 1)
+    self.mongodb.contracts.save(doc)
+
+    response = self.app.patch_json(
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+        {
+            "data": {
+                "status": "active",
+                "contractNumber": "123",
+                "period": {
+                    "startDate": "2016-03-18T18:47:47.155143+02:00",
+                    "endDate": "2016-05-18T18:47:47.155143+02:00",
+                },
+            }
+        },
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
     self.assertEqual(
         response.json["errors"],
-        [{u'description': u'Supplier can change status to `pending`', u'location': u'body', u'name': u'data'}]
+        [
+            {
+                "description": "Total amount of unit values can't be greater than contract.value.amount",
+                "location": "body",
+                "name": "data",
+            }
+        ],
     )
 
-    # Tender onwer
+    new_items = deepcopy(contract["items"])
+    new_items[0]["unit"]["value"]["amount"] = 15
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract_id, self.tender_token),
-        {"data": {"status": "pending.winner-signing"}},
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+        {
+            "data": {
+                "status": "active",
+                "contractNumber": "123",
+                "period": {
+                    "startDate": "2016-03-18T18:47:47.155143+02:00",
+                    "endDate": "2016-05-18T18:47:47.155143+02:00",
+                },
+                "items": new_items,
+            }
+        },
     )
     self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
+    self.assertEqual(response.json["data"]["items"][0]["unit"]["value"]["amount"], 15.0)
+    self.assertEqual(response.json["data"]["status"], "active")
 
 
-    # Supplier
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract_id, bid_token),
-        {"data": {"status": "active"}},
-        status=403
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(
-        response.json["errors"],
-        [{u'description': u'Supplier can change status to `pending`', u'location': u'body', u'name': u'data'}]
-    )
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract_id, bid_token),
-        {"data": {"value": {"amount": 10000}, "status": "pending"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertNotEqual(response.json["data"]["value"]["amount"], u"10000")
-    self.assertEqual(response.json["data"]["status"], u"pending")
-
-    response = self.app.get("/tenders/{}/contracts/{}".format(self.tender_id, contract_id))
-    self.assertNotEqual(response.json["data"]["value"]["amount"], u"10000")
-
-    # Tender owner
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract_id, self.tender_token),
-        {"data": {"status": "active"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], u"active")
-
-
-def patch_tender_contract_status_by_others(self):
-    response = self.app.get("/tenders/{}/contracts".format(self.tender_id))
-    contract = response.json["data"][0]
+def patch_contract_single_item_unit_value_round(self):
+    response = self.app.get(f"/contracts/{self.contracts_ids[0]}")
+    contract = response.json["data"]
     contract_id = contract["id"]
-    self.set_status("complete", {"status": "active.awarded"})
+    self.assertEqual(len(contract["items"]), 1)
+    quantity = contract["items"][0]["quantity"]
 
-    doc = self.db.get(self.tender_id)
+    # prepare contract
+    doc = self.mongodb.tenders.get(self.tender_id)
     for i in doc.get("awards", []):
         if 'complaintPeriod' in i:
             i["complaintPeriod"]["endDate"] = i["complaintPeriod"]["startDate"]
-    if 'value' in doc['contracts'][0] and doc['contracts'][0]['value']['valueAddedTaxIncluded']:
-        doc['contracts'][0]['value']['amountNet'] = str(float(doc['contracts'][0]['value']['amount']) - 1)
-    self.db.save(doc)
-    bid_id = jmespath.search("awards[?id=='{}'].bid_id".format(contract["awardID"]), doc)[0]
-    bid_token = jmespath.search("bids[?id!='{}'].owner_token".format(bid_id), doc)[0]
+    self.mongodb.tenders.save(doc)
+    doc = self.mongodb.contracts.get(contract_id)
+    if doc['value']['valueAddedTaxIncluded']:
+        doc['value']['amountNet'] = str(float(doc['value']['amount']) - 1)
+    self.mongodb.contracts.save(doc)
 
-    self.app.authorization = ("Basic", ("broker", ""))
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract_id, bid_token),
-        {"data": {"status": "pending.winner-signing"}},
-        status=403
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"],
-                     [{u'description': u'Forbidden', u'location': u'url', u'name': u'permission'}])
+    unit_value_amount = doc['value']['amount'] / quantity + 0.001
 
+    new_items = deepcopy(contract["items"])
+    new_items[0]["unit"]["value"]["amount"] = unit_value_amount
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract_id, self.tender_token),
-        {"data": {"status": "pending.winner-signing"}}
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+        {
+            "data": {
+                "status": "active",
+                "contractNumber": "123",
+                "period": {
+                    "startDate": "2016-03-18T18:47:47.155143+02:00",
+                    "endDate": "2016-05-18T18:47:47.155143+02:00",
+                },
+                "items": new_items,
+            }
+        },
     )
     self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract_id, bid_token),
-        {"data": {"status": "pending"}},
-        status=403
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"],
-                     [{u'description': u'Forbidden', u'location': u'url', u'name': u'permission'}])
+    self.assertEqual(response.json["data"]["items"][0]["unit"]["value"]["amount"], unit_value_amount)
+    self.assertEqual(response.json["data"]["status"], "active")
 
 
-def get_tender_contract(self):
-    self.app.authorization = ("Basic", ("token", ""))
-    response = self.app.post_json(
-        "/tenders/{}/contracts".format(self.tender_id),
-        {"data": {"title": "contract title", "description": "contract description", "awardID": self.award_id}},
-    )
-    self.assertEqual(response.status, "201 Created")
-    self.assertEqual(response.content_type, "application/json")
-    contract = response.json["data"]
-
-    self.app.authorization = ("Basic", ("broker", ""))
-    response = self.app.get("/tenders/{}/contracts/{}".format(self.tender_id, contract["id"]))
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["data"], contract)
-
-    response = self.app.get("/tenders/{}/contracts/some_id".format(self.tender_id), status=404)
-    self.assertEqual(response.status, "404 Not Found")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"contract_id"}]
-    )
-
-    response = self.app.get("/tenders/some_id/contracts/some_id", status=404)
-    self.assertEqual(response.status, "404 Not Found")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"tender_id"}]
-    )
-
-
-def get_tender_contracts(self):
-    self.app.authorization = ("Basic", ("token", ""))
-    response = self.app.post_json(
-        "/tenders/{}/contracts".format(self.tender_id),
-        {"data": {"title": "contract title", "description": "contract description", "awardID": self.award_id}},
-    )
-    self.assertEqual(response.status, "201 Created")
-    self.assertEqual(response.content_type, "application/json")
-    contract = response.json["data"]
-
-    self.app.authorization = ("Basic", ("broker", ""))
-    response = self.app.get("/tenders/{}/contracts".format(self.tender_id))
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["data"][-1], contract)
-
-    response = self.app.get("/tenders/some_id/contracts", status=404)
-    self.assertEqual(response.status, "404 Not Found")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"tender_id"}]
-    )
-
-
-# Tender2LotContractResourceTest
-
-
-def lot2_patch_tender_contract(self):
+@patch("openprocurement.tender.core.procedure.state.contract.UNIT_PRICE_REQUIRED_FROM", get_now() - timedelta(days=1))
+def patch_contract_multi_items_unit_value(self):
     auth = self.app.authorization
     self.app.authorization = ("Basic", ("token", ""))
+    contract_id = self.contracts_ids[0]
 
-    response = self.app.post_json(
-        "/tenders/{}/contracts".format(self.tender_id),
-        {"data": {"title": "contract title", "description": "contract description", "awardID": self.award_id}},
-    )
-    self.assertEqual(response.status, "201 Created")
-    self.assertEqual(response.content_type, "application/json")
+    contract_items = []
+    for i in range(3):
+        item = deepcopy(self.initial_data["items"][0])
+        item['id'] = str(i + 1) * 10
+        del item['unit']['value']
+        contract_items.append(item)
+
+    contract_items[0]['quantity'] = 10
+    contract_items[0]['unit']['value'] = {
+        "amount": 200,
+        "currency": "UAH",
+    }
+
+    contract_items[1]['quantity'] = 8
+
+    contract_items[2]['quantity'] = 0
+    contract_items[2]['unit']['value'] = {
+        "amount": 100,
+        "currency": "UAH",
+    }
+
+    contract_items = [prepare_tender_item_for_contract(i) for i in contract_items]
+
+    if self.initial_status != 'active.awarded':
+        self.set_status("complete", {"status": "active.awarded"})
+
+    # prepare contract
+    doc = self.mongodb.tenders.get(self.tender_id)
+    for i in doc.get("awards", []):
+        if 'complaintPeriod' in i:
+            i["complaintPeriod"]["endDate"] = i["complaintPeriod"]["startDate"]
+    self.mongodb.tenders.save(doc)
+    doc = self.mongodb.contracts.get(contract_id)
+    if doc['value']['valueAddedTaxIncluded']:
+        doc['value']['amountNet'] = str(float(doc['value']['amount']) - 1)
+        doc["items"] = contract_items
+    self.mongodb.contracts.save(doc)
+
+    response = self.app.get(f"/contracts/{contract_id}")
     contract = response.json["data"]
+
     self.app.authorization = auth
 
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
         {"data": {"status": "active"}},
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertIn("Can't sign contract before stand-still period end (", response.json["errors"][0]["description"])
-
-    self.set_status("complete", {"status": "active.awarded"})
-
-    cancellation = dict(**test_cancellation)
-    cancellation.update({
-        "status": "active",
-        "cancellationOf": "lot",
-        "relatedLot": self.initial_lots[0]["id"],
-    })
-    response = self.app.post_json(
-        "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),
-        {"data": cancellation},
+    self.assertEqual(response.json["status"], "error")
+    self.assertEqual(
+        response.json["errors"],
+        [
+            {
+                "description": "Item.unit.value.amount should be updated to 0 if item.quantity equal to 0",
+                "location": "body",
+                "name": "data",
+            }
+        ],
     )
-    cancellation_id = response.json["data"]["id"]
 
-    if RELEASE_2020_04_19 < get_now():
-        activate_cancellation_after_2020_04_19(self, cancellation_id)
+    new_items = deepcopy(contract["items"])
+    new_items[2]["unit"]["value"]["amount"] = 0
+    # new_items[1]["unit"]["value"] = {"amount": 1}
+    response = self.app.patch_json(
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+        {"data": {"items": new_items}},
+    )
+
+    self.assertEqual(response.status, "200 OK")
+    self.assertEqual(response.json['data']['items'][2]["unit"]["value"]["amount"], 0.0)
+    self.assertEqual(response.json["data"]["status"], "pending")
+
+    unit_value_amount_sum = sum(
+        item['unit']['value']['amount'] * item['quantity']
+        for item in response.json['data']['items']
+        if item['unit'].get('value')
+    )
+    self.assertEqual(unit_value_amount_sum, 2000)  # 10 * 200 for first item
 
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, contract["id"], self.tender_token),
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
         {"data": {"status": "active"}},
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["errors"][0]["description"], "Can update contract only in active lot status")
-
-
-# TenderContractDocumentResourceTest
-
-
-def not_found(self):
-    response = self.app.post(
-        "/tenders/some_id/contracts/some_id/documents?acc_token={}".format(self.tender_token),
-        status=404,
-        upload_files=[("file", "name.doc", "content")],
-    )
-    self.assertEqual(response.status, "404 Not Found")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
     self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"tender_id"}]
+        response.json["errors"],
+        [
+            {
+                "description": "Total amount of unit values can't be greater than contract.value.amount",
+                "location": "body",
+                "name": "data",
+            }
+        ],
     )
 
-    response = self.app.post(
-        "/tenders/{}/contracts/some_id/documents?acc_token={}".format(self.tender_id, self.tender_token),
-        status=404,
-        upload_files=[("file", "name.doc", "content")],
+    new_items[0]["unit"]["value"]["amount"] = 7.56345
+    response = self.app.patch_json(
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+        {"data": {"items": new_items}},
     )
-    self.assertEqual(response.status, "404 Not Found")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
+    self.assertEqual(response.status, "200 OK")
+    self.assertEqual(response.json['data']['items'][0]["unit"]["value"]["amount"], 7.56345)
+
+    response = self.app.patch_json(
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+        {
+            "data": {
+                "status": "active",
+                "contractNumber": "123",
+                "period": {
+                    "startDate": "2016-03-18T18:47:47.155143+02:00",
+                    "endDate": "2016-05-18T18:47:47.155143+02:00",
+                },
+            }
+        },
+        status=403,
+    )
     self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"contract_id"}]
+        response.json["errors"],
+        [
+            {
+                "description": "Can't activate contract while unit.value is not set for each item",
+                "location": "body",
+                "name": "data",
+            }
+        ],
     )
 
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        status=404,
-        upload_files=[("invalid_value", "name.doc", "content")],
+    new_items[1]["unit"]["value"] = {"amount": 10, "currency": "EUR", "valueAddedTaxIncluded": False}
+    response = self.app.patch_json(
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+        {"data": {"items": new_items}},
+        status=422,
     )
-    self.assertEqual(response.status, "404 Not Found")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(response.json["errors"], [{u"description": u"Not Found", u"location": u"body", u"name": u"file"}])
-
-    response = self.app.get("/tenders/some_id/contracts/some_id/documents", status=404)
-    self.assertEqual(response.status, "404 Not Found")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
     self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"tender_id"}]
+        response.json['errors'],
+        [
+            {
+                "location": "body",
+                "name": "items",
+                "description": ["Value mismatch. Expected: currency UAH"],
+            }
+        ],
     )
 
-    response = self.app.get("/tenders/{}/contracts/some_id/documents".format(self.tender_id), status=404)
-    self.assertEqual(response.status, "404 Not Found")
+    new_items[1]["unit"]["value"] = {"amount": 10, "currency": "UAH", "valueAddedTaxIncluded": True}
+    response = self.app.patch_json(
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+        {"data": {"items": new_items}},
+    )
+    self.assertEqual(response.status, "200 OK")
+
+    response = self.app.patch_json(
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+        {
+            "data": {
+                "status": "active",
+                "contractNumber": "123",
+                "period": {
+                    "startDate": "2016-03-18T18:47:47.155143+02:00",
+                    "endDate": "2016-05-18T18:47:47.155143+02:00",
+                },
+            }
+        },
+    )
+    self.assertEqual(response.status, "200 OK")
+
+
+def create_tender_contract(self):
+    # tender = self.mongodb.tenders.get(self.tender_id)
+    #
+    # criterion = tender["criteria"][0]
+    # criterion["relatesTo"] = "item"
+    # criterion["relatedItem"] = tender["items"][0]["id"]
+    # self.mongodb.tenders.save(tender)
+
+    contract_id = self.contracts_ids[0]
+    response = self.app.get(f"/tenders/{self.tender_id}/awards/{self.award_id}")
+
+    self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"contract_id"}]
-    )
 
-    response = self.app.get("/tenders/some_id/contracts/some_id/documents/some_id", status=404)
-    self.assertEqual(response.status, "404 Not Found")
+    award = response.json["data"]
+    self.assertEqual(response.json["data"]["status"], "active")
+
+    response = self.app.get(f"/contracts/{contract_id}")
+    self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"tender_id"}]
-    )
 
-    response = self.app.get("/tenders/{}/contracts/some_id/documents/some_id".format(self.tender_id), status=404)
-    self.assertEqual(response.status, "404 Not Found")
+    contract_fields = {
+        "id",
+        "awardID",
+        "contractID",
+        "dateCreated",
+        "dateModified",
+        "items",
+        "tender_id",
+        "owner",
+        "status",
+        "suppliers",
+        "buyer",
+    }
+
+    if "value" in award:
+        contract_fields.update({"value"})
+
+    self.assertEqual(contract_fields, set(response.json["data"].keys()))
+    # self.assertIn("attributes", response.json["data"]["items"][0])
+
+    response = self.activate_contract(contract_id)
+    self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"contract_id"}]
-    )
+    self.assertEqual(response.json["data"]["status"], "active")
 
-    response = self.app.get(
-        "/tenders/{}/contracts/{}/documents/some_id".format(self.tender_id, self.contract_id), status=404
-    )
-    self.assertEqual(response.status, "404 Not Found")
+
+def cancelling_award_contract_sync(self):
+    contract_id = self.contracts_ids[0]
+    response = self.app.get(f"/tenders/{self.tender_id}/awards/{self.award_id}")
+
+    self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"document_id"}]
-    )
 
-    response = self.app.put(
-        "/tenders/some_id/contracts/some_id/documents/some_id?acc_token={}".format(self.tender_token),
-        status=404,
-        upload_files=[("file", "name.doc", "content2")],
-    )
-    self.assertEqual(response.status, "404 Not Found")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"tender_id"}]
-    )
+    award = response.json["data"]
+    self.assertEqual(response.json["data"]["status"], "active")
 
-    response = self.app.put(
-        "/tenders/{}/contracts/some_id/documents/some_id?acc_token={}".format(self.tender_id, self.tender_token),
-        status=404,
-        upload_files=[("file", "name.doc", "content2")],
-    )
-    self.assertEqual(response.status, "404 Not Found")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"contract_id"}]
-    )
-
-    response = self.app.put(
-        "/tenders/{}/contracts/{}/documents/some_id?acc_token={}".format(
-            self.tender_id, self.contract_id, self.tender_token
-        ),
-        status=404,
-        upload_files=[("file", "name.doc", "content2")],
-    )
-    self.assertEqual(response.status, "404 Not Found")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"document_id"}]
-    )
-
-
-def create_tender_contract_document(self):
-    response = self.app.get("/tenders/{}/contracts/{}".format(self.tender_id, self.contract_id))
-    self.assertEqual(response.json["data"]["status"], "pending")
-
-    doc = self.db.get(self.tender_id)
+    # prepare contract for activating
+    doc = self.mongodb.tenders.get(self.tender_id)
     for i in doc.get("awards", []):
-        if "complaintPeriod" in i:
+        if 'complaintPeriod' in i:
             i["complaintPeriod"]["endDate"] = i["complaintPeriod"]["startDate"]
-    if 'value' in doc["contracts"][0] and doc["contracts"][0]["value"]["valueAddedTaxIncluded"]:
-        doc["contracts"][0]["value"]["amountNet"] = str(float(doc["contracts"][0]["value"]["amount"]) - 1)
-    self.db.save(doc)
-
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        upload_files=[("file", "name.doc", "content")],
-    )
-    self.assertEqual(response.status, "201 Created")
-    self.assertEqual(response.content_type, "application/json")
-    doc_id = response.json["data"]["id"]
-    self.assertIn(doc_id, response.headers["Location"])
-    self.assertEqual("name.doc", response.json["data"]["title"])
-    key = response.json["data"]["url"].split("?")[-1]
-
-    response = self.app.get("/tenders/{}/contracts/{}/documents".format(self.tender_id, self.contract_id))
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"][0]["id"])
-    self.assertEqual("name.doc", response.json["data"][0]["title"])
-
-    response = self.app.get("/tenders/{}/contracts/{}/documents?all=true".format(self.tender_id, self.contract_id))
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"][0]["id"])
-    self.assertEqual("name.doc", response.json["data"][0]["title"])
+    self.mongodb.tenders.save(doc)
 
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending.winner-signing"}}
+        f"/tenders/{self.tender_id}/awards/{self.award_id}?acc_token={self.tender_token}",
+        {"data": {"status": "cancelled"}},
     )
     self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
+    self.assertEqual(response.content_type, "application/json")
+    self.assertEqual(response.json["data"]["status"], "cancelled")
 
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        upload_files=[("file", "contract.doc", "content")],
+    response = self.app.get(
+        f"/contracts/{contract_id}?acc_token={self.tender_token}",
+    )
+    self.assertEqual(response.json["data"]["status"], "cancelled")
+
+
+def patch_multiple_contracts_in_contracting(self):
+    response = self.app.get(f"/contracts/{self.contracts_ids[0]}")
+    contract1 = response.json["data"]
+    response = self.app.get(f"/contracts/{self.contracts_ids[1]}")
+    contract2 = response.json["data"]
+    # 1st contract contains 1 item, 2nd contract contains 2 items
+    self.assertEqual(len(contract1["items"]), 1)
+    self.assertEqual(len(contract2["items"]), 2)
+
+    self.assertEqual(contract1["value"]["amount"], 0)
+    self.assertEqual(contract2["value"]["amount"], 0)
+
+    self.assertEqual(contract1["value"]["valueAddedTaxIncluded"], True)
+    self.assertEqual(contract2["value"]["valueAddedTaxIncluded"], True)
+
+    response = self.app.patch_json(
+        f"/contracts/{self.contracts_ids[0]}?acc_token={self.tender_token}",
+        {"data": {"value": {**contract1["value"], "amount": 200, "currency": "UAH"}}},
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"],
-                     [{u'description': u"Tender onwer can't add document in current contract status",
-                       u'location': u'body',
-                       u'name': u'data'}])
 
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending")
-
-
-    response = self.app.get(
-        "/tenders/{}/contracts/{}/documents/{}?download=some_id".format(self.tender_id, self.contract_id, doc_id),
-        status=404,
-    )
-    self.assertEqual(response.status, "404 Not Found")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
     self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"download"}]
+        response.json["errors"],
+        [
+            {
+                'location': 'body',
+                'name': 'value',
+                'description': 'Amount should be equal or greater than amountNet and differ by no more than 20.0%',
+            }
+        ],
     )
-
-    response = self.app.get(
-        "/tenders/{}/contracts/{}/documents/{}?{}".format(self.tender_id, self.contract_id, doc_id, key)
+    # patch 1st contract
+    response = self.app.patch_json(
+        f"/contracts/{self.contracts_ids[0]}?acc_token={self.tender_token}",
+        {"data": {"value": {**contract1["value"], "amount": 200, "amountNet": 195, "currency": "UAH"}}},
     )
     self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/msword")
-    self.assertEqual(response.content_length, 7)
-    self.assertEqual(response.body, "content")
+    self.assertEqual(response.json["data"]["value"]["amount"], 200)
+    self.assertEqual(response.json["data"]["value"]["amountNet"], 195)
 
-    response = self.app.get("/tenders/{}/contracts/{}/documents/{}".format(self.tender_id, self.contract_id, doc_id))
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"]["id"])
-    self.assertEqual("name.doc", response.json["data"]["title"])
-
-    tender = self.db.get(self.tender_id)
-    tender["contracts"][-1]["status"] = "cancelled"
-    self.db.save(tender)
-
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        upload_files=[("file", "name.doc", "content")],
+    # patch 2nd contract
+    response = self.app.patch_json(
+        f"/contracts/{self.contracts_ids[1]}?acc_token={self.tender_token}",
+        {"data": {"value": {**contract2["value"], "amount": 400, "amountNet": 390, "currency": "UAH"}}},
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["errors"][0]["description"], "Can't add document in current contract status")
 
-    self.set_status("{}".format(self.forbidden_contract_document_modification_actions_status))
-
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        upload_files=[("file", "name.doc", "content")],
-        status=403,
+    self.assertEqual(
+        response.json["errors"],
+        [{'location': 'body', 'name': 'value', 'description': 'Amount should be less or equal to awarded amount'}],
     )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
+
+    # 1st contract.value + 2nd contract.value <= award.amount.value
+    response = self.app.patch_json(
+        f"/contracts/{self.contracts_ids[1]}?acc_token={self.tender_token}",
+        {"data": {"value": {**contract2["value"], "amount": 190, "amountNet": 185, "currency": "UAH"}}},
+    )
+    self.assertEqual(response.status, "200 OK")
+    self.assertEqual(response.json["data"]["value"]["amount"], 190)
+    self.assertEqual(response.json["data"]["value"]["amountNet"], 185)
+
+    # prepare contract for activating
+    doc = self.mongodb.tenders.get(self.tender_id)
+    for i in doc.get("awards", []):
+        if 'complaintPeriod' in i:
+            i["complaintPeriod"]["endDate"] = i["complaintPeriod"]["startDate"]
+    self.mongodb.tenders.save(doc)
+
+    for i in self.contracts_ids:
+        response = self.app.put_json(
+            f"/contracts/{i}/buyer/signer_info?acc_token={self.tender_token}",
+            {
+                "data": {
+                    "name": "Test Testovich",
+                    "telephone": "+380950000000",
+                    "email": "example@email.com",
+                    "iban": "1" * 15,
+                    "authorizedBy": "документ який дозволяє",
+                    "position": "статус",
+                }
+            },
+        )
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(response.content_type, "application/json")
+
+        response = self.app.put_json(
+            f"/contracts/{i}/suppliers/signer_info?acc_token={self.bid_token}",
+            {
+                "data": {
+                    "name": "Test Testovich",
+                    "telephone": "+380950000000",
+                    "email": "example@email.com",
+                    "iban": "1" * 15,
+                    "authorizedBy": "документ який дозволяє",
+                    "position": "статус",
+                }
+            },
+        )
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(response.content_type, "application/json")
+
+    # in case any contract become active and there are no pending contracts -> tender should have complete status
+    response = self.app.patch_json(
+        f"/contracts/{self.contracts_ids[0]}?acc_token={self.tender_token}",
+        {
+            "data": {
+                "status": "active",
+                "contractNumber": "123",
+                "period": {
+                    "startDate": "2023-03-18T18:47:47.155143+02:00",
+                    "endDate": "2023-05-18T18:47:47.155143+02:00",
+                },
+            }
+        },
+    )
+    self.assertEqual(response.status, "200 OK")
+
+    response = self.app.get(f"/tenders/{self.tender_id}")
+    self.assertEqual(response.status, "200 OK")
+    self.assertNotEqual(response.json["data"]["status"], "complete")  # because second contract still in pending
+
+    response = self.app.patch_json(
+        f"/contracts/{self.contracts_ids[1]}?acc_token={self.tender_token}",
+        {
+            "data": {
+                "status": "active",
+                "contractNumber": "123",
+                "period": {
+                    "startDate": "2023-03-18T18:47:47.155143+02:00",
+                    "endDate": "2023-05-18T18:47:47.155143+02:00",
+                },
+            }
+        },
+    )
+    self.assertEqual(response.status, "200 OK")
+
+    response = self.app.get(f"/tenders/{self.tender_id}")
+    self.assertEqual(response.status, "200 OK")
+    self.assertEqual(response.json["data"]["status"], "complete")
+
+
+def patch_econtract_multi_currency(self):
+    response = self.app.get(f"/contracts/{self.contracts_ids[0]}")
+    contract = response.json["data"]
+    self.assertEqual(contract["value"]["amount"], 500)
+    self.assertEqual(contract["value"]["currency"], "UAH")
+
+    # try to change VAT different from contract value VAT
+    contract["items"][0]["unit"]["value"]["valueAddedTaxIncluded"] = False
+
+    response = self.app.patch_json(
+        f"/contracts/{self.contracts_ids[0]}?acc_token={self.tender_token}",
+        {"data": {"items": contract["items"]}},
+        status=422,
+    )
+    self.assertEqual(response.status, "422 Unprocessable Entity")
     self.assertEqual(
         response.json["errors"][0]["description"],
-        "Can't add document in current ({}) tender status".format(
-            self.forbidden_contract_document_modification_actions_status
-        ),
+        ["Value mismatch. Expected: valueAddedTaxIncluded True"],
     )
 
-
-def create_tender_contract_document_by_supplier(self):
-    response = self.app.get("/tenders/{}/contracts/{}".format(self.tender_id, self.contract_id))
-    contract = response.json["data"]
-    self.assertEqual(response.json["data"]["status"], "pending")
-    doc = self.db.get(self.tender_id)
-    bid_id = jmespath.search("awards[?id=='{}'].bid_id".format(contract["awardID"]), doc)[0]
-    bid_token = jmespath.search("bids[?id=='{}'].owner_token".format(bid_id), doc)[0]
-
-    for bid in doc.get("bids", []):
-        if bid["id"] == bid_id and bid["status"] == "pending":
-            bid["status"] = "active"
-    for i in doc.get("awards", []):
-        if 'complaintPeriod' in i:
-            i["complaintPeriod"]["endDate"] = i["complaintPeriod"]["startDate"]
-    if 'value' in doc['contracts'][0] and doc['contracts'][0]['value']['valueAddedTaxIncluded']:
-        doc['contracts'][0]['value']['amountNet'] = str(float(doc['contracts'][0]['value']['amount']) - 1)
-    self.db.save(doc)
-
-    # Supplier
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"],
-                     [{u'description': u"Supplier can't add document in current contract status",
-                       u'location': u'body',
-                       u'name': u'data'}])
-
-    # Tender owner
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending.winner-signing"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
-
-    # Supplier
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-    )
-    self.assertEqual(response.status, "201 Created")
-    self.assertEqual(response.content_type, "application/json")
-    doc_id = response.json["data"]["id"]
-    self.assertIn(doc_id, response.headers["Location"])
-    self.assertEqual("name.doc", response.json["data"]["title"])
-    key = response.json["data"]["url"].split("?")[-1]
-
-    response = self.app.get("/tenders/{}/contracts/{}/documents".format(self.tender_id, self.contract_id))
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"][0]["id"])
-    self.assertEqual("name.doc", response.json["data"][0]["title"])
-
-    response = self.app.get("/tenders/{}/contracts/{}/documents?all=true".format(self.tender_id, self.contract_id))
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"][0]["id"])
-    self.assertEqual("name.doc", response.json["data"][0]["title"])
-
-    response = self.app.get(
-        "/tenders/{}/contracts/{}/documents/{}?download=some_id".format(self.tender_id, self.contract_id, doc_id),
-        status=404,
-    )
-    self.assertEqual(response.status, "404 Not Found")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"download"}]
-    )
-
-    response = self.app.get(
-        "/tenders/{}/contracts/{}/documents/{}?{}".format(self.tender_id, self.contract_id, doc_id, key)
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/msword")
-    self.assertEqual(response.content_length, 7)
-    self.assertEqual(response.body, "content")
-
-    response = self.app.get("/tenders/{}/contracts/{}/documents/{}".format(self.tender_id, self.contract_id, doc_id))
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"]["id"])
-    self.assertEqual("name.doc", response.json["data"]["title"])
-
-    tender = self.db.get(self.tender_id)
-    tender["contracts"][-1]["status"] = "cancelled"
-    self.db.save(tender)
-
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["errors"][0]["description"],
-                     "Supplier can't add document in current contract status")
-
-    self.set_status("{}".format(self.forbidden_contract_document_modification_actions_status))
-
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["errors"][0]["description"],
-                     "Supplier can't add document in current contract status")
-
-
-def create_tender_contract_document_by_others(self):
-    response = self.app.get("/tenders/{}/contracts/{}".format(self.tender_id, self.contract_id))
-    contract = response.json["data"]
-    self.assertEqual(response.json["data"]["status"], "pending")
-
-    doc = self.db.get(self.tender_id)
-    for i in doc.get("awards", []):
-        if 'complaintPeriod' in i:
-            i["complaintPeriod"]["endDate"] = i["complaintPeriod"]["startDate"]
-    if 'value' in doc['contracts'][0] and doc['contracts'][0]['value']['valueAddedTaxIncluded']:
-        doc['contracts'][0]['value']['amountNet'] = str(float(doc['contracts'][0]['value']['amount']) - 1)
-    self.db.save(doc)
-    bid_id = jmespath.search("awards[?id=='{}'].bid_id".format(contract["awardID"]), doc)[0]
-    bid_token = jmespath.search("bids[?id!='{}'].owner_token".format(bid_id), doc)[0]
-
-    # Bid owner
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"],
-                     [{u'description': u'Forbidden', u'location': u'url', u'name': u'permission'}])
-
-    # Tender owner
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending.winner-signing"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
-
-    # Bid onwer
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"], [{"location": "url", "name": "permission", "description": "Forbidden"}])
-
-    tender = self.db.get(self.tender_id)
-    tender["contracts"][-1]["status"] = "cancelled"
-    self.db.save(tender)
-
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["errors"][0]["description"], "Forbidden")
-
-    self.set_status("{}".format(self.forbidden_contract_document_modification_actions_status))
-
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["errors"][0]["description"], "Forbidden")
-
-
-def put_tender_contract_document(self):
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        upload_files=[("file", "name.doc", "content")],
-    )
-    self.assertEqual(response.status, "201 Created")
-    self.assertEqual(response.content_type, "application/json")
-    doc_id = response.json["data"]["id"]
-    self.assertIn(doc_id, response.headers["Location"])
-
-    response = self.app.put(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, self.tender_token
-        ),
-        status=404,
-        upload_files=[("invalid_name", "name.doc", "content")],
-    )
-    self.assertEqual(response.status, "404 Not Found")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(response.json["errors"], [{u"description": u"Not Found", u"location": u"body", u"name": u"file"}])
+    # try to change VAT along with contract value VAT
+    contract["items"][0]["unit"]["value"]["valueAddedTaxIncluded"] = False
+    contract["value"]["valueAddedTaxIncluded"] = False
 
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending.winner-signing"}}
+        f"/contracts/{self.contracts_ids[0]}?acc_token={self.tender_token}",
+        {"data": {"items": contract["items"], "value": contract["value"]}},
     )
     self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
 
-    response = self.app.put(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, self.tender_token
-        ),
-        upload_files=[("file", "name.doc", "content2")],
-        status=403
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"][0]["description"],
-                     "Tender onwer can't update document in current contract status")
-
+    # try to change currency in contract value
+    contract["value"]["currency"] = "EUR"
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending")
-
-    response = self.app.put(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, self.tender_token
-        ),
-        upload_files=[("file", "name.doc", "content2")],
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"]["id"])
-    key = response.json["data"]["url"].split("?")[-1]
-
-    response = self.app.get(
-        "/tenders/{}/contracts/{}/documents/{}?{}".format(self.tender_id, self.contract_id, doc_id, key)
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/msword")
-    self.assertEqual(response.content_length, 8)
-    self.assertEqual(response.body, "content2")
-
-    response = self.app.get("/tenders/{}/contracts/{}/documents/{}".format(self.tender_id, self.contract_id, doc_id))
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"]["id"])
-    self.assertEqual("name.doc", response.json["data"]["title"])
-
-    response = self.app.put(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, self.tender_token
-        ),
-        "content3",
-        content_type="application/msword",
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"]["id"])
-    key = response.json["data"]["url"].split("?")[-1]
-
-    response = self.app.get(
-        "/tenders/{}/contracts/{}/documents/{}?{}".format(self.tender_id, self.contract_id, doc_id, key)
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/msword")
-    self.assertEqual(response.content_length, 8)
-    self.assertEqual(response.body, "content3")
-
-    tender = self.db.get(self.tender_id)
-    tender["contracts"][-1]["status"] = "cancelled"
-    self.db.save(tender)
-
-    response = self.app.put(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, self.tender_token
-        ),
-        upload_files=[("file", "name.doc", "content3")],
+        f"/contracts/{self.contracts_ids[0]}?acc_token={self.tender_token}",
+        {"data": {"value": contract["value"]}},
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["errors"][0]["description"], "Can't update document in current contract status")
-
-    self.set_status("{}".format(self.forbidden_contract_document_modification_actions_status))
-
-    response = self.app.put(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, self.tender_token
-        ),
-        upload_files=[("file", "name.doc", "content3")],
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
     self.assertEqual(
         response.json["errors"][0]["description"],
-        "Can't update document in current ({}) tender status".format(
-            self.forbidden_contract_document_modification_actions_status
-        ),
+        "Can't update currency for contract value",
     )
 
-
-def put_tender_contract_document_by_supplier(self):
-    response = self.app.get("/tenders/{}/contracts/{}".format(self.tender_id, self.contract_id))
-    contract = response.json["data"]
-    self.assertEqual(response.json["data"]["status"], "pending")
-    doc = self.db.get(self.tender_id)
-    bid_id = jmespath.search("awards[?id=='{}'].bid_id".format(contract["awardID"]), doc)[0]
-    bid_token = jmespath.search("bids[?id=='{}'].owner_token".format(bid_id), doc)[0]
-
-    for bid in doc.get("bids", []):
-        if bid["id"] == bid_id and bid["status"] == "pending":
-            bid["status"] = "active"
-    for i in doc.get("awards", []):
-        if 'complaintPeriod' in i:
-            i["complaintPeriod"]["endDate"] = i["complaintPeriod"]["startDate"]
-    if 'value' in doc['contracts'][0] and doc['contracts'][0]['value']['valueAddedTaxIncluded']:
-        doc['contracts'][0]['value']['amountNet'] = str(float(doc['contracts'][0]['value']['amount']) - 1)
-    self.db.save(doc)
-
-    # Supplier
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-        status=403
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"][0]["description"],
-                     "Supplier can't add document in current contract status")
-
-    # Tender owner
+    # try to change currency in contract items unit
+    contract["items"][0]["unit"]["value"]["currency"] = "EUR"
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending.winner-signing"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
-
-    # Supplier
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-    )
-    self.assertEqual(response.status, "201 Created")
-    self.assertEqual(response.content_type, "application/json")
-    doc_id = response.json["data"]["id"]
-    self.assertIn(doc_id, response.headers["Location"])
-
-    response = self.app.put(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, bid_token
-        ),
-        status=404,
-        upload_files=[("invalid_name", "name.doc", "content")],
-    )
-    self.assertEqual(response.status, "404 Not Found")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(response.json["errors"], [{u"description": u"Not Found", u"location": u"body", u"name": u"file"}])
-
-    response = self.app.put(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, bid_token
-        ),
-        upload_files=[("file", "name.doc", "content2")],
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"]["id"])
-    key = response.json["data"]["url"].split("?")[-1]
-
-    response = self.app.get(
-        "/tenders/{}/contracts/{}/documents/{}?{}".format(self.tender_id, self.contract_id, doc_id, key)
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/msword")
-    self.assertEqual(response.content_length, 8)
-    self.assertEqual(response.body, "content2")
-
-    response = self.app.get("/tenders/{}/contracts/{}/documents/{}".format(self.tender_id, self.contract_id, doc_id))
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"]["id"])
-    self.assertEqual("name.doc", response.json["data"]["title"])
-
-    response = self.app.put(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, bid_token
-        ),
-        "content3",
-        content_type="application/msword",
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"]["id"])
-    key = response.json["data"]["url"].split("?")[-1]
-
-    response = self.app.get(
-        "/tenders/{}/contracts/{}/documents/{}?{}".format(self.tender_id, self.contract_id, doc_id, key)
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/msword")
-    self.assertEqual(response.content_length, 8)
-    self.assertEqual(response.body, "content3")
-
-    tender = self.db.get(self.tender_id)
-    tender["contracts"][-1]["status"] = "cancelled"
-    self.db.save(tender)
-
-    response = self.app.put(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, bid_token
-        ),
-        upload_files=[("file", "name.doc", "content3")],
+        f"/contracts/{self.contracts_ids[0]}?acc_token={self.tender_token}",
+        {"data": {"items": contract["items"]}},
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["errors"][0]["description"],
-                     "Supplier can't update document in current contract status")
-
-    self.set_status("{}".format(self.forbidden_contract_document_modification_actions_status))
-
-    response = self.app.put(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, bid_token
-        ),
-        upload_files=[("file", "name.doc", "content3")],
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["errors"][0]["description"],
-                     "Supplier can't update document in current contract status")
-
-
-def put_tender_contract_document_by_others(self):
-    response = self.app.get("/tenders/{}/contracts/{}".format(self.tender_id, self.contract_id))
-    contract = response.json["data"]
-    self.assertEqual(response.json["data"]["status"], "pending")
-    doc = self.db.get(self.tender_id)
-    for i in doc.get("awards", []):
-        if 'complaintPeriod' in i:
-            i["complaintPeriod"]["endDate"] = i["complaintPeriod"]["startDate"]
-    if 'value' in doc['contracts'][0] and doc['contracts'][0]['value']['valueAddedTaxIncluded']:
-        doc['contracts'][0]['value']['amountNet'] = str(float(doc['contracts'][0]['value']['amount']) - 1)
-    self.db.save(doc)
-    bid_id = jmespath.search("awards[?id=='{}'].bid_id".format(contract["awardID"]), doc)[0]
-    bid_token = jmespath.search("bids[?id!='{}'].owner_token".format(bid_id), doc)[0]
-
-    # Bid onwer
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-        status=403
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"],
-                     [{u'description': u'Forbidden', u'location': u'url', u'name': u'permission'}])
-
-    # Tender owner
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending.winner-signing"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
-
-    # Bid owner
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-        status=403
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"],
-                     [{u'description': u'Forbidden', u'location': u'url', u'name': u'permission'}])
-
-
-def patch_tender_contract_document(self):
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        upload_files=[("file", "name.doc", "content")],
-    )
-    self.assertEqual(response.status, "201 Created")
-    self.assertEqual(response.content_type, "application/json")
-    doc_id = response.json["data"]["id"]
-    self.assertIn(doc_id, response.headers["Location"])
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending.winner-signing"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, self.tender_token
-        ),
-        {"data": {"description": "document description"}},
-        status=403
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"][0]["description"],
-                     "Tender onwer can't update document in current contract status")
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending")
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, self.tender_token
-        ),
-        {"data": {"description": "document description"}},
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"]["id"])
-
-    response = self.app.get("/tenders/{}/contracts/{}/documents/{}".format(self.tender_id, self.contract_id, doc_id))
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"]["id"])
-    self.assertEqual("document description", response.json["data"]["description"])
-
-    tender = self.db.get(self.tender_id)
-    tender["contracts"][-1]["status"] = "cancelled"
-    self.db.save(tender)
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, self.tender_token
-        ),
-        {"data": {"description": "document description"}},
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["errors"][0]["description"], "Can't update document in current contract status")
-
-    self.set_status("{}".format(self.forbidden_contract_document_modification_actions_status))
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, self.tender_token
-        ),
-        {"data": {"description": "document description"}},
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
     self.assertEqual(
         response.json["errors"][0]["description"],
-        "Can't update document in current ({}) tender status".format(
-            self.forbidden_contract_document_modification_actions_status
-        ),
+        "Forbidden to change currency in contract items unit",
     )
 
-
-def patch_tender_contract_document_by_supplier(self):
-    response = self.app.get("/tenders/{}/contracts/{}".format(self.tender_id, self.contract_id))
-    contract = response.json["data"]
-    self.assertEqual(response.json["data"]["status"], "pending")
-    doc = self.db.get(self.tender_id)
-    bid_id = jmespath.search("awards[?id=='{}'].bid_id".format(contract["awardID"]), doc)[0]
-    bid_token = jmespath.search("bids[?id=='{}'].owner_token".format(bid_id), doc)[0]
-
-    for bid in doc.get("bids", []):
-        if bid["id"] == bid_id and bid["status"] == "pending":
-            bid["status"] = "active"
-    for i in doc.get("awards", []):
-        if 'complaintPeriod' in i:
-            i["complaintPeriod"]["endDate"] = i["complaintPeriod"]["startDate"]
-    if 'value' in doc['contracts'][0] and doc['contracts'][0]['value']['valueAddedTaxIncluded']:
-        doc['contracts'][0]['value']['amountNet'] = str(float(doc['contracts'][0]['value']['amount']) - 1)
-    self.db.save(doc)
-
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-        status=403
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"][0]["description"],
-                     "Supplier can't add document in current contract status")
-
+    # try to change amount in contract items unit and contract value to less value
+    contract["items"][0]["unit"]["value"]["amount"] = 0.5
+    contract["items"][0]["unit"]["value"]["currency"] = "UAH"
+    contract["value"] = {"amount": 100, "amountNet": 100, "currency": "UAH", "valueAddedTaxIncluded": False}
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending.winner-signing"}}
+        f"/contracts/{self.contracts_ids[0]}?acc_token={self.tender_token}",
+        {"data": {"items": contract["items"], "value": contract["value"]}},
     )
     self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
 
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-    )
-    self.assertEqual(response.status, "201 Created")
-    self.assertEqual(response.content_type, "application/json")
-    doc_id = response.json["data"]["id"]
-    self.assertIn(doc_id, response.headers["Location"])
-
+    # try to change amount in contract items unit and contract value to greater value
+    contract["items"][0]["unit"]["value"]["amount"] = 50
+    contract["value"] = {"amount": 10000, "amountNet": 10000, "currency": "UAH", "valueAddedTaxIncluded": False}
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, bid_token
-        ),
-        {"data": {"description": "document description"}},
+        f"/contracts/{self.contracts_ids[0]}?acc_token={self.tender_token}",
+        {"data": {"items": contract["items"], "value": contract["value"]}},
     )
     self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"]["id"])
 
-    response = self.app.get("/tenders/{}/contracts/{}/documents/{}".format(self.tender_id, self.contract_id, doc_id))
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"]["id"])
-    self.assertEqual("document description", response.json["data"]["description"])
-
-    tender = self.db.get(self.tender_id)
-    tender["contracts"][-1]["status"] = "cancelled"
-    self.db.save(tender)
-
+    # check total amount of unit values can't be greater than contract.value.amount
+    contract["items"][0]["unit"]["value"]["amount"] = 50
+    contract["items"][0]["quantity"] = 10  # 50 * 10 = 500
+    contract["value"] = {"amount": 400, "amountNet": 400, "currency": "UAH", "valueAddedTaxIncluded": False}
     response = self.app.patch_json(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, self.tender_token
-        ),
-        {"data": {"description": "document description"}},
+        f"/contracts/{self.contracts_ids[0]}?acc_token={self.tender_token}",
+        {"data": {"items": contract["items"], "value": contract["value"]}},
+    )
+    self.assertEqual(response.status, "200 OK")
+
+    del contract["items"][0]["unit"]["value"]
+    response = self.app.patch_json(
+        f"/contracts/{self.contracts_ids[0]}?acc_token={self.tender_token}",
+        {"data": {"items": contract["items"]}},
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["errors"][0]["description"], "Can't update document in current contract status")
-
-    self.set_status("{}".format(self.forbidden_contract_document_modification_actions_status))
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, self.tender_token
-        ),
-        {"data": {"description": "document description"}},
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
     self.assertEqual(
         response.json["errors"][0]["description"],
-        "Can't update document in current ({}) tender status".format(
-            self.forbidden_contract_document_modification_actions_status
-        ),
+        "Forbidden to delete value in contract items unit",
     )
 
-
-# Tender2LotContractDocumentResourceTest
-
-
-def lot2_create_tender_contract_document(self):
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending.winner-signing"}}
-    )
+    # try to activate contract with amount of unit values greater than contract.value.amount
+    response = self.activate_contract(self.contracts_ids[0])
     self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
-
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        upload_files=[("file", "name.doc", "content")],
-        status=403
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"][0]["description"],
-                     "Tender onwer can't add document in current contract status")
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending")
-
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        upload_files=[("file", "name.doc", "content")],
-    )
-    self.assertEqual(response.status, "201 Created")
-    self.assertEqual(response.content_type, "application/json")
-    doc_id = response.json["data"]["id"]
-    self.assertIn(doc_id, response.headers["Location"])
-    self.assertEqual("name.doc", response.json["data"]["title"])
-    key = response.json["data"]["url"].split("?")[-1]
-
-    cancellation = dict(**test_cancellation)
-    cancellation.update({
-        "status": "active",
-        "cancellationOf": "lot",
-        "relatedLot": self.initial_lots[0]["id"],
-    })
-
-    response = self.app.post_json(
-        "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token), {"data": cancellation},
-    )
-
-    if RELEASE_2020_04_19 < get_now():
-        activate_cancellation_after_2020_04_19(self, response.json['data']['id'])
-
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        upload_files=[("file", "name.doc", "content")],
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["errors"][0]["description"], "Can add document only in active lot status")
-
-
-def lot2_create_tender_contract_document_by_supplier(self):
-    response = self.app.get("/tenders/{}/contracts/{}".format(self.tender_id, self.contract_id))
-    contract = response.json["data"]
-    self.assertEqual(response.json["data"]["status"], "pending")
-    doc = self.db.get(self.tender_id)
-    bid_id = jmespath.search("awards[?id=='{}'].bid_id".format(contract["awardID"]), doc)[0]
-    bid_token = jmespath.search("bids[?id=='{}'].owner_token".format(bid_id), doc)[0]
-
-    # Supplier
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-        status=403
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"][0]["description"],
-                     "Supplier can't add document in current contract status")
-
-    # Tender owner
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending.winner-signing"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
-
-    # Supplier
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-    )
-    self.assertEqual(response.status, "201 Created")
-    self.assertEqual(response.content_type, "application/json")
-    doc_id = response.json["data"]["id"]
-    self.assertIn(doc_id, response.headers["Location"])
-    self.assertEqual("name.doc", response.json["data"]["title"])
-    key = response.json["data"]["url"].split("?")[-1]
-
-    cancellation = dict(**test_cancellation)
-    cancellation.update({
-        "status": "active",
-        "cancellationOf": "lot",
-        "relatedLot": self.initial_lots[0]["id"],
-    })
-    response = self.app.post_json(
-        "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),
-        {"data": cancellation},
-    )
-
-    if RELEASE_2020_04_19 < get_now():
-        activate_cancellation_after_2020_04_19(self, response.json['data']['id'])
-
-    # Supplier
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["errors"][0]["description"], "Can add document only in active lot status")
-
-
-def lot2_create_tender_contract_document_by_others(self):
-    response = self.app.get("/tenders/{}/contracts/{}".format(self.tender_id, self.contract_id))
-    contract = response.json["data"]
-    self.assertEqual(response.json["data"]["status"], "pending")
-    doc = self.db.get(self.tender_id)
-    bid_id = jmespath.search("awards[?id=='{}'].bid_id".format(contract["awardID"]), doc)[0]
-    bid_token = jmespath.search("bids[?id!='{}'].owner_token".format(bid_id), doc)[0]
-
-    # Bid owner
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-        status=403
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"],
-                     [{u'description': u'Forbidden', u'location': u'url', u'name': u'permission'}])
-
-    # Tender owner
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending.winner-signing"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
-
-    # Bid owner
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-        status=403
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"],
-                     [{u'description': u'Forbidden', u'location': u'url', u'name': u'permission'}])
-
-
-def lot2_put_tender_contract_document(self):
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        upload_files=[("file", "name.doc", "content")],
-    )
-    self.assertEqual(response.status, "201 Created")
-    self.assertEqual(response.content_type, "application/json")
-    doc_id = response.json["data"]["id"]
-    self.assertIn(doc_id, response.headers["Location"])
-
-    response = self.app.put(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, self.tender_token
-        ),
-        status=404,
-        upload_files=[("invalid_name", "name.doc", "content")],
-    )
-    self.assertEqual(response.status, "404 Not Found")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(response.json["errors"], [{u"description": u"Not Found", u"location": u"body", u"name": u"file"}])
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending.winner-signing"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
-
-    response = self.app.put(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, self.tender_token
-        ),
-        upload_files=[("file", "name.doc", "content2")],
-        status=403
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"][0]["description"],
-                     "Tender onwer can't update document in current contract status")
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending")
-
-    response = self.app.put(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, self.tender_token
-        ),
-        upload_files=[("file", "name.doc", "content2")],
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"]["id"])
-    key = response.json["data"]["url"].split("?")[-1]
-
-    cancellation = dict(**test_cancellation)
-    cancellation.update({
-        "status": "active",
-        "cancellationOf": "lot",
-        "relatedLot": self.initial_lots[0]["id"],
-    })
-    response = self.app.post_json(
-        "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),
-        {"data": cancellation},
-    )
-
-    if RELEASE_2020_04_19 < get_now():
-        activate_cancellation_after_2020_04_19(self, response.json['data']['id'])
-
-    response = self.app.put(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, self.tender_token
-        ),
-        upload_files=[("file", "name.doc", "content3")],
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["errors"][0]["description"], "Can update document only in active lot status")
-
-
-def lot2_put_tender_contract_document_by_supplier(self):
-    response = self.app.get("/tenders/{}/contracts/{}".format(self.tender_id, self.contract_id))
-    contract = response.json["data"]
-    self.assertEqual(response.json["data"]["status"], "pending")
-    doc = self.db.get(self.tender_id)
-    bid_id = jmespath.search("awards[?id=='{}'].bid_id".format(contract["awardID"]), doc)[0]
-    bid_token = jmespath.search("bids[?id=='{}'].owner_token".format(bid_id), doc)[0]
-
-    # Supplier
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-        status=403
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"][0]["description"],
-                     "Supplier can't add document in current contract status")
-
-    # Tender owner
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending.winner-signing"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
-
-    # Supplier
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-    )
-    self.assertEqual(response.status, "201 Created")
-    self.assertEqual(response.content_type, "application/json")
-    doc_id = response.json["data"]["id"]
-    self.assertIn(doc_id, response.headers["Location"])
-
-    response = self.app.put(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, bid_token
-        ),
-        status=404,
-        upload_files=[("invalid_name", "name.doc", "content")],
-    )
-    self.assertEqual(response.status, "404 Not Found")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["status"], "error")
-    self.assertEqual(response.json["errors"], [{u"description": u"Not Found", u"location": u"body", u"name": u"file"}])
-
-    response = self.app.put(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, bid_token
-        ),
-        upload_files=[("file", "name.doc", "content2")],
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"]["id"])
-    key = response.json["data"]["url"].split("?")[-1]
-
-    # Tender owner
-    cancellation = dict(**test_cancellation)
-    cancellation.update({
-        "status": "active",
-        "cancellationOf": "lot",
-        "relatedLot": self.initial_lots[0]["id"],
-    })
-    response = self.app.post_json(
-        "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),
-        {"data": cancellation},
-    )
-
-    if RELEASE_2020_04_19 < get_now():
-        activate_cancellation_after_2020_04_19(self, response.json['data']['id'])
-
-    # Supplier
-    response = self.app.put(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, bid_token
-        ),
-        upload_files=[("file", "name.doc", "content3")],
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["errors"][0]["description"], "Can update document only in active lot status")
-
-
-def lot2_patch_tender_contract_document(self):
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        upload_files=[("file", "name.doc", "content")],
-    )
-    self.assertEqual(response.status, "201 Created")
-    self.assertEqual(response.content_type, "application/json")
-    doc_id = response.json["data"]["id"]
-    self.assertIn(doc_id, response.headers["Location"])
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending.winner-signing"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, self.tender_token
-        ),
-        {"data": {"description": "document description"}},
-        status=403
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"][0]["description"],
-                     "Tender onwer can't update document in current contract status")
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending")
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, self.tender_token
-        ),
-        {"data": {"description": "document description"}},
-    )
-
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"]["id"])
-
-    cancellation = dict(**test_cancellation)
-    cancellation.update({
-        "status": "active",
-        "cancellationOf": "lot",
-        "relatedLot": self.initial_lots[0]["id"],
-    })
-    response = self.app.post_json(
-        "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),
-        {"data": cancellation},
-    )
-
-    if RELEASE_2020_04_19 < get_now():
-        activate_cancellation_after_2020_04_19(self, response.json['data']['id'])
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, self.tender_token
-        ),
-        {"data": {"description": "new document description"}},
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["errors"][0]["description"], "Can update document only in active lot status")
-
-
-def lot2_patch_tender_contract_document_by_supplier(self):
-    response = self.app.get("/tenders/{}/contracts/{}".format(self.tender_id, self.contract_id))
-    contract = response.json["data"]
-    self.assertEqual(response.json["data"]["status"], "pending")
-    doc = self.db.get(self.tender_id)
-    bid_id = jmespath.search("awards[?id=='{}'].bid_id".format(contract["awardID"]), doc)[0]
-    bid_token = jmespath.search("bids[?id=='{}'].owner_token".format(bid_id), doc)[0]
-
-    # Tender owner
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending.winner-signing"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending.winner-signing")
-
-    # Supplier
-    response = self.app.post(
-        "/tenders/{}/contracts/{}/documents?acc_token={}".format(self.tender_id, self.contract_id, bid_token),
-        upload_files=[("file", "name.doc", "content")],
-    )
-    self.assertEqual(response.status, "201 Created")
-    self.assertEqual(response.content_type, "application/json")
-    doc_id = response.json["data"]["id"]
-    self.assertIn(doc_id, response.headers["Location"])
-
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, bid_token
-        ),
-        {"data": {"description": "document description"}},
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(doc_id, response.json["data"]["id"])
-
-    # Tender owner
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}?acc_token={}".format(self.tender_id, self.contract_id, self.tender_token),
-        {"data": {"status": "pending"}}
-    )
-    self.assertEqual(response.status, "200 OK")
-    self.assertEqual(response.json["data"]["status"], "pending")
-
-    # Supplier
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, bid_token
-        ),
-        {"data": {"description": "document description"}},
-        status=403
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.json["errors"][0]["description"],
-                     "Supplier can't update document in current contract status")
-
-    # Tender owner
-    cancellation = dict(**test_cancellation)
-    cancellation.update({
-        "status": "active",
-        "cancellationOf": "lot",
-        "relatedLot": self.initial_lots[0]["id"],
-    })
-
-    response = self.app.post_json(
-        "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token), {"data": cancellation},
-    )
-
-    # Supplier
-    response = self.app.patch_json(
-        "/tenders/{}/contracts/{}/documents/{}?acc_token={}".format(
-            self.tender_id, self.contract_id, doc_id, bid_token
-        ),
-        {"data": {"description": "new document description"}},
-        status=403,
-    )
-    self.assertEqual(response.status, "403 Forbidden")
-    self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(response.json["errors"][0]["description"],
-                     "Supplier can't update document in current contract status")
+    self.assertEqual(response.json["data"]["status"], "active")

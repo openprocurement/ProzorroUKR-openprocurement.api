@@ -1,0 +1,32 @@
+GET /api/2.5/tenders/d62f91e236e14e5da1b00c2ff89b753b/criteria/947ff50dcf6549189085ee3723213288/requirement_groups/638322bdff484f88a17037ea543928bf/requirements/1a722896658842638f37cf86dc812082/evidences HTTP/1.0
+Authorization: Bearer broker
+Host: public-api-sandbox.prozorro.gov.ua
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": [
+    {
+      "title": "Документальне підтвердження",
+      "description": "Довідка в довільній формі",
+      "type": "document",
+      "id": "4760aaafa3ea4c269b9d6de6a679d10a"
+    },
+    {
+      "title": "Документальне підтвердження",
+      "description": "Довідка в довільній формі",
+      "type": "statement",
+      "id": "bce3566b62a34abb9335256e133b6abc"
+    },
+    {
+      "title": "Документальне підтвердження",
+      "title_en": "Documented approve",
+      "description": "Довідка в довільній формі",
+      "type": "document",
+      "id": "2832a696b5bd4bf1bee3aa152ba8104c"
+    }
+  ]
+}
+

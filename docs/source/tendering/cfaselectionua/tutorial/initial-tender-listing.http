@@ -1,20 +1,22 @@
 GET /api/2.5/tenders HTTP/1.0
 Authorization: Bearer broker
-Host: lb-api-sandbox.prozorro.gov.ua
+Host: public-api-sandbox.prozorro.gov.ua
 
-Response: 200 OK
-Content-Type: application/json; charset=UTF-8
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
 {
-  "next_page": {
-    "path": "/api/2.5/tenders?offset=2020-05-15T01%3A00%3A00%2B03%3A00", 
-    "uri": "http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders?offset=2020-05-15T01%3A00%3A00%2B03%3A00", 
-    "offset": "2020-05-15T01:00:00+03:00"
-  }, 
   "data": [
     {
-      "id": "c4b851839b51462fbf72e030424fca88", 
-      "dateModified": "2020-05-15T01:00:00+03:00"
+      "dateModified": "2023-10-10T01:00:00+03:00",
+      "id": "ba4365d4238e408a8c655d19220b071e"
     }
-  ]
+  ],
+  "next_page": {
+    "offset": "1696888800.0000000006",
+    "path": "/api/2.5/tenders?offset=1696888800.0000000006",
+    "uri": "http://public-api-sandbox.prozorro.gov.ua/api/2.5/tenders?offset=1696888800.0000000006"
+  }
 }
 

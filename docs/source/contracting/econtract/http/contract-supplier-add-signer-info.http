@@ -1,0 +1,31 @@
+PUT /api/2.5/contracts/479178eb904d41c5a40be7f83405f22d/suppliers/signer_info?acc_token=e83ced17c21845f6b06d197ccd74988d HTTP/1.0
+Authorization: Bearer broker
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "name": "Test Testovich",
+    "telephone": "+380950000000",
+    "email": "example@email.com",
+    "iban": "111111111111111",
+    "authorizedBy": "Статут компанії",
+    "position": "Генеральний директор"
+  }
+}
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "name": "Test Testovich",
+    "email": "example@email.com",
+    "telephone": "+380950000000",
+    "iban": "111111111111111",
+    "position": "Генеральний директор",
+    "authorizedBy": "Статут компанії"
+  }
+}
+

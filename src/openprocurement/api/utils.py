@@ -1,70 +1,254 @@
-# -*- coding: utf-8 -*-
+from base64 import b64encode
 from contextlib import contextmanager
-from decimal import Decimal
-
-import couchdb.json
-from couchdb import util, ResourceConflict
-from logging import getLogger
+from copy import deepcopy
 from datetime import datetime
-from base64 import b64encode, b64decode
-from cornice.resource import resource, view
-from email.header import decode_header
 from functools import partial
-from jsonpatch import make_patch, apply_patch as _apply_patch
-from schematics.types import StringType
-
-from openprocurement.api.traversal import factory
-from rfc6266 import build_header
-from hashlib import sha512
-from time import time as ttime
-from urllib import quote, unquote, urlencode
-from urlparse import urlparse, urlunsplit, parse_qsl
-from uuid import uuid4
-from webob.multidict import NestedMultiDict
-from binascii import hexlify, unhexlify
-from Crypto.Cipher import AES
-from cornice.util import json_error
 from json import dumps
+from time import time as ttime
+from urllib.parse import urlencode, urlparse, urlunsplit
+from uuid import uuid4
 
-from schematics.exceptions import ValidationError, ModelValidationError, ModelConversionError
-from couchdb_schematics.document import SchematicsDocument
-from openprocurement.api.events import ErrorDesctiptorEvent
-from openprocurement.api.constants import LOGGER, JOURNAL_PREFIX
+import requests
+from ciso8601 import parse_datetime
+from cornice.resource import view
+from cornice.util import json_error
+from dateorro import calc_datetime, calc_normalized_datetime, calc_working_datetime
+from jsonpointer import JsonPointerException
+from nacl.encoding import HexEncoder
+from pymongo.errors import DuplicateKeyError, OperationFailure
+from schematics.exceptions import (
+    ModelConversionError,
+    ModelValidationError,
+    ValidationError,
+)
+from webob.multidict import NestedMultiDict
+
 from openprocurement.api.constants import (
-    ADDITIONAL_CLASSIFICATIONS_SCHEMES,
-    DOCUMENT_BLACKLISTED_FIELDS,
-    DOCUMENT_WHITELISTED_FIELDS,
+    DST_AWARE_PERIODS_FROM,
+    GMDN_CPV_PREFIXES,
+    JOURNAL_PREFIX,
+    LOGGER,
     ROUTE_PREFIX,
     TZ,
-    SESSION,
-    GMDN_CPV_PREFIXES,
     UA_ROAD_CPV_PREFIXES,
+    WORKING_DAYS,
 )
-from openprocurement.api.interfaces import IOPContent
-from openprocurement.api.interfaces import IContentConfigurator
-import requests
-import decimal
-import json
-import sys
+from openprocurement.api.context import get_local_cache
+from openprocurement.api.database import MongodbResourceConflict
+from openprocurement.api.events import ErrorDescriptorEvent
 
 json_view = partial(view, renderer="simplejson")
 
 
-def validate_dkpp(items, *args):
-    if items and not any([i.scheme in ADDITIONAL_CLASSIFICATIONS_SCHEMES for i in items]):
-        raise ValidationError(
-            u"One of additional classifications should be one of [{0}].".format(
-                ", ".join(ADDITIONAL_CLASSIFICATIONS_SCHEMES)
-            )
+def get_obj_by_id(request, collection_name: str, obj_id: str, raise_error: bool = True):
+    if not obj_id:
+        return
+    collection = getattr(request.registry.mongodb, collection_name)
+    obj = collection.get(obj_id)
+    obj_name = collection_name[:-1]
+    if obj is None and raise_error:
+        request.errors.add("url", f"{obj_name}_id", "Not Found")
+        request.errors.status = 404
+        raise error_handler(request)
+    elif obj is None:
+        LOGGER.error(
+            f"{obj_name.capitalize()} {obj_id} not found",
+            extra=context_unpack(request, {"MESSAGE_ID": f"get_{obj_name}_by_id"}),
         )
+
+    return obj
+
+
+def get_plan_by_id(request, plan_id: str, raise_error: bool = True):
+    return get_obj_by_id(request, "plans", plan_id, raise_error)
+
+
+def get_tender_by_id(request, tender_id: str, raise_error: bool = True):
+    return get_obj_by_id(request, "tenders", tender_id, raise_error)
+
+
+def get_contract_by_id(request, contract_id: str, raise_error: bool = True):
+    return get_obj_by_id(request, "contracts", contract_id, raise_error)
+
+
+def get_framework_by_id(request, framework_id: str, raise_error: bool = True):
+    return get_obj_by_id(request, "frameworks", framework_id, raise_error)
+
+
+def get_submission_by_id(request, submission_id: str, raise_error: bool = True):
+    return get_obj_by_id(request, "submissions", submission_id, raise_error)
+
+
+def get_qualification_by_id(request, qualification_id: str, raise_error: bool = True):
+    return get_obj_by_id(request, "qualifications", qualification_id, raise_error)
+
+
+def get_agreement_by_id(request, agreement_id: str, raise_error: bool = True):
+    return get_obj_by_id(request, "agreements", agreement_id, raise_error)
+
+
+def request_init_object(request, obj_name, obj, obj_src=None):
+    if obj is None:
+        return
+    if obj_src is None:
+        obj_src = deepcopy(obj)
+    request.validated[obj_name] = obj
+    request.validated[f"{obj_name}_src"] = obj_src
+    config_serializer = get_config_serializer(request, obj_name)
+    if config_serializer:
+        obj["config"] = config_serializer(obj.get("config", {})).data
+
+        # TODO:
+        #  maybe there is a better single place to do this
+        #  or just delete it when we do not need it anymore
+
+        # pylint: disable-next=import-outside-toplevel, cyclic-import
+        from openprocurement.api.procedure.validation import (
+            validate_restricted_object_action,
+        )
+
+        validate_restricted_object_action(request, obj_name, obj)
+    return request.validated[obj_name]
+
+
+def get_registry_object(registry, key, default=None):
+    if not hasattr(registry, key):
+        setattr(registry, key, default)
+    return getattr(registry, key)
+
+
+def register_config_serializer(config, obj_name, config_serializer):
+    registry_object = get_registry_object(config.registry, "config_serializers", default={})
+    registry_object[obj_name] = config_serializer
+
+
+def get_config_serializer(request, obj_name):
+    registry_object = get_registry_object(request.registry, "config_serializers", default={})
+    return registry_object.get(obj_name)
+
+
+def request_init_plan(request, plan, plan_src=None, raise_error=True):
+    return request_init_object(
+        request,
+        "plan",
+        plan,
+        obj_src=plan_src,
+    )
+
+
+def request_init_tender(request, tender, tender_src=None, raise_error=True):
+    return request_init_object(
+        request,
+        "tender",
+        tender,
+        obj_src=tender_src,
+    )
+
+
+def request_init_contract(request, contract, contract_src=None, raise_error=True):
+    return request_init_object(
+        request,
+        "contract",
+        contract,
+        obj_src=contract_src,
+    )
+
+
+def request_init_framework(request, framework, framework_src=None, raise_error=True):
+    return request_init_object(
+        request,
+        "framework",
+        framework,
+        obj_src=framework_src,
+    )
+
+
+def request_init_submission(request, submission, submission_src=None, raise_error=True):
+    return request_init_object(
+        request,
+        "submission",
+        submission,
+        obj_src=submission_src,
+    )
+
+
+def request_init_qualification(request, qualification, qualification_src=None, raise_error=True):
+    return request_init_object(
+        request,
+        "qualification",
+        qualification,
+        obj_src=qualification_src,
+    )
+
+
+def request_init_agreement(request, agreement, agreement_src=None, raise_error=True):
+    return request_init_object(
+        request,
+        "agreement",
+        agreement,
+        obj_src=agreement_src,
+    )
+
+
+def request_init_transfer(request, transfer, transfer_src=None, raise_error=True):
+    return request_init_object(
+        request,
+        "transfer",
+        transfer,
+        obj_src=transfer_src,
+    )
+
+
+def request_fetch_plan(request, plan_id, raise_error=True, force=False):
+    if should_fetch_object(request, "plan", force=force):
+        plan = get_submission_by_id(request, plan_id, raise_error=raise_error)
+        request_init_plan(request, plan)
+
+
+def request_fetch_tender(request, tender_id, raise_error=True, force=False):
+    if should_fetch_object(request, "tender", force=force):
+        tender = get_tender_by_id(request, tender_id, raise_error=raise_error)
+        request_init_tender(request, tender)
+
+
+def request_fetch_contract(request, contract_id, raise_error=True, force=False):
+    if should_fetch_object(request, "contract", force=force):
+        contract = get_contract_by_id(request, contract_id, raise_error=raise_error)
+        request_init_contract(request, contract)
+
+
+def request_fetch_framework(request, framework_id, raise_error=True, force=False):
+    if should_fetch_object(request, "framework", force=force):
+        framework = get_framework_by_id(request, framework_id, raise_error=raise_error)
+        request_init_framework(request, framework)
+
+
+def request_fetch_submission(request, submission_id, raise_error=True, force=False):
+    if should_fetch_object(request, "submission", force=force):
+        submission = get_submission_by_id(request, submission_id, raise_error=raise_error)
+        request_init_submission(request, submission)
+
+
+def request_fetch_qualification(request, qualification_id, raise_error=True, force=False):
+    if should_fetch_object(request, "qualification", force=force):
+        qualification = get_qualification_by_id(request, qualification_id, raise_error=raise_error)
+        request_init_qualification(request, qualification)
+
+
+def request_fetch_agreement(request, agreement_id, raise_error=True, force=False):
+    if should_fetch_object(request, "agreement", force=force):
+        agreement = get_agreement_by_id(request, agreement_id, raise_error=raise_error)
+        request_init_agreement(request, agreement)
+
+
+def should_fetch_object(request, obj_name, force=False):
+    if obj_name not in request.validated or force is True:
+        return True
+    return False
 
 
 def get_now():
     return datetime.now(TZ)
-
-
-def request_get_now(request):
-    return get_now()
 
 
 def set_parent(item, parent):
@@ -72,40 +256,14 @@ def set_parent(item, parent):
         item.__parent__ = parent
 
 
-def get_root(item):
-    """ traverse back to root op content object (plan, tender, contract, etc.)
-    """
-    while not IOPContent.providedBy(item):
-        item = item.__parent__
-    return item
-
-
 def generate_id():
     return uuid4().hex
 
 
-def get_filename(data):
-    try:
-        pairs = decode_header(data.filename)
-    except Exception:
-        pairs = None
-    if not pairs:
-        return data.filename
-    header = pairs[0]
-    if header[1]:
-        return header[0].decode(header[1])
-    else:
-        return header[0]
-
-
-def get_schematics_document(model):
-    while not isinstance(model, SchematicsDocument):
-        model = model.__parent__
-    return model
-
-
 def generate_docservice_url(request, doc_id, temporary=True, prefix=None):
-    docservice_key = getattr(request.registry, "docservice_key", None)
+    signer = getattr(request.registry, "docservice_key", None)
+    keyid = signer.verify_key.encode(encoder=HexEncoder)[:8].decode()
+
     parsed_url = urlparse(request.registry.docservice_url)
     query = {}
     if temporary:
@@ -117,26 +275,41 @@ def generate_docservice_url(request, doc_id, temporary=True, prefix=None):
     if prefix:
         mess = "{}/{}".format(prefix, mess)
         query["Prefix"] = prefix
-    query["Signature"] = quote(b64encode(docservice_key.signature(mess.encode("utf-8"))))
-    query["KeyID"] = docservice_key.hex_vk()[:8]
-    return urlunsplit((parsed_url.scheme, parsed_url.netloc, "/get/{}".format(doc_id), urlencode(query), ""))
+    query["Signature"] = b64encode(signer.sign(mess.encode()).signature)
+    query["KeyID"] = keyid
+    return urlunsplit(
+        (
+            parsed_url.scheme,
+            parsed_url.netloc,
+            "/get/{}".format(doc_id),
+            urlencode(query),
+            "",
+        )
+    )
 
 
-def error_handler(errors, request_params=True):
+def error_handler(request, request_params=True):
+    errors = request.errors
     params = {"ERROR_STATUS": errors.status}
     if request_params:
-        params["ROLE"] = str(errors.request.authenticated_role)
-        if errors.request.params:
-            params["PARAMS"] = str(dict(errors.request.params))
-    if errors.request.matchdict:
-        for x, j in errors.request.matchdict.items():
+        params["ROLE"] = str(request.authenticated_role)
+        if request.params:
+            params["PARAMS"] = str(dict(request.params))
+    if request.matchdict:
+        for x, j in request.matchdict.items():
             params[x.upper()] = j
-    errors.request.registry.notify(ErrorDesctiptorEvent(errors, params))
+    request.registry.notify(ErrorDescriptorEvent(request, params))
+
+    for item in errors:
+        for key, value in item.items():
+            if isinstance(value, bytes):
+                item[key] = value.decode("utf-8")
+
     LOGGER.info(
         'Error on processing request "{}"'.format(dumps(errors, indent=4)),
-        extra=context_unpack(errors.request, {"MESSAGE_ID": "error_handler"}, params),
+        extra=context_unpack(request, {"MESSAGE_ID": "error_handler"}, params),
     )
-    return json_error(errors)
+    return json_error(request)
 
 
 def raise_operation_error(request, message, status=403, location="body", name="data"):
@@ -146,282 +319,11 @@ def raise_operation_error(request, message, status=403, location="body", name="d
     """
     request.errors.add(location, name, message)
     request.errors.status = status
-    raise error_handler(request.errors)
-
-
-def upload_file(
-    request, blacklisted_fields=DOCUMENT_BLACKLISTED_FIELDS, whitelisted_fields=DOCUMENT_WHITELISTED_FIELDS
-):
-    first_document = (
-        request.validated["documents"][-1]
-        if "documents" in request.validated and request.validated["documents"]
-        else None
-    )
-    if "data" in request.validated and request.validated["data"]:
-        document = request.validated["document"]
-        check_document(request, document, "body")
-
-        if first_document:
-            for attr_name in type(first_document)._fields:
-                if attr_name in whitelisted_fields:
-                    setattr(document, attr_name, getattr(first_document, attr_name))
-                elif attr_name not in blacklisted_fields and attr_name not in request.validated["json_data"]:
-                    setattr(document, attr_name, getattr(first_document, attr_name))
-
-        document_route = request.matched_route.name.replace("collection_", "")
-        document = update_document_url(request, document, document_route, {})
-        return document
-    if request.content_type == "multipart/form-data":
-        data = request.validated["file"]
-        filename = get_filename(data)
-        content_type = data.type
-        in_file = data.file
-    else:
-        filename = first_document.title
-        content_type = request.content_type
-        in_file = request.body_file
-
-    if hasattr(request.context, "documents"):
-        # upload new document
-        model = type(request.context).documents.model_class
-    else:
-        # update document
-        model = type(request.context)
-    document = model({"title": filename, "format": content_type})
-    document.__parent__ = request.context
-    if "document_id" in request.validated:
-        document.id = request.validated["document_id"]
-    if first_document:
-        for attr_name in type(first_document)._fields:
-            if attr_name not in blacklisted_fields:
-                setattr(document, attr_name, getattr(first_document, attr_name))
-    if request.registry.docservice_url:
-        parsed_url = urlparse(request.registry.docservice_url)
-        url = request.registry.docservice_upload_url or urlunsplit(
-            (parsed_url.scheme, parsed_url.netloc, "/upload", "", "")
-        )
-        files = {"file": (filename, in_file, content_type)}
-        doc_url = None
-        index = 10
-        while index:
-            try:
-                r = SESSION.post(
-                    url,
-                    files=files,
-                    headers={"X-Client-Request-ID": request.environ.get("REQUEST_ID", "")},
-                    auth=(request.registry.docservice_username, request.registry.docservice_password),
-                )
-                json_data = r.json()
-            except Exception as e:
-                LOGGER.warning(
-                    "Raised exception '{}' on uploading document to document service': {}.".format(type(e), e),
-                    extra=context_unpack(
-                        request, {"MESSAGE_ID": "document_service_exception"}, {"file_size": in_file.tell()}
-                    ),
-                )
-            else:
-                if r.status_code == 200 and json_data.get("data", {}).get("url"):
-                    doc_url = json_data["data"]["url"]
-                    doc_hash = json_data["data"]["hash"]
-                    break
-                else:
-                    LOGGER.warning(
-                        "Error {} on uploading document to document service '{}': {}".format(
-                            r.status_code, url, r.text
-                        ),
-                        extra=context_unpack(
-                            request,
-                            {"MESSAGE_ID": "document_service_error"},
-                            {"ERROR_STATUS": r.status_code, "file_size": in_file.tell()},
-                        ),
-                    )
-            in_file.seek(0)
-            index -= 1
-        else:
-            request.errors.add("body", "data", "Can't upload document to document service.")
-            request.errors.status = 422
-            raise error_handler(request.errors)
-        document.hash = doc_hash
-        key = urlparse(doc_url).path.split("/")[-1]
-    else:
-        key = generate_id()
-        filename = "{}_{}".format(document.id, key)
-        request.validated["db_doc"]["_attachments"][filename] = {
-            "content_type": document.format,
-            "data": b64encode(in_file.read()),
-        }
-    document_route = request.matched_route.name.replace("collection_", "")
-    document_path = request.current_route_path(
-        _route_name=document_route, document_id=document.id, _query={"download": key}
-    )
-    document.url = "/" + "/".join(document_path.split("/")[3:])
-    update_logging_context(request, {"file_size": in_file.tell()})
-    return document
+    raise error_handler(request)
 
 
 def update_file_content_type(request):  # XXX TODO
     pass
-
-
-def get_file(request):
-    db_doc_id = request.validated["db_doc"].id
-    document = request.validated["document"]
-    key = request.params.get("download")
-    if not any([key in i.url for i in request.validated["documents"]]):
-        request.errors.add("url", "download", "Not Found")
-        request.errors.status = 404
-        return
-    filename = "{}_{}".format(document.id, key)
-    if request.registry.docservice_url and filename not in request.validated["db_doc"]["_attachments"]:
-        document = [i for i in request.validated["documents"] if key in i.url][-1]
-        if "Signature=" in document.url and "KeyID" in document.url:
-            url = document.url
-        else:
-            if "download=" not in document.url:
-                key = urlparse(document.url).path.replace("/get/", "")
-            if not document.hash:
-                url = generate_docservice_url(request, key, prefix="{}/{}".format(db_doc_id, document.id))
-            else:
-                url = generate_docservice_url(request, key)
-        request.response.content_type = document.format.encode("utf-8")
-        request.response.content_disposition = build_header(
-            document.title, filename_compat=quote(document.title.encode("utf-8"))
-        )
-        request.response.status = "302 Moved Temporarily"
-        request.response.location = url
-        return url
-    else:
-        data = request.registry.db.get_attachment(db_doc_id, filename)
-        if data:
-            request.response.content_type = document.format.encode("utf-8")
-            request.response.content_disposition = build_header(
-                document.title, filename_compat=quote(document.title.encode("utf-8"))
-            )
-            request.response.body_file = data
-            return request.response
-        request.errors.add("url", "download", "Not Found")
-        request.errors.status = 404
-
-
-def prepare_patch(changes, orig, patch, basepath=""):
-    if isinstance(patch, dict):
-        for i in patch:
-            if i in orig:
-                prepare_patch(changes, orig[i], patch[i], "{}/{}".format(basepath, i))
-            else:
-                changes.append({"op": "add", "path": "{}/{}".format(basepath, i), "value": patch[i]})
-    elif isinstance(patch, list):
-        if len(patch) < len(orig):
-            for i in reversed(range(len(patch), len(orig))):
-                changes.append({"op": "remove", "path": "{}/{}".format(basepath, i)})
-        for i, j in enumerate(patch):
-            if len(orig) > i:
-                prepare_patch(changes, orig[i], patch[i], "{}/{}".format(basepath, i))
-            else:
-                changes.append({"op": "add", "path": "{}/{}".format(basepath, i), "value": j})
-    else:
-        for x in make_patch(orig, patch).patch:
-            x["path"] = "{}{}".format(basepath, x["path"])
-            changes.append(x)
-
-
-def apply_data_patch(item, changes):
-    patch_changes = []
-    prepare_patch(patch_changes, item, changes)
-    if not patch_changes:
-        return {}
-    return _apply_patch(item, patch_changes)
-
-
-def get_revision_changes(dst, src):
-    return make_patch(dst, src).patch
-
-
-def set_ownership(item, request):
-    if not item.get("owner"):
-        item.owner = request.authenticated_userid
-    item.owner_token = generate_id()
-    access = {"token": item.owner_token}
-    if isinstance(getattr(type(item), "transfer_token", None), StringType):
-        transfer = generate_id()
-        item.transfer_token = sha512(transfer).hexdigest()
-        access["transfer"] = transfer
-    return access
-
-
-def check_document(request, document, document_container):
-    url = document.url
-    parsed_url = urlparse(url)
-    parsed_query = dict(parse_qsl(parsed_url.query))
-    if (
-        not url.startswith(request.registry.docservice_url)
-        or len(parsed_url.path.split("/")) != 3
-        or set(["Signature", "KeyID"]) != set(parsed_query)
-    ):
-        request.errors.add(document_container, "url", "Can add document only from document service.")
-        request.errors.status = 403
-        raise error_handler(request.errors)
-    if not document.hash:
-        request.errors.add(document_container, "hash", "This field is required.")
-        request.errors.status = 422
-        raise error_handler(request.errors)
-    keyid = parsed_query["KeyID"]
-    if keyid not in request.registry.keyring:
-        request.errors.add(document_container, "url", "Document url expired.")
-        request.errors.status = 422
-        raise error_handler(request.errors)
-    dockey = request.registry.keyring[keyid]
-    signature = parsed_query["Signature"]
-    key = urlparse(url).path.split("/")[-1]
-    try:
-        signature = b64decode(unquote(signature))
-    except TypeError:
-        request.errors.add(document_container, "url", "Document url signature invalid.")
-        request.errors.status = 422
-        raise error_handler(request.errors)
-    mess = "{}\0{}".format(key, document.hash.split(":", 1)[-1])
-    try:
-        if mess != dockey.verify(signature + mess.encode("utf-8")):
-            raise ValueError
-    except ValueError:
-        request.errors.add(document_container, "url", "Document url invalid.")
-        request.errors.status = 422
-        raise error_handler(request.errors)
-
-
-def update_document_url(request, document, document_route, route_kwargs):
-    key = urlparse(document.url).path.split("/")[-1]
-    route_kwargs.update({"_route_name": document_route, "document_id": document.id, "_query": {"download": key}})
-    document_path = request.current_route_path(**route_kwargs)
-    document.url = "/" + "/".join(document_path.split("/")[3:])
-    return document
-
-
-def check_document_batch(request, document, document_container, route_kwargs):
-    check_document(request, document, document_container)
-
-    document_route = request.matched_route.name.replace("collection_", "")
-    # Following piece of code was written by leits, so no one knows how it works
-    # and why =)
-    # To redefine document_route to get appropriate real document route when bid
-    # is created with documents? I hope so :)
-    if "Documents" not in document_route:
-        if document_container != "body":
-            specified_document_route_end = (
-                (document_container.lower().rsplit("documents")[0] + " documents").lstrip().title()
-            )
-        else:
-            specified_document_route_end = "documents".lstrip().title()
-        document_route = " ".join([document_route[:-1], specified_document_route_end])
-
-    return update_document_url(request, document, document_route, route_kwargs)
-
-
-def upload_objects_documents(request, obj, document_container='body', route_kwargs=None):
-    if not route_kwargs:
-        route_kwargs = {}
-    for document in getattr(obj, 'documents', []):
-        check_document_batch(request, document, document_container, route_kwargs)
 
 
 def request_params(request):
@@ -430,161 +332,25 @@ def request_params(request):
     except UnicodeDecodeError:
         request.errors.add("body", "data", "could not decode params")
         request.errors.status = 422
-        raise error_handler(request.errors, False)
+        raise error_handler(request, False)
     except Exception as e:
         request.errors.add("body", str(e.__class__.__name__), str(e))
         request.errors.status = 422
-        raise error_handler(request.errors, False)
+        raise error_handler(request, False)
     return params
-
-
-opresource = partial(resource, error_handler=error_handler, factory=factory)
-
-
-class APIResource(object):
-    def __init__(self, request, context):
-        self.context = context
-        self.request = request
-        self.db = request.registry.db
-        self.server_id = request.registry.server_id
-        self.LOGGER = getLogger(type(self).__module__)
-
-
-class APIResourceListing(APIResource):
-
-    LIST_SEP = ","
-
-    def __init__(self, request, context):
-        super(APIResourceListing, self).__init__(request, context)
-        self.server = request.registry.couchdb_server
-        self.update_after = request.registry.update_after
-
-    @json_view(permission="view_listing")
-    def get(self):
-        params = {}
-        pparams = {}
-        fields = self.request.params.get("opt_fields", "")
-        if fields:
-            fields = set(fields.split(self.LIST_SEP)) & set(self.FIELDS)
-
-        limit = self.request.params.get("limit", "")
-        if limit:
-            params["limit"] = limit
-            pparams["limit"] = limit
-        limit = int(limit) if limit.isdigit() and (100 if fields else 1000) >= int(limit) > 0 else 100
-        descending = bool(self.request.params.get("descending"))
-        offset = self.request.params.get("offset", "")
-        if descending:
-            params["descending"] = 1
-        else:
-            pparams["descending"] = 1
-        feed = self.request.params.get("feed", "")
-        view_map = self.FEED.get(feed, self.VIEW_MAP)
-        changes = view_map is self.CHANGES_VIEW_MAP
-        if feed and feed in self.FEED:
-            params["feed"] = feed
-            pparams["feed"] = feed
-        mode = self.request.params.get("mode", "")
-        if mode and mode in view_map:
-            params["mode"] = mode
-            pparams["mode"] = mode
-        view_limit = limit + 1 if offset else limit
-        if changes:
-            if offset:
-                view_offset = decrypt(self.server.uuid, self.db.name, offset)
-                if view_offset and view_offset.isdigit():
-                    view_offset = int(view_offset)
-                else:
-                    self.request.errors.add("params", "offset", "Offset expired/invalid")
-                    self.request.errors.status = 404
-                    raise error_handler(self.request.errors)
-            if not offset:
-                view_offset = "now" if descending else 0
-        else:
-            if offset:
-                view_offset = offset
-            else:
-                view_offset = "9" if descending else ""
-        list_view = view_map.get(mode, view_map[u""])
-        if self.update_after:
-            view = partial(
-                list_view, self.db, limit=view_limit, startkey=view_offset, descending=descending, stale="update_after"
-            )
-        else:
-            view = partial(list_view, self.db, limit=view_limit, startkey=view_offset, descending=descending)
-        if fields:
-            params["opt_fields"] = pparams["opt_fields"] = self.LIST_SEP.join(fields)
-            view_fields = fields | {"dateModified", "id"}
-            if changes:
-                results = [
-                    (dict([(i, j) for i, j in x.value.items() + [("id", x.id)] if i in view_fields]), x.key)
-                    for x in view()
-                ]
-            else:
-                results = [
-                    (
-                        dict(
-                            [
-                                (i, j)
-                                for i, j in x.value.items() + [("id", x.id), ("dateModified", x.key)]
-                                if i in view_fields
-                            ]
-                        ),
-                        x.key,
-                    )
-                    for x in view()
-                ]
-        else:
-            results = [
-                (
-                    {"id": i.id, "dateModified": i.value["dateModified"]}
-                    if changes
-                    else {"id": i.id, "dateModified": i.key},
-                    i.key,
-                )
-                for i in view()
-            ]
-        if results:
-            params["offset"], pparams["offset"] = results[-1][1], results[0][1]
-            if offset and view_offset == results[0][1]:
-                results = results[1:]
-            elif offset and view_offset != results[0][1]:
-                results = results[:limit]
-                params["offset"], pparams["offset"] = results[-1][1], view_offset
-            results = [i[0] for i in results]
-            if changes:
-                params["offset"] = encrypt(self.server.uuid, self.db.name, params["offset"])
-                pparams["offset"] = encrypt(self.server.uuid, self.db.name, pparams["offset"])
-        else:
-            params["offset"] = offset
-            pparams["offset"] = offset
-        data = {
-            "data": results,
-            "next_page": {
-                "offset": params["offset"],
-                "path": self.request.route_path(self.object_name_for_listing, _query=params),
-                "uri": self.request.route_url(self.object_name_for_listing, _query=params),
-            },
-        }
-        if descending or offset:
-            data["prev_page"] = {
-                "offset": pparams["offset"],
-                "path": self.request.route_path(self.object_name_for_listing, _query=pparams),
-                "uri": self.request.route_url(self.object_name_for_listing, _query=pparams),
-            }
-        return data
 
 
 def forbidden(request):
     request.errors.add("url", "permission", "Forbidden")
     request.errors.status = 403
-    return error_handler(request.errors)
+    return error_handler(request)
 
 
 def precondition(request):
     request.errors.add("url", "precondition", "Precondition Failed")
     request.errors.status = 412
-    return error_handler(request.errors)
+    return error_handler(request)
+
 
 def update_logging_context(request, params):
     if not request.__dict__.get("logging_context"):
@@ -604,13 +370,6 @@ def context_unpack(request, msg, params=None):
     return journal_context
 
 
-def get_content_configurator(request):
-    content_type = request.path[len(ROUTE_PREFIX) + 1 :].split("/")[0][:-1]
-    if hasattr(request, content_type):  # content is constructed
-        context = getattr(request, content_type)
-        return request.registry.queryMultiAdapter((context, request), IContentConfigurator)
-
-
 def fix_url(item, app_url):
     if isinstance(item, list):
         [fix_url(i, app_url) for i in item if isinstance(i, dict) or isinstance(i, list)]
@@ -622,51 +381,9 @@ def fix_url(item, app_url):
         [fix_url(item[i], app_url) for i in item if isinstance(item[i], dict) or isinstance(item[i], list)]
 
 
-def encrypt(uuid, name, key):
-    iv = "{:^{}.{}}".format(name, AES.block_size, AES.block_size)
-    text = "{:^{}}".format(key, AES.block_size)
-    return hexlify(AES.new(uuid, AES.MODE_CBC, iv).encrypt(text))
-
-
-def decrypt(uuid, name, key):
-    iv = "{:^{}.{}}".format(name, AES.block_size, AES.block_size)
-    try:
-        text = AES.new(uuid, AES.MODE_CBC, iv).decrypt(unhexlify(key)).strip()
-    except:
-        text = ""
-    return text
-
-
-def set_modetest_titles(item):
-    if not item.title or u"[ТЕСТУВАННЯ]" not in item.title:
-        item.title = u"[ТЕСТУВАННЯ] {}".format(item.title or u"")
-    if not item.title_en or u"[TESTING]" not in item.title_en:
-        item.title_en = u"[TESTING] {}".format(item.title_en or u"")
-    if not item.title_ru or u"[ТЕСТИРОВАНИЕ]" not in item.title_ru:
-        item.title_ru = u"[ТЕСТИРОВАНИЕ] {}".format(item.title_ru or u"")
-
-
-class DecimalEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, decimal.Decimal):
-            return str(obj)
-        return super(DecimalEncoder, self).default(obj)
-
-
-def couchdb_json_decode():
-    my_encode = lambda obj, dumps=dumps: dumps(obj, cls=DecimalEncoder)
-
-    def my_decode(string_):
-        if isinstance(string_, util.btype):
-            string_ = string_.decode("utf-8")
-        return json.loads(string_, parse_float=decimal.Decimal)
-
-    couchdb.json.use(decode=my_decode, encode=my_encode)
-
-
 def get_first_revision_date(schematics_document, default=None):
-    revisions = schematics_document.get('revisions') if schematics_document else None
-    return revisions[0].date if revisions else default
+    revisions = schematics_document.get("revisions") if schematics_document else None
+    return parse_datetime(revisions[0]["date"]) if revisions else default
 
 
 def is_ua_road_classification(classification_id):
@@ -677,72 +394,61 @@ def is_gmdn_classification(classification_id):
     return classification_id[:4] in GMDN_CPV_PREFIXES
 
 
-def to_decimal(value):
-    """
-    Convert other to Decimal.
-    """
-    if isinstance(value, Decimal):
-        return value
-    if isinstance(value, (int, long)):
-        return Decimal(value)
-    if isinstance(value, (float)):
-        return Decimal(repr(value))
-
-    raise TypeError("Unable to convert %s to Decimal" % value)
-
-
-def append_revision(request, obj, patch):
-    revision_model_class = type(obj).revisions.model_class
-    revision_data = {
-        "author": request.authenticated_userid,
-        "changes": patch,
-        "rev": obj.rev
-    }
-    obj.revisions.append(revision_model_class(revision_data))
-    return obj.revisions
-
-
 @contextmanager
 def handle_data_exceptions(request):
     try:
         yield
     except (ModelValidationError, ModelConversionError) as e:
-        for i in e.messages:
-            request.errors.add("body", i, e.messages[i])
+        if isinstance(e.messages, dict):
+            for key, value in e.messages.items():
+                request.errors.add("body", key, value)
+        elif isinstance(e.messages, list):
+            for value in e.messages:
+                request.errors.add("body", "data", value)
         request.errors.status = 422
-        raise error_handler(request.errors)
+        raise error_handler(request)
     except ValueError as e:
         request.errors.add("body", "data", str(e))
         request.errors.status = 422
-        raise error_handler(request.errors)
+        raise error_handler(request)
+    except JsonPointerException as e:
+        request.errors.add("body", "data", str(e))
+        request.errors.status = 422
+        raise error_handler(request)
 
 
 @contextmanager
-def handle_store_exceptions(request):
+def handle_store_exceptions(request, raise_error_handler=False):
     try:
         yield
     except ModelValidationError as e:
         for i in e.messages:
             request.errors.add("body", i, e.messages[i])
         request.errors.status = 422
-    except ResourceConflict as e:  # pragma: no cover
+    except DuplicateKeyError:  # pragma: no cover
+        request.errors.add("body", "data", "Document already exists")
+        request.errors.status = 409
+    except MongodbResourceConflict as e:  # pragma: no cover
         request.errors.add("body", "data", str(e))
         request.errors.status = 409
+    except OperationFailure as e:
+        LOGGER.warning(e.details)
+        request.errors.add("body", "data", "Conflict while writing document. Please, retry.")
+        request.errors.status = 409
     except Exception as e:  # pragma: no cover
+        LOGGER.exception(e)
         request.errors.add("body", "data", str(e))
+    if request.errors and raise_error_handler:
+        raise error_handler(request)
 
 
 def get_currency_rates(request):
     kwargs = {}
-    scheme = "https"
     proxy_address = request.registry.settings.get("proxy_address")
     if proxy_address:
-        if "http" in proxy_address and not proxy_address.startswith('https'):
-            scheme = "http"
-        kwargs.update(proxies={scheme: proxy_address})
-    base_url = "{}://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?date={}&json".format(
-        scheme,
-        get_now().strftime('%Y%m%d')
+        kwargs.update(proxies={"http": proxy_address, "https": proxy_address})
+    base_url = "https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?date={}&json".format(
+        get_now().strftime("%Y%m%d")
     )
     try:
         resp = requests.get(base_url, **kwargs)
@@ -750,16 +456,12 @@ def get_currency_rates(request):
         raise raise_operation_error(
             request,
             "Error while getting data from bank.gov.ua: {}".format(e),
-            status=409
+            status=409,
         )
     try:
         return resp.json()
     except ValueError:
-        raise raise_operation_error(
-            request,
-            "Failure of decoding data from bank.gov.ua",
-            status=409
-        )
+        raise raise_operation_error(request, "Failure of decoding data from bank.gov.ua", status=409)
 
 
 def get_uah_amount_from_value(request, value, logging_params):
@@ -773,18 +475,144 @@ def get_uah_amount_from_value(request, value, logging_params):
         else:
             raise raise_operation_error(
                 request,
-                u"Couldn't find currency {} on bank.gov.ua".format(currency),
-                status=422
+                "Couldn't find currency {} on bank.gov.ua".format(currency),
+                status=422,
             )
 
         amount *= currency_rate
         LOGGER.info(
             "Converting {} {} into {} UAH using rate {}".format(
-                value["amount"], value["currency"],
-                amount, currency_rate
+                value["amount"], value["currency"], amount, currency_rate
             ),
-            extra=context_unpack(
-                request, {"MESSAGE_ID": "complaint_exchange_rate"}, logging_params
-            ),
+            extra=context_unpack(request, {"MESSAGE_ID": "complaint_exchange_rate"}, logging_params),
         )
     return amount
+
+
+def json_body(request):
+    return request.json_body
+
+
+def get_change_class(poly_model, data, _validation=False):
+    rationale_type = data.get("rationaleType")
+    rationale_type_class_name_mapping = {
+        "taxRate": "ChangeTaxRate",
+        "itemPriceVariation": "ChangeItemPriceVariation",
+        "partyWithdrawal": "ChangePartyWithdrawal",
+        "thirdParty": "ChangeThirdParty",
+    }
+    _class_name = rationale_type_class_name_mapping.get(rationale_type)
+    if not _class_name:
+        if _validation:
+            return None
+        raise ValidationError("Input for polymorphic field did not match any model")
+
+    _change_class = [model_class for model_class in poly_model.model_classes if model_class.__name__ == _class_name][0]
+    return _change_class
+
+
+def requested_fields_changes(request, fieldnames):
+    changed_fields = request.validated["json_data"].keys()
+    return set(fieldnames) & set(changed_fields)
+
+
+def get_child_items(parent: dict, item_field: str, item_id: str) -> list:
+    return [i for i in parent.get(item_field, []) if i.get("id") == item_id]
+
+
+def delete_nones(data: dict):
+    for k, v in tuple(data.items()):
+        if v is None:
+            del data[k]
+
+
+def get_catalogue_object(request, uri: str, obj_id: str, valid_statuses: tuple = None) -> dict:
+    catalog_api_host = request.registry.catalog_api_host
+    obj_name = uri.split("/")[-1]
+
+    cache_key = f"get_catalogue_object_{uri}_{obj_id}"
+    cache = get_local_cache()
+    data = cache.get(cache_key)
+
+    if not data:
+        try:
+            resp = requests.get(f"{catalog_api_host}/api/{uri}/{obj_id}")
+        except requests.exceptions.RequestException as e:
+            LOGGER.warning(f"Error while getting data from ProZorro e-Catalogues. Details: {e}")
+            raise raise_operation_error(
+                request,
+                "Error while getting data from ProZorro e-Catalogues: Connection closed. Try again later",
+                status=502,
+            )
+        if resp.status_code == 404:
+            raise_operation_error(
+                request,
+                f"{obj_name.capitalize()} {obj_id} not found in catalouges.",
+                status=404,
+            )
+        elif resp.status_code != 200:
+            raise_operation_error(
+                request,
+                f"Fail getting {obj_name} {obj_id}: {resp.status_code} {resp.text}.",
+                status=resp.status_code,
+            )
+
+        data = cache[cache_key] = resp.json().get("data", {})
+
+    if valid_statuses:
+        if data.get("status", "active") not in valid_statuses:
+            raise_operation_error(
+                request,
+                f"{obj_name.capitalize()} {obj_id}: {data['status']} not in {valid_statuses}",
+                status=422,
+            )
+
+    return data
+
+
+def get_tender_profile(request, profile_id: str, validate_status: tuple = None) -> dict:
+    return get_catalogue_object(request, "profiles", profile_id, validate_status)
+
+
+def get_tender_category(request, category_id: str, validate_status: tuple = None) -> dict:
+    return get_catalogue_object(request, "categories", category_id, validate_status)
+
+
+def get_tender_product(request, product_id: str, validate_status: tuple = None) -> dict:
+    return get_catalogue_object(request, "products", product_id, validate_status)
+
+
+def calculate_normalized_date(date_obj, ceil=False):
+    result_date_obj = calc_normalized_datetime(date_obj, ceil=ceil)
+    if date_obj > DST_AWARE_PERIODS_FROM:
+        result_date_obj = TZ.localize(result_date_obj.replace(tzinfo=None))
+    return result_date_obj
+
+
+def calculate_date(date_obj, timedelta_obj, working_days=False, calendar=WORKING_DAYS):
+    if working_days:
+        result_date_obj = calc_working_datetime(date_obj, timedelta_obj, calendar=calendar)
+    else:
+        result_date_obj = calc_datetime(date_obj, timedelta_obj)
+    if date_obj > DST_AWARE_PERIODS_FROM:
+        result_date_obj = TZ.localize(result_date_obj.replace(tzinfo=None))
+    return result_date_obj
+
+
+def calculate_full_date(date_obj, timedelta_obj, working_days=False, calendar=WORKING_DAYS, ceil=False):
+    start_obj = calculate_normalized_date(date_obj, ceil=ceil)
+    return calculate_date(start_obj, timedelta_obj, working_days=working_days, calendar=calendar)
+
+
+def is_boolean(value):
+    if isinstance(value, bool):
+        return True
+
+    if isinstance(value, str):
+        value = value.strip().lower()
+        if value in ("true", "1"):
+            return True
+        elif value in ("false", "0"):
+            return False
+
+    return False

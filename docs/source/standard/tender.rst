@@ -147,9 +147,10 @@ Schema
    Questions to ``procuringEntity`` and answers to them.
 
 :complaints:
-   List of :ref:`complaint` objects
+   |   List of :ref:`Complaint` and :ref:`Claim` objects.
+   |   List of :ref:`Claim` objects for  `belowThreshold`.
 
-   Complaints to tender conditions and their resolutions.
+   Complaints and Claims to tender conditions and their resolutions.
 
 :bids:
    List of :ref:`bid` objects
@@ -164,7 +165,7 @@ Schema
 
    The minimal step of auction (reduction). Validation rules:
 
-   * `amount` should be less then `Tender.value.amount`
+   * `amount` should be less then `Tender.value.amount` and between 0.5% and 3% of `Tender.value.amount`
    * `currency` should either be absent or match `Tender.value.currency`
    * `valueAddedTaxIncluded` should either be absent or match `Tender.value.valueAddedTaxIncluded`
 
@@ -176,9 +177,14 @@ Schema
     All qualifications (disqualifications and awards).
 
 :agreements:
-    List of :ref:`Agreement` objects
+    List of :ref:`Agreement <agreement_cfaua>` objects
 
     Only in :ref:`cfaua` or :ref:`cfaselectionua`
+
+:agreement:
+    :ref:`Agreement <agreement_pricequotation>` object
+
+    Only in :ref:`pricequotation`
 
 :contracts:
     List of :ref:`Contract` objects
@@ -254,6 +260,10 @@ Schema
 
    |ocdsDescription|
    The primary category describing the main object of the tender.
+
+   Validation depends on:
+
+        * :ref:`MPC_REQUIRED_FROM` constant
 
 :milestones:
 
@@ -438,9 +448,14 @@ Schema
 
 
 :cause:
-    string, required for **negotiation** and **negotiation.quick** procedures
+    string, required for **negotiation** and **negotiation.quick** procedures.
+    Also it is required for **reporting** procedure if field `procurementMethodRationale` is empty, `procuringEntity.kind` is not other and tender value amount is bigger than:
 
-    Causes for using negotiation or negotiation.quick procedures. For more details see Article 35 of the Law of Ukraine "On Public Procurement".
+        * 100 000 for goods,
+        * 200 000 for services,
+        * 1 500 000 for works.
+
+    Causes for using reporting, negotiation or negotiation.quick procedures. For more details see Article 35 of the Law of Ukraine "On Public Procurement".
 
     Possible values for **negotiation** and **negotiation.quick** procedures:
 
@@ -474,12 +489,15 @@ Schema
 
         * `activeComplaint` Unfinished complaining process in active procurement
 
+    Possible values for **reporting** procedure in `tender causes <https://prozorroukr.github.io/standards/codelists/tender/tender_cause.json>`_ dictionaries.
+
+
     Only in :ref:`limited`
 
 :causeDescription:
-    string, multilingual, required for **negotiation** and **negotiation.quick** procedures
+    string, multilingual
 
-    Reasoning behind usage of negotiation or negotiation.quick procedures.
+    Reasoning behind usage of reporting, negotiation or negotiation.quick procedures.
 
     Only in :ref:`limited`
 
@@ -498,6 +516,15 @@ Schema
     List of firm which can register bid on tender
 
     Only in :ref:`competitivedialogue` stage2
+
+:targets:
+    List of :ref:`Metric`
+
+    Only in :ref:`openua`
+
+    Could be created only if ``status`` of tender is ``draft``.
+    Modifying is possible if ``status`` of tender in [``draft``, ``active.tendering``].
+    In all other statuses creating and modifying is forbidden.
 
 Additionally in :ref:`esco`:
 

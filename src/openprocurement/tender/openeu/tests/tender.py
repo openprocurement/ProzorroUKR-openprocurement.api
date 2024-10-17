@@ -1,62 +1,63 @@
-# -*- coding: utf-8 -*-
 import unittest
 
 from openprocurement.api.tests.base import snitch
-
 from openprocurement.tender.belowthreshold.tests.tender import TenderResourceTestMixin
 from openprocurement.tender.belowthreshold.tests.tender_blanks import (
-    # TenderProcessTest
-    invalid_tender_conditions,
-    # TenderResourceTest
-    guarantee,
-    create_tender_with_inn,
-    create_tender_with_inn_before,
-    tender_milestones_required,
-    patch_tender_lots_none,
+    activate_bid_guarantee_multilot,
     create_tender_central,
     create_tender_central_invalid,
+    create_tender_with_earlier_non_required_unit,
+    create_tender_with_inn,
+    create_tender_with_required_unit,
+    guarantee,
+    invalid_tender_conditions,
+    patch_not_author,
+    patch_tender_lots_none,
+    patch_tender_minimalstep_validation,
+    tender_lot_minimalstep_validation,
+    tender_milestones_required,
+    tender_minimalstep_validation,
+    tender_with_guarantee_multilot,
 )
-
-from openprocurement.tender.openua.tests.tender import TenderUAResourceTestMixin
-from openprocurement.tender.openua.tests.tender_blanks import (
-    tender_with_main_procurement_category,
-    tender_finance_milestones,
+from openprocurement.tender.open.tests.tender_blanks import tender_finance_milestones
+from openprocurement.tender.openeu.tests.base import (
+    BaseTenderWebTest,
+    test_tender_openeu_bids,
+    test_tender_openeu_data,
+    test_tender_openeu_lots,
 )
-from openprocurement.tender.openeu.tests.base import test_tender_data, BaseTenderWebTest, test_lots, test_bids
 from openprocurement.tender.openeu.tests.tender_blanks import (
-    # TenderProcessTest
-    one_bid_tender,
-    unsuccessful_after_prequalification_tender,
-    one_qualificated_bid_tender,
-    multiple_bidders_tender,
-    lost_contract_for_active_award,
-    # TenderResourceTest
-    create_tender_invalid,
     create_tender_generated,
-    patch_tender,
+    create_tender_invalid,
     invalid_bid_tender_features,
     invalid_bid_tender_lot,
-    # TenderTest
-    simple_add_tender,
+    lost_contract_for_active_award,
+    multiple_bidders_tender,
+    one_bid_tender,
+    one_qualificated_bid_tender,
+    patch_tender,
+    unsuccessful_after_prequalification_tender,
+)
+from openprocurement.tender.openua.tests.tender import TenderUAResourceTestMixin
+from openprocurement.tender.openua.tests.tender_blanks import (
+    create_tender_invalid_config,
+    create_tender_with_criteria_lcc,
+    tender_with_main_procurement_category,
 )
 
 
 class TenderTest(BaseTenderWebTest):
-
-    initial_auth = ("Basic", ("broker", ""))
-    initial_data = test_tender_data
-
-    test_simple_add_tender = snitch(simple_add_tender)
+    initial_data = test_tender_openeu_data
 
 
 class TenderResourceTest(BaseTenderWebTest, TenderResourceTestMixin, TenderUAResourceTestMixin):
-
     initial_auth = ("Basic", ("broker", ""))
-    initial_data = test_tender_data
-    test_lots_data = test_lots
-    test_bids_data = test_bids
+    initial_data = test_tender_openeu_data
+    initial_lots = test_lots_data = test_tender_openeu_lots
+    initial_bids = test_bids_data = test_tender_openeu_bids
 
     test_create_tender_invalid = snitch(create_tender_invalid)
+    test_create_tender_invalid_config = snitch(create_tender_invalid_config)
     test_create_tender_central = snitch(create_tender_central)
     test_create_tender_central_invalid = snitch(create_tender_central_invalid)
     test_create_tender_generated = snitch(create_tender_generated)
@@ -67,43 +68,22 @@ class TenderResourceTest(BaseTenderWebTest, TenderResourceTestMixin, TenderUARes
     test_tender_with_main_procurement_category = snitch(tender_with_main_procurement_category)
     test_tender_finance_milestones = snitch(tender_finance_milestones)
     test_create_tender_with_inn = snitch(create_tender_with_inn)
-    test_create_tender_with_inn_before = snitch(create_tender_with_inn_before)
     test_tender_milestones_required = snitch(tender_milestones_required)
     test_patch_tender_lots_none = snitch(patch_tender_lots_none)
-
-    def test_patch_not_author(self):
-        response = self.app.post_json("/tenders", {"data": test_tender_data})
-        self.assertEqual(response.status, "201 Created")
-        tender = response.json["data"]
-        owner_token = response.json["access"]["token"]
-
-        authorization = self.app.authorization
-        self.app.authorization = ("Basic", ("bot", "bot"))
-
-        response = self.app.post(
-            "/tenders/{}/documents".format(tender["id"]), upload_files=[("file", "name.doc", "content")]
-        )
-        self.assertEqual(response.status, "201 Created")
-        self.assertEqual(response.content_type, "application/json")
-        doc_id = response.json["data"]["id"]
-        self.assertIn(doc_id, response.headers["Location"])
-
-        self.app.authorization = authorization
-        response = self.app.patch_json(
-            "/tenders/{}/documents/{}?acc_token={}".format(tender["id"], doc_id, owner_token),
-            {"data": {"description": "document description"}},
-            status=403,
-        )
-        self.assertEqual(response.status, "403 Forbidden")
-        self.assertEqual(response.content_type, "application/json")
-        self.assertEqual(response.json["errors"][0]["description"], "Can update document only author")
+    test_tender_minimalstep_validation = snitch(tender_minimalstep_validation)
+    test_tender_lot_minimalstep_validation = snitch(tender_lot_minimalstep_validation)
+    test_patch_tender_minimalstep_validation = snitch(patch_tender_minimalstep_validation)
+    test_create_tender_with_criteria_lcc = snitch(create_tender_with_criteria_lcc)
+    test_create_tender_with_earlier_non_required_unit = snitch(create_tender_with_earlier_non_required_unit)
+    test_create_tender_with_required_unit = snitch(create_tender_with_required_unit)
+    test_patch_not_author = snitch(patch_not_author)
 
 
 class TenderProcessTest(BaseTenderWebTest):
-
     initial_auth = ("Basic", ("broker", ""))
-    initial_data = test_tender_data
-    test_bids_data = test_bids
+    initial_data = test_tender_openeu_data
+    initial_lots = test_tender_openeu_lots
+    initial_bids = test_bids_data = test_tender_openeu_bids
 
     test_invalid_tender_conditions = snitch(invalid_tender_conditions)
     test_one_bid_tender = snitch(one_bid_tender)
@@ -113,11 +93,22 @@ class TenderProcessTest(BaseTenderWebTest):
     test_lost_contract_for_active_award = snitch(lost_contract_for_active_award)
 
 
+class TenderGuarantee(BaseTenderWebTest):
+    initial_status = "draft"
+    initial_auth = ("Basic", ("broker", ""))
+    initial_lots = test_lots_data = test_tender_openeu_lots
+    initial_bids = test_bids_data = test_tender_openeu_bids
+
+    test_tender_with_guarantee_multilot = snitch(tender_with_guarantee_multilot)
+    test_activate_bid_guarantee_multilot = snitch(activate_bid_guarantee_multilot)
+
+
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(TenderProcessTest))
-    suite.addTest(unittest.makeSuite(TenderResourceTest))
-    suite.addTest(unittest.makeSuite(TenderTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderProcessTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderGuarantee))
     return suite
 
 
