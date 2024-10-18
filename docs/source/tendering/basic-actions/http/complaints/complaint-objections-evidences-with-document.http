@@ -1,0 +1,135 @@
+PATCH /api/2.5/tenders/b1b9e2275509420b8a3759c55a76d2cc/complaints/accadb05292e48679b52c49abc1b7194?acc_token=3249b93eba9d4119831a7f3708450101 HTTP/1.0
+Authorization: Bearer broker
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "objections": [
+      {
+        "title": "My objection",
+        "description": "Test objection",
+        "relatesTo": "tender",
+        "relatedItem": "b1b9e2275509420b8a3759c55a76d2cc",
+        "classification": {
+          "scheme": "violation_amcu",
+          "id": "corruptionDescription",
+          "description": "test classification"
+        },
+        "requestedRemedies": [
+          {
+            "description": "test",
+            "type": "setAsideAward"
+          }
+        ],
+        "arguments": [
+          {
+            "description": "test argument",
+            "evidences": [
+              {
+                "title": "Evidence",
+                "description": "Test evidence",
+                "relatedDocument": "5ecf6d2d17c44d0c8e63bd27cfb42afd"
+              }
+            ]
+          }
+        ],
+        "sequenceNumber": 1,
+        "id": "ae731fe27f904e038913c411b3673dc4"
+      }
+    ]
+  }
+}
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "id": "accadb05292e48679b52c49abc1b7194",
+    "complaintID": "UA-2023-10-10-000001-a.2",
+    "date": "2023-10-10T01:00:00+03:00",
+    "status": "draft",
+    "documents": [
+      {
+        "confidentiality": "public",
+        "id": "5ecf6d2d17c44d0c8e63bd27cfb42afd",
+        "datePublished": "2023-10-10T01:00:00+03:00",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "Evidence_Attachment.pdf",
+        "format": "application/pdf",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/7b26be5ae7c34fba94a90ded82ea8f77?Signature=BUNzCuzNDxlsQErN6J%2BpEczxECckQ3X21eWWljMmudrqUDGMOXlyLAhh%2BAWSFauQxp8nprIF%2FJtKWUBHtSVICw%3D%3D&KeyID=a8968c46",
+        "documentOf": "tender",
+        "dateModified": "2023-10-10T01:00:00+03:00",
+        "author": "complaint_owner",
+        "language": "uk"
+      }
+    ],
+    "type": "complaint",
+    "author": {
+      "name": "ДКП «Школяр»",
+      "address": {
+        "streetAddress": "вул. Островського, 33",
+        "locality": "м. Вінниця",
+        "region": "Вінницька область",
+        "postalCode": "21100",
+        "countryName": "Україна"
+      },
+      "contactPoint": {
+        "name": "Сергій Олексюк",
+        "email": "soleksuk@gmail.com",
+        "telephone": "+380432216930"
+      },
+      "identifier": {
+        "scheme": "UA-EDR",
+        "uri": "http://www.sc.gov.ua/",
+        "id": "00137256",
+        "legalName": "ДКП «Школяр»"
+      }
+    },
+    "title": "Недостатньо інформації",
+    "description": "Умови виставлені замовником не містять достатньо інформації, щоб заявка мала сенс.",
+    "objections": [
+      {
+        "id": "ae731fe27f904e038913c411b3673dc4",
+        "title": "My objection",
+        "description": "Test objection",
+        "relatesTo": "tender",
+        "relatedItem": "b1b9e2275509420b8a3759c55a76d2cc",
+        "classification": {
+          "scheme": "violation_amcu",
+          "id": "corruptionDescription",
+          "description": "test classification"
+        },
+        "requestedRemedies": [
+          {
+            "id": "b66452042f564a0aa328878f2b1602ef",
+            "type": "setAsideAward",
+            "description": "test"
+          }
+        ],
+        "arguments": [
+          {
+            "id": "94c89aad19d742f5afee7488fc6251ba",
+            "description": "test argument",
+            "evidences": [
+              {
+                "id": "135b0940f74342b084be11a0054d6a8f",
+                "title": "Evidence",
+                "description": "Test evidence",
+                "relatedDocument": "5ecf6d2d17c44d0c8e63bd27cfb42afd"
+              }
+            ]
+          }
+        ],
+        "sequenceNumber": 1
+      }
+    ],
+    "value": {
+      "amount": 2000.0,
+      "currency": "UAH"
+    }
+  }
+}
+

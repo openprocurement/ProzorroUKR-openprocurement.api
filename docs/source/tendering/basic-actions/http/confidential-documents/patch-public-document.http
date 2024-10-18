@@ -1,30 +1,32 @@
-PATCH /api/2.5/tenders/7898ec9992af47ccbc9b8bf1b8539660/bids/bc8deddfb8244a33a878ccdd7ce24616/documents/dbd45ebd0e9d4f6fa53efaff96a144c1?acc_token=dd8db01099664827aa1826260c296fa8 HTTP/1.0
+PATCH /api/2.5/tenders/a450405f3c6840318420a210894cccb1/bids/de4909199c1440ca809e98f0538e3064/documents/d21dc81bb3944e39b39703c4cb3ddbe1?acc_token=6dd6b053002e43938d257bd007d873c2 HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 178
 Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
+
 {
   "data": {
-    "confidentialityRationale": "Lol, this document contains some secret data that shouldn't be public, I'm changing it's confidentiality", 
-    "confidentiality": "buyerOnly"
+    "confidentiality": "buyerOnly",
+    "confidentialityRationale": "Lol, this document contains some secret data that shouldn't be public, I'm changing it's confidentiality"
   }
 }
 
-Response: 200 OK
-Content-Type: application/json; charset=UTF-8
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
 {
   "data": {
-    "hash": "md5:00000000000000000000000000000000", 
-    "confidentiality": "buyerOnly", 
-    "title": "public-to-private.doc", 
-    "url": "http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/7898ec9992af47ccbc9b8bf1b8539660/bids/bc8deddfb8244a33a878ccdd7ce24616/documents/dbd45ebd0e9d4f6fa53efaff96a144c1?download=284617724bff4ff6bd1023f665da3b47", 
-    "confidentialityRationale": "Lol, this document contains some secret data that shouldn't be public, I'm changing it's confidentiality", 
-    "format": "application/msword", 
-    "documentOf": "tender", 
-    "datePublished": "2020-05-15T01:00:00+03:00", 
-    "id": "dbd45ebd0e9d4f6fa53efaff96a144c1", 
-    "dateModified": "2020-05-15T01:00:00+03:00"
+    "confidentiality": "buyerOnly",
+    "confidentialityRationale": "Lol, this document contains some secret data that shouldn't be public, I'm changing it's confidentiality",
+    "id": "d21dc81bb3944e39b39703c4cb3ddbe1",
+    "datePublished": "2023-10-10T01:00:00+03:00",
+    "hash": "md5:00000000000000000000000000000000",
+    "title": "public-to-private.doc",
+    "format": "application/msword",
+    "url": "http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/a450405f3c6840318420a210894cccb1/bids/de4909199c1440ca809e98f0538e3064/documents/d21dc81bb3944e39b39703c4cb3ddbe1?download=48945373accd4d29ba34ccdf21d9804a",
+    "documentOf": "tender",
+    "dateModified": "2023-10-10T01:00:00+03:00",
+    "language": "uk"
   }
 }
 

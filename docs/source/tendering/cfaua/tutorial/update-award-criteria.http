@@ -1,31 +1,34 @@
-PUT /api/2.5/tenders/e5172ebc4c4c411f84f376ce6ede43b8/documents/103903f8e0ae424ca30a8fb377c1f5ad?acc_token=1e40f3cf3fd64b8ebca3076b70a86e71 HTTP/1.0
+PUT /api/2.5/tenders/30730028a07b4aee97ed094ebd250c58/documents/a5e30bfbd52c4e5ead3e1981d2e69804?acc_token=216c4c5722b74bbbaaaf1498070dc772 HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 152
-Content-Type: multipart/form-data; boundary=---BOUNDARY
+Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
------BOUNDARY
-Content-Disposition: form-data; name="file"; filename="AwardCriteria-2.pdf"
-Content-Type: application/pdf
 
-content2
------BOUNDARY--
-
-
-Response: 200 OK
-Content-Type: application/json; charset=UTF-8
 {
   "data": {
-    "hash": "md5:00000000000000000000000000000000", 
-    "author": "tender_owner", 
-    "language": "uk", 
-    "title": "AwardCriteria-2.pdf", 
-    "url": "http://public-docs-sandbox.prozorro.gov.ua/get/3fc9f137b61b46e181ea404c940f5e28?KeyID=a8968c46&Signature=yAMp0ABkvZaJ72OCL0Gj0hb%2Fvh9Oa%2FGsQI%2F3h7ZQ%252BN5ZERiCoUtwIxLi0QF1W379foh%2F4WRKz3CDliPbBaZtCQ%253D%253D", 
-    "format": "application/pdf", 
-    "documentOf": "tender", 
-    "datePublished": "2020-05-15T01:00:00+03:00", 
-    "id": "103903f8e0ae424ca30a8fb377c1f5ad", 
-    "dateModified": "2020-05-15T01:00:00+03:00"
+    "title": "AwardCriteria.pdf",
+    "url": "http://public-docs-sandbox.prozorro.gov.ua/get/95b375878e764f2684727173a91fb0f9?Signature=yHyHnoJ%2BTIW1UNSDJiK660F8YMGCs3zTB6thDa7s5dJqz59LqqIRFYLfnP3yx%2BhXZcfI%2B2aS9%2BEmoy2DJssaAw%3D%3D&KeyID=a8968c46",
+    "hash": "md5:00000000000000000000000000000000",
+    "format": "application/pdf"
+  }
+}
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "confidentiality": "public",
+    "id": "a5e30bfbd52c4e5ead3e1981d2e69804",
+    "datePublished": "2023-10-10T01:00:00+03:00",
+    "hash": "md5:00000000000000000000000000000000",
+    "title": "AwardCriteria.pdf",
+    "format": "application/pdf",
+    "url": "http://public-docs-sandbox.prozorro.gov.ua/get/95b375878e764f2684727173a91fb0f9?Signature=ek8rGhqz96FgchEsFabK97PvVAOb9cxuNrSqRUc05G2dqs%2FAE2qsQ5xkflTWG8ovBpA1bTOLaipeZEG%2B89SBCg%3D%3D&KeyID=a8968c46",
+    "documentOf": "tender",
+    "dateModified": "2023-10-10T01:00:00+03:00",
+    "author": "tender_owner",
+    "language": "uk"
   }
 }
 

@@ -1,57 +1,54 @@
-GET /api/2.5/tenders/c4eafa4139e24f1d84c1ce5ccbb4560d/bids/955d1e01f0604f458f923f2ce7cacf3a?acc_token=c631e154db144d01824af380c6d83247 HTTP/1.0
+GET /api/2.5/tenders/c429ff66bfe7408592ede2909ac98702/bids/933771e1159d4c478afc9638b0f276ae?acc_token=366d532de368429abee4b34da3fa07ba HTTP/1.0
 Authorization: Bearer broker
-Host: lb-api-sandbox.prozorro.gov.ua
+Host: public-api-sandbox.prozorro.gov.ua
 
-Response: 200 OK
-Content-Type: application/json; charset=UTF-8
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
 {
   "data": {
-    "status": "active", 
-    "documents": [
-      {
-        "hash": "md5:00000000000000000000000000000000", 
-        "title": "Proposal_part1.pdf", 
-        "url": "http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/c4eafa4139e24f1d84c1ce5ccbb4560d/bids/955d1e01f0604f458f923f2ce7cacf3a/documents/8832c635d2004c048134be52dd6d6115?download=6ce04e80464b4567830a30ffc7c1bb62", 
-        "format": "application/pdf", 
-        "documentOf": "tender", 
-        "datePublished": "2020-05-15T01:00:00+03:00", 
-        "id": "8832c635d2004c048134be52dd6d6115", 
-        "dateModified": "2020-05-15T01:00:00+03:00"
-      }
-    ], 
-    "selfEligible": true, 
-    "value": {
-      "currency": "UAH", 
-      "amount": 499.0, 
-      "valueAddedTaxIncluded": true
-    }, 
-    "id": "955d1e01f0604f458f923f2ce7cacf3a", 
     "tenderers": [
       {
-        "contactPoint": {
-          "email": "aagt@gmail.com", 
-          "telephone": "+380 (322) 91-69-30", 
-          "name": "Андрій Олексюк"
-        }, 
-        "scale": "sme", 
-        "name": "ДКП «Книга»", 
+        "name": "ДКП «Книга»",
         "identifier": {
-          "scheme": "UA-EDR", 
-          "id": "00137226", 
+          "scheme": "UA-EDR",
+          "id": "00137226",
+          "legalName": "Державне комунальне підприємство громадського харчування «Школяр 2»",
           "uri": "http://www.sc.gov.ua/"
-        }, 
+        },
         "address": {
-          "postalCode": "79013", 
-          "countryName": "Україна", 
-          "streetAddress": "вул. Островського, 34", 
-          "region": "Львівська область", 
-          "locality": "м. Львів"
-        }
+          "streetAddress": "вул. Островського, 34",
+          "locality": "м. Львів",
+          "region": "Львівська область",
+          "postalCode": "79013",
+          "countryName": "Україна"
+        },
+        "contactPoint": {
+          "name": "Андрій Олексюк",
+          "email": "aagt@gmail.com",
+          "telephone": "+380322916930"
+        },
+        "scale": "sme"
       }
-    ], 
-    "date": "2020-05-15T01:00:00+03:00", 
-    "selfQualified": true, 
-    "participationUrl": "http://auction-sandbox.prozorro.gov.ua/tenders/c4eafa4139e24f1d84c1ce5ccbb4560d?key_for_bid=955d1e01f0604f458f923f2ce7cacf3a"
+    ],
+    "status": "draft",
+    "selfQualified": true,
+    "lotValues": [
+      {
+        "status": "pending",
+        "value": {
+          "amount": 499.0,
+          "currency": "UAH",
+          "valueAddedTaxIncluded": true
+        },
+        "relatedLot": "9d95d7c5f19f4d24b17d650fe94a42f5",
+        "date": "2023-10-10T01:03:00+03:00",
+        "participationUrl": "http://auction-sandbox.prozorro.gov.ua/tenders/c429ff66bfe7408592ede2909ac98702_9d95d7c5f19f4d24b17d650fe94a42f5?key_for_bid=933771e1159d4c478afc9638b0f276ae"
+      }
+    ],
+    "id": "933771e1159d4c478afc9638b0f276ae",
+    "date": "2023-10-10T01:03:00+03:00"
   }
 }
 

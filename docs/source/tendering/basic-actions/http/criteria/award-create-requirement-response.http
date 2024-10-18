@@ -1,0 +1,63 @@
+POST /api/2.5/tenders/1f57390f567248e78a17e2dbd55d6a10/awards/4733603c425b4815a5d9e919883dc101/requirement_responses?acc_token=01a0e598f3b04f3080aa4ba86237db40 HTTP/1.0
+Authorization: Bearer broker
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": [
+    {
+      "title": "Requirement response",
+      "description": "some description",
+      "requirement": {
+        "id": "4f8eed02f2a94d54b06682a0094890f3",
+        "title": "Тендерна пропозиція подана учасником конкурентної процедури закупівлі або участь у переговорній процедурі бере учасник, який є пов'язаною особою з іншими учасниками процедури закупівлі та/або з уповноваженою особою (особами), та/або з керівником замовника"
+      },
+      "evidences": [
+        {
+          "title": "Requirement response",
+          "relatedDocument": {
+            "id": "d4388d25ad9d444aa3205e564dceccdb",
+            "title": "name.doc"
+          },
+          "type": "document"
+        }
+      ],
+      "value": true
+    }
+  ]
+}
+
+
+HTTP/1.0 201 Created
+Content-Type: application/json
+
+{
+  "data": [
+    {
+      "title": "Requirement response",
+      "description": "some description",
+      "requirement": {
+        "id": "4f8eed02f2a94d54b06682a0094890f3",
+        "title": "Тендерна пропозиція подана учасником конкурентної процедури закупівлі або участь у переговорній процедурі бере учасник, який є пов'язаною особою з іншими учасниками процедури закупівлі та/або з уповноваженою особою (особами), та/або з керівником замовника"
+      },
+      "evidences": [
+        {
+          "title": "Requirement response",
+          "type": "document",
+          "relatedDocument": {
+            "id": "d4388d25ad9d444aa3205e564dceccdb",
+            "title": "name.doc"
+          },
+          "id": "9760578fe1304f269db07ce3f2056c95"
+        }
+      ],
+      "value": true,
+      "id": "964e2ab697e7453498a24de1bdaf9f10",
+      "classification": {
+        "scheme": " espd211",
+        "id": "CRITERION.EXCLUSION.MISCONDUCT.MARKET_DISTORTION"
+      }
+    }
+  ]
+}
+

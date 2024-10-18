@@ -1,98 +1,100 @@
-POST /api/2.5/tenders/d99c61237b1945578b8cde56d011dbef/bids HTTP/1.0
+POST /api/2.5/tenders/48845373b4f4425aacd15269732d23fe/bids HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 1049
 Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
+
 {
   "data": {
-    "selfEligible": true, 
-    "selfQualified": true, 
-    "lotValues": [
-      {
-        "relatedLot": "e928726a47b7461a9d8a00258123cf3d", 
-        "value": {
-          "amount": 500
-        }, 
-        "subcontractingDetails": "ДКП «Орфей», Україна"
-      }
-    ], 
+    "status": "draft",
+    "selfQualified": true,
     "tenderers": [
       {
-        "contactPoint": {
-          "email": "soleksuk@gmail.com", 
-          "name": "Сергій Олексюк", 
-          "telephone": "+380 (432) 21-69-30"
-        }, 
-        "scale": "micro", 
-        "name": "ДКП «Школяр»", 
-        "identifier": {
-          "scheme": "UA-EDR", 
-          "id": "00137256", 
-          "uri": "http://www.sc.gov.ua/"
-        }, 
         "address": {
-          "countryName": "Україна", 
-          "postalCode": "21100", 
-          "region": "Вінницька область", 
-          "streetAddress": "вул. Островського, 33", 
-          "locality": "м. Вінниця"
-        }
+          "countryName": "Україна",
+          "locality": "м. Вінниця",
+          "postalCode": "21100",
+          "region": "Вінницька область",
+          "streetAddress": "вул. Островського, 33"
+        },
+        "contactPoint": {
+          "email": "soleksuk@gmail.com",
+          "name": "Сергій Олексюк",
+          "telephone": "+380432216930"
+        },
+        "identifier": {
+          "scheme": "UA-EDR",
+          "legalName": "Державне комунальне підприємство громадського харчування «Школяр»",
+          "id": "00137256",
+          "uri": "http://www.sc.gov.ua/"
+        },
+        "name": "ДКП «Школяр»",
+        "scale": "micro"
+      }
+    ],
+    "lotValues": [
+      {
+        "subcontractingDetails": "ДКП «Орфей», Україна",
+        "value": {
+          "amount": 500
+        },
+        "relatedLot": "3d9bd8f913544205bad6df7a3843e883"
       }
     ]
   }
 }
 
-Response: 201 Created
-Content-Type: application/json; charset=UTF-8
-Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/d99c61237b1945578b8cde56d011dbef/bids/ff16b7ecf51d40c7b0b1809e53ea3278
+
+HTTP/1.0 201 Created
+Content-Type: application/json
+Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/48845373b4f4425aacd15269732d23fe/bids/7fec345ba2914e28bd28e7dd15100c66
+
 {
-  "access": {
-    "transfer": "ea57ae49d8fe4779939bd0f01d5f89a6", 
-    "token": "9191533b54b74f78ae18e9980146ac3f"
-  }, 
   "data": {
-    "status": "pending", 
-    "selfEligible": true, 
-    "lotValues": [
-      {
-        "relatedLot": "e928726a47b7461a9d8a00258123cf3d", 
-        "date": "2020-05-15T01:00:00+03:00", 
-        "status": "pending", 
-        "value": {
-          "currency": "UAH", 
-          "amount": 500.0, 
-          "valueAddedTaxIncluded": true
-        }, 
-        "subcontractingDetails": "ДКП «Орфей», Україна"
-      }
-    ], 
-    "selfQualified": true, 
     "tenderers": [
       {
-        "contactPoint": {
-          "email": "soleksuk@gmail.com", 
-          "telephone": "+380 (432) 21-69-30", 
-          "name": "Сергій Олексюк"
-        }, 
-        "scale": "micro", 
-        "name": "ДКП «Школяр»", 
+        "name": "ДКП «Школяр»",
         "identifier": {
-          "scheme": "UA-EDR", 
-          "id": "00137256", 
+          "scheme": "UA-EDR",
+          "id": "00137256",
+          "legalName": "Державне комунальне підприємство громадського харчування «Школяр»",
           "uri": "http://www.sc.gov.ua/"
-        }, 
+        },
         "address": {
-          "postalCode": "21100", 
-          "countryName": "Україна", 
-          "streetAddress": "вул. Островського, 33", 
-          "region": "Вінницька область", 
-          "locality": "м. Вінниця"
-        }
+          "streetAddress": "вул. Островського, 33",
+          "locality": "м. Вінниця",
+          "region": "Вінницька область",
+          "postalCode": "21100",
+          "countryName": "Україна"
+        },
+        "contactPoint": {
+          "name": "Сергій Олексюк",
+          "email": "soleksuk@gmail.com",
+          "telephone": "+380432216930"
+        },
+        "scale": "micro"
       }
-    ], 
-    "date": "2020-05-15T01:00:00+03:00", 
-    "id": "ff16b7ecf51d40c7b0b1809e53ea3278"
+    ],
+    "status": "draft",
+    "lotValues": [
+      {
+        "status": "pending",
+        "value": {
+          "amount": 500.0,
+          "currency": "UAH",
+          "valueAddedTaxIncluded": true
+        },
+        "relatedLot": "3d9bd8f913544205bad6df7a3843e883",
+        "subcontractingDetails": "ДКП «Орфей», Україна",
+        "date": "2023-10-10T01:01:00+03:00"
+      }
+    ],
+    "selfQualified": true,
+    "id": "7fec345ba2914e28bd28e7dd15100c66",
+    "date": "2023-10-10T01:01:00+03:00"
+  },
+  "access": {
+    "token": "83cd77ef6cb141478248c8ff09529e31",
+    "transfer": "f032e52121a74e1787c1e91877bed16f"
   }
 }
 

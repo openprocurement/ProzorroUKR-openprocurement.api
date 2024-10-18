@@ -83,6 +83,10 @@ buyers
 
    Identifications of the subjects in whose interests the purchase is made
 
+   Validation depends on:
+
+        * :ref:`PLAN_BUYERS_REQUIRED_FROM` constant
+
 
 milestones
 ----------
@@ -91,6 +95,9 @@ milestones
 
    Milestones of type `approval` used to provide Central procurement organization approve feature
 
+   Validation depends on:
+
+        * :ref:`MILESTONES_VALIDATION_FROM` constant
 
 tender
 ------
@@ -106,6 +113,14 @@ budget
 
    |ocdsDescription|
    The total estimated value of the procurement.
+
+
+project
+-------
+   :ref:`Project`
+
+   |ocdsDescription|
+   The project object which describes the infrastructure or public-private partnership (PPP) project to which the planning process is related.
 
 
 
@@ -253,6 +268,25 @@ tenderPeriod
 
 -----------
 
+.. _Project:
+
+Project
+=======
+
+id
+--
+    string
+
+title
+-----
+    string, required
+
+uri
+----
+    string, required
+
+-----------
+
 .. _Budget:
 
 Budget
@@ -280,15 +314,23 @@ currency
 
 project
 -------
-    :ref:`Project`
+    :ref:`BudgetProject`
 
 period
 ------
     :ref:`BudgetPeriod`
 
+    Validation depends on:
+
+        * :ref:`BUDGET_PERIOD_FROM` constant
+
 year
 ----
     integer, >=2000, deprecated in favor of `period`_
+
+    Validation depends on:
+
+        * :ref:`BUDGET_PERIOD_FROM` constant
 
 notes
 -----
@@ -302,10 +344,10 @@ breakdown
 -----------
 
 
-.. _Project:
+.. _BudgetProject:
 
-Project
-=======
+BudgetProject:
+==============
 
 id
 --

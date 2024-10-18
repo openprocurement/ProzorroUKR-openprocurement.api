@@ -1,36 +1,40 @@
-from openprocurement.tender.openuadefense.tests.award import TenderAwardPendingResourceTestCase
-from openprocurement.tender.openuadefense.tests.base import BaseTenderUAContentWebTest
-from openprocurement.tender.openua.tests.base import test_bids
-from openprocurement.tender.core.tests.base import change_auth
-from openprocurement.tender.belowthreshold.tests.base import test_lots
+from openprocurement.tender.belowthreshold.tests.base import test_tender_below_lots
 from openprocurement.tender.core.tests.qualification_milestone import (
-    TenderQualificationMilestone24HMixin,
-    TenderQualificationMilestoneALPMixin,
+    TenderAwardMilestone24HMixin,
+    TenderAwardMilestoneALPMixin,
 )
-from copy import deepcopy
+from openprocurement.tender.core.tests.utils import change_auth
+from openprocurement.tender.openuadefense.tests.award import (
+    TenderAwardPendingResourceTestCase,
+)
+from openprocurement.tender.openuadefense.tests.base import (
+    BaseTenderUAContentWebTest,
+    test_tender_openuadefense_bids,
+)
 
 
-class TenderAwardMilestoneTestCase(TenderQualificationMilestone24HMixin, TenderAwardPendingResourceTestCase):
-    context_name = "award"
+class TenderAwardMilestoneTestCase(TenderAwardMilestone24HMixin, TenderAwardPendingResourceTestCase):
+    pass
 
 
-class TenderAwardMilestoneALPTestCase(TenderQualificationMilestoneALPMixin, BaseTenderUAContentWebTest):
-    initial_bids = test_bids
-    initial_lots = test_lots
+class TenderAwardMilestoneALPTestCase(TenderAwardMilestoneALPMixin, BaseTenderUAContentWebTest):
+    initial_bids = test_tender_openuadefense_bids
+    initial_lots = test_tender_below_lots
 
     def test_milestone(self):
         """
         Redefine original method, to check that the milestone won't appear
         """
         # sending auction results
-        auction_results = deepcopy(self.initial_bids)
+        auction_results = [
+            {"id": b["id"], "lotValues": [{"relatedLot": l["relatedLot"], "value": l["value"]} for l in b["lotValues"]]}
+            for b in self.initial_bids
+        ]
         lot_id = auction_results[0]["lotValues"][0]["relatedLot"]
         auction_results[0]["lotValues"][0]["value"]["amount"] = 1
         with change_auth(self.app, ("Basic", ("auction", ""))):
             response = self.app.post_json(
-                "/tenders/{}/auction/{}".format(self.tender_id, lot_id),
-                {"data": {"bids": auction_results}},
-                status=200
+                "/tenders/{}/auction/{}".format(self.tender_id, lot_id), {"data": {"bids": auction_results}}, status=200
             )
         tender = response.json["data"]
         self.assertEqual("active.qualification", tender["status"])
@@ -41,4 +45,3 @@ class TenderAwardMilestoneALPTestCase(TenderQualificationMilestoneALPMixin, Base
 
         # check that a milestone's been created
         self.assertNotIn("milestones", award)
-

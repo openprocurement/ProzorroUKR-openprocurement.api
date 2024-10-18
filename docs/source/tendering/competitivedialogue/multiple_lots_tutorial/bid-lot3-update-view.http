@@ -1,59 +1,90 @@
-PATCH /api/2.5/tenders/086edc68f12d4a248ded4f9cea52e69c/bids/eb8b16e4d30d4a81b046cae41632ed2d?acc_token=1be138ca4c9f4d4698c469fa4bdeb29d HTTP/1.0
+PATCH /api/2.5/tenders/0122f7569ef34718a69b5de8643cccfd/bids/8f1f20c9676f4c51b1e41855982f5629?acc_token=c962dec9949240f9aa7733143f3c8165 HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 98
 Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
+
 {
   "data": {
-    "status": "pending", 
     "lotValues": [
       {
-        "relatedLot": "e928726a47b7461a9d8a00258123cf3d"
+        "relatedLot": "3d9bd8f913544205bad6df7a3843e883"
       }
-    ]
+    ],
+    "status": "pending"
   }
 }
 
-Response: 200 OK
-Content-Type: application/json; charset=UTF-8
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
 {
   "data": {
-    "status": "pending", 
-    "selfEligible": true, 
-    "lotValues": [
-      {
-        "relatedLot": "e928726a47b7461a9d8a00258123cf3d", 
-        "date": "2020-05-15T01:00:00+03:00", 
-        "status": "pending"
-      }
-    ], 
-    "selfQualified": true, 
+    "id": "8f1f20c9676f4c51b1e41855982f5629",
+    "date": "2023-10-10T01:01:00+03:00",
+    "submissionDate": "2023-10-10T01:01:00+03:00",
     "tenderers": [
       {
-        "contactPoint": {
-          "email": "fake@mail.com", 
-          "telephone": "+380 (322) 12-34-56", 
-          "name": "Іван Іваненко"
-        }, 
-        "scale": "mid", 
-        "name": "«Снігур»", 
+        "name": "«Снігур»",
         "identifier": {
-          "scheme": "UA-EDR", 
-          "id": "00137227", 
+          "scheme": "UA-EDR",
+          "id": "00137227",
           "uri": "http://www.sc.gov.ua/"
-        }, 
+        },
         "address": {
-          "postalCode": "79013", 
-          "countryName": "Україна", 
-          "streetAddress": "вул. Островського, 35", 
-          "region": "Львівська область", 
-          "locality": "м. Львів"
-        }
+          "streetAddress": "вул. Островського, 35",
+          "locality": "м. Львів",
+          "region": "Львівська область",
+          "postalCode": "79013",
+          "countryName": "Україна"
+        },
+        "contactPoint": {
+          "name": "Іван Іваненко",
+          "email": "fake@mail.com",
+          "telephone": "+380322123456"
+        },
+        "scale": "mid"
       }
-    ], 
-    "date": "2020-05-15T01:00:00+03:00", 
-    "id": "eb8b16e4d30d4a81b046cae41632ed2d"
+    ],
+    "lotValues": [
+      {
+        "relatedLot": "3d9bd8f913544205bad6df7a3843e883",
+        "status": "pending",
+        "date": "2023-10-10T01:01:00+03:00"
+      }
+    ],
+    "documents": [
+      {
+        "confidentiality": "public",
+        "documentType": "proposal",
+        "id": "e589a6fae2464832a22fc7bf61712a9f",
+        "datePublished": "2023-10-10T01:00:00+03:00",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "sign.p7s",
+        "format": "sign/pkcs7-signature",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/0d8284c993714be48e2151db18b081ad?Signature=jPUo4aE2Ou9Tihij1mSod9UxYx4CdqoqlzLn%2FfkDgDU8wvS9kmmoR%2F8RtA96d3jImGupPvCSbfc9uoB7BmFoDw%3D%3D&KeyID=a8968c46",
+        "documentOf": "tender",
+        "dateModified": "2023-10-10T01:00:00+03:00",
+        "language": "uk",
+        "isDescriptionDecision": false
+      },
+      {
+        "confidentiality": "public",
+        "documentType": "proposal",
+        "id": "e589a6fae2464832a22fc7bf61712a9f",
+        "datePublished": "2023-10-10T01:01:00+03:00",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "sign.p7s",
+        "format": "sign/pkcs7-signature",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/fb072ee0e97645fe8d97143dd01bfd39?Signature=sG1sjsKWlvQONxTqKmJR4HKP6syZNOk0iAmkuvy5VqzLCq9OxmGI%2BCbIPCgzdpJe7QVn5w9eLajd0%2Fb16o0PBg%3D%3D&KeyID=a8968c46",
+        "documentOf": "tender",
+        "dateModified": "2023-10-10T01:01:00+03:00",
+        "language": "uk",
+        "isDescriptionDecision": false
+      }
+    ],
+    "selfQualified": true,
+    "status": "pending"
   }
 }
 

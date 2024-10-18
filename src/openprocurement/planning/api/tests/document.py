@@ -1,31 +1,16 @@
-# -*- coding: utf-8 -*-
 import unittest
 
 from openprocurement.api.tests.base import snitch
-
 from openprocurement.planning.api.tests.base import BasePlanWebTest
 from openprocurement.planning.api.tests.document_blanks import (
-    not_found,
-    create_plan_document,
-    put_plan_document,
-    patch_plan_document,
-    create_plan_document_json_invalid,
     create_plan_document_json,
+    create_plan_document_json_invalid,
     put_plan_document_json,
 )
 
 
 class PlanDocumentResourceTest(BasePlanWebTest):
-    docservice = False
-
-    test_not_found = snitch(not_found)
-    test_create_plan_document = snitch(create_plan_document)
-    test_put_plan_document = snitch(put_plan_document)
-    test_patch_plan_document = snitch(patch_plan_document)
-
-
-class PlanDocumentWithDSResourceTest(PlanDocumentResourceTest):
-    docservice = True
+    initial_auth = ("Basic", ("broker", ""))
 
     test_create_plan_document_json_invalid = snitch(create_plan_document_json_invalid)
     test_create_plan_document_json = snitch(create_plan_document_json)
@@ -34,8 +19,7 @@ class PlanDocumentWithDSResourceTest(PlanDocumentResourceTest):
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(PlanDocumentResourceTest))
-    suite.addTest(unittest.makeSuite(PlanDocumentWithDSResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(PlanDocumentResourceTest))
     return suite
 
 

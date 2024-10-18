@@ -1,103 +1,143 @@
-# -*- coding: utf-8 -*-
-from datetime import timedelta
-from mock import patch
-from openprocurement.api.utils import get_now
-from schematics.types.compound import ModelType, ListType
-from schematics.exceptions import ModelValidationError
-from openprocurement.tender.core.models import Lot, BaseTender
 import unittest
+from copy import deepcopy
+from datetime import timedelta
+from unittest.mock import MagicMock, patch
+
+from schematics.exceptions import ModelValidationError
+from schematics.types.compound import ListType, ModelType
+
+from openprocurement.api.context import set_now, set_request
+from openprocurement.api.utils import get_now
+from openprocurement.tender.belowthreshold.tests.base import (
+    test_tender_below_data,
+    test_tender_below_lots,
+)
+from openprocurement.tender.belowthreshold.tests.utils import set_tender_lots
+from openprocurement.tender.core.procedure.models.lot import Lot
+from openprocurement.tender.core.procedure.models.milestone import TenderMilestoneTypes
+from openprocurement.tender.core.procedure.models.tender import PostTender, Tender
+
+test_tender_data = deepcopy(test_tender_below_data)
+del test_tender_data["procurementMethodType"]
+del test_tender_data["milestones"]
+test_tender_data["awardCriteria"] = "lowestCost"
+test_tender_data["procurementMethod"] = "open"
+
+test_tender_data_with_lots = set_tender_lots(
+    deepcopy(test_tender_data),
+    test_tender_below_lots * 2,
+)
+
+
+def create_tender_instance(model, data):
+    request = MagicMock()
+    request.registry.mongodb.get_next_sequence_value.return_value = 1
+    set_request(request)
+    set_now(get_now())
+    tender_data = PostTender(data).serialize()
+    tender = model(tender_data)
+    request.validated = {"tender": tender_data}
+    return tender
 
 
 class TestTenderMilestones(unittest.TestCase):
+    initial_tender_data = test_tender_data
 
-    initial_tender_data = dict(title="Tal", mainProcurementCategory="services")
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def test_validate_without_milestones(self):
-        tender = BaseTender(self.initial_tender_data)
-        with self.assertRaises(ModelValidationError) as e:
-            tender.validate()
-        self.assertEqual(e.exception.message, {"milestones": ["Tender should contain at least one milestone"]})
+        with patch(
+            "openprocurement.tender.core.procedure.models.tender.MILESTONES_VALIDATION_FROM",
+            get_now() - timedelta(days=1),
+        ):
+            tender = create_tender_instance(Tender, self.initial_tender_data)
+            data = tender.serialize()
+            self.assertNotIn("milestones", data)
+            with self.assertRaises(ModelValidationError) as e:
+                tender.validate()
+            self.assertEqual(e.exception.messages, {"milestones": ["Tender should contain at least one milestone"]})
 
     def test_regression_milestones(self):
-        with patch("openprocurement.tender.core.models.MILESTONES_VALIDATION_FROM", get_now() + timedelta(days=1)):
-            tender = BaseTender(self.initial_tender_data)
+        with patch(
+            "openprocurement.tender.core.procedure.models.tender.MILESTONES_VALIDATION_FROM",
+            get_now() + timedelta(days=1),
+        ):
+            tender = create_tender_instance(Tender, self.initial_tender_data)
             tender.validate()
-            data = tender.serialize("embedded")
+            data = tender.serialize()
             self.assertNotIn("milestones", data)
 
     def test_validate_empty(self):
-        initial_data = dict(self.initial_tender_data)
+        initial_data = deepcopy(self.initial_tender_data)
         initial_data.update(milestones=[])
-        tender = BaseTender(initial_data)
+        tender = create_tender_instance(Tender, initial_data)
         with self.assertRaises(ModelValidationError) as e:
             tender.validate()
-        self.assertEqual(e.exception.message, {"milestones": ["Tender should contain at least one milestone"]})
+        self.assertEqual(e.exception.messages, {"milestones": ["Tender should contain at least one milestone"]})
 
     def test_validate_empty_object(self):
-        initial_data = dict(self.initial_tender_data)
+        initial_data = deepcopy(self.initial_tender_data)
         initial_data.update(milestones=[{}])
-        tender = BaseTender(initial_data)
+        tender = create_tender_instance(Tender, initial_data)
 
         with self.assertRaises(ModelValidationError) as e:
             tender.validate()
         self.assertEqual(
-            e.exception.message,
+            e.exception.messages,
             {
                 "milestones": [
                     {
-                        "title": [u"This field is required."],
-                        "code": [u"This field is required."],
-                        "duration": [u"This field is required."],
-                        "percentage": [u"This field is required."],
-                        "type": [u"This field is required."],
-                        "sequenceNumber": [u"This field is required."],
+                        "title": ["This field is required."],
+                        "code": ["This field is required."],
+                        "duration": ["This field is required."],
+                        'percentage': ['This field is required.'],
+                        "type": ["This field is required."],
+                        "sequenceNumber": ["This field is required."],
                     }
                 ]
             },
         )
 
     def test_validate_incorrect_required(self):
-        initial_data = dict(self.initial_tender_data)
+        initial_data = deepcopy(self.initial_tender_data)
         initial_data.update(
             milestones=[
-                {"title": "Title", "code": 1488, "type": "M", "duration": {}, "percentage": 0, "sequenceNumber": -1}
+                {
+                    "title": "Title",
+                    "code": 1488,
+                    "type": "M",
+                    "duration": {"type": "type"},
+                    "percentage": 0,
+                    "sequenceNumber": -1,
+                }
             ]
         )
-        tender = BaseTender(initial_data)
+        tender = create_tender_instance(Tender, initial_data)
 
         with self.assertRaises(ModelValidationError) as e:
             tender.validate()
-
-        expected_title_options = [
-            "executionOfWorks",
-            "deliveryOfGoods",
-            "submittingServices",
-            "signingTheContract",
-            "submissionDateOfApplications",
-            "dateOfInvoicing",
-            "endDateOfTheReportingPeriod",
-            "anotherEvent",
-        ]
-        expected_codes = ["prepayment", "postpayment"]
-        expected_types = ["financing"]
+        expected_types = [TenderMilestoneTypes.FINANCING.value, TenderMilestoneTypes.DELIVERY.value]
+        self.maxDiff = None
         self.assertEqual(
-            e.exception.message,
+            e.exception.messages,
             {
                 "milestones": [
                     {
-                        "title": [u"Value must be one of {}.".format(expected_title_options)],
-                        "code": [u"Value must be one of {}.".format(expected_codes)],
-                        "type": [u"Value must be one of {}.".format(expected_types)],
-                        "duration": {"type": [u"This field is required."], "days": [u"This field is required."]},
-                        "percentage": [u"Float value should be greater than 0."],
-                        "sequenceNumber": [u"Int value should be greater than 0."],
+                        "type": ["Value must be one of {}.".format(expected_types)],
+                        "duration": {
+                            "type": ["Value must be one of ['working', 'banking', 'calendar']."],
+                            "days": ["This field is required."],
+                        },
+                        "percentage": ["Float value should be greater than 0."],
+                        "sequenceNumber": ["Int value should be greater than 0."],
                     }
                 ]
             },
         )
 
     def test_title_other_description_required(self):
-        initial_data = dict(self.initial_tender_data)
+        initial_data = deepcopy(self.initial_tender_data)
         initial_data.update(
             milestones=[
                 {
@@ -111,19 +151,19 @@ class TestTenderMilestones(unittest.TestCase):
             ]
         )
 
-        tender = BaseTender(initial_data)
+        tender = create_tender_instance(Tender, initial_data)
         with self.assertRaises(ModelValidationError) as e:
             tender.validate()
 
-        self.assertEqual(e.exception.message, {"milestones": [{"description": [u"This field is required."]}]})
+        self.assertEqual(e.exception.messages, {"milestones": [{"description": ["This field is required."]}]})
 
     def test_title_other_description_empty_invalid(self):
-        initial_data = dict(self.initial_tender_data)
+        initial_data = deepcopy(self.initial_tender_data)
         initial_data.update(
             milestones=[
                 {
                     "title": "anotherEvent",
-                    "description": u"",
+                    "description": "",
                     "code": "prepayment",
                     "type": "financing",
                     "duration": {"days": 2, "type": "banking"},
@@ -133,14 +173,14 @@ class TestTenderMilestones(unittest.TestCase):
             ]
         )
 
-        tender = BaseTender(initial_data)
+        tender = create_tender_instance(Tender, initial_data)
         with self.assertRaises(ModelValidationError) as e:
             tender.validate()
 
-        self.assertEqual(e.exception.message, {"milestones": [{"description": [u"This field is required."]}]})
+        self.assertEqual(e.exception.messages, {"milestones": [{"description": ["This field is required."]}]})
 
     def test_validate_percentage_too_big(self):
-        initial_data = dict(self.initial_tender_data)
+        initial_data = deepcopy(self.initial_tender_data)
         initial_data.update(
             milestones=[
                 {
@@ -154,48 +194,16 @@ class TestTenderMilestones(unittest.TestCase):
             ]
         )
 
-        tender = BaseTender(initial_data)
+        tender = create_tender_instance(Tender, initial_data)
         with self.assertRaises(ModelValidationError) as e:
             tender.validate()
 
         self.assertEqual(
-            e.exception.message, {"milestones": [{"percentage": [u"Float value should be less than 100."]}]}
-        )
-
-    def test_validate_percentage_sum(self):
-        initial_data = dict(self.initial_tender_data)
-        initial_data.update(
-            milestones=[
-                {
-                    "title": "deliveryOfGoods",
-                    "code": "prepayment",
-                    "type": "financing",
-                    "duration": {"days": 2, "type": "banking"},
-                    "sequenceNumber": 2,
-                    "percentage": 49.999,
-                },
-                {
-                    "title": "endDateOfTheReportingPeriod",
-                    "code": "postpayment",
-                    "type": "financing",
-                    "duration": {"days": 2, "type": "banking"},
-                    "sequenceNumber": 2,
-                    "percentage": 50.002,
-                },
-            ]
-        )
-
-        tender = BaseTender(initial_data)
-        with self.assertRaises(ModelValidationError) as e:
-            tender.validate()
-
-        self.assertEqual(
-            e.exception.message,
-            {"milestones": [u"Sum of the financial milestone percentages 100.001 is not equal 100."]},
+            e.exception.messages, {"milestones": [{"percentage": ["Float value should be less than 100."]}]}
         )
 
     def test_validate_percentage_sum_float_point(self):
-        initial_data = dict(self.initial_tender_data)
+        initial_data = deepcopy(self.initial_tender_data)
         initial_data.update(
             milestones=[
                 {
@@ -221,26 +229,18 @@ class TestTenderMilestones(unittest.TestCase):
             * 8
         )
 
-        tender = BaseTender(initial_data)
+        tender = create_tender_instance(Tender, initial_data)
         tender.validate()
 
 
 class TestMultiLotTenderMilestones(unittest.TestCase):
+    initial_tender_data = test_tender_data_with_lots
 
-    initial_tender_data = dict(
-        title="Tal",
-        mainProcurementCategory="services",
-        lots=[
-            {"id": "a" * 32, "title": "#1", "minimalStep": {"amount": 10}, "value": {"amount": 100}},
-            {"id": "b" * 32, "title": "#2", "minimalStep": {"amount": 5}, "value": {"amount": 50.31}},
-        ],
-    )
-
-    class MultiLotTender(BaseTender):
+    class MultiLotTender(Tender):
         lots = ListType(ModelType(Lot, required=True))
 
     def test_validate_related_lot_not_required(self):
-        initial_data = dict(self.initial_tender_data)
+        initial_data = deepcopy(self.initial_tender_data)
         initial_data.update(
             milestones=[
                 {
@@ -254,11 +254,11 @@ class TestMultiLotTenderMilestones(unittest.TestCase):
             ]
         )
 
-        tender = self.MultiLotTender(initial_data)
+        tender = create_tender_instance(self.MultiLotTender, initial_data)
         tender.validate()
 
     def test_validate_related_lot_incorrect(self):
-        initial_data = dict(self.initial_tender_data)
+        initial_data = deepcopy(self.initial_tender_data)
         initial_data.update(
             milestones=[
                 {
@@ -266,61 +266,21 @@ class TestMultiLotTenderMilestones(unittest.TestCase):
                     "code": "prepayment",
                     "type": "financing",
                     "duration": {"days": 2, "type": "banking"},
-                    "percentage": 50,
+                    "percentage": 100,
                     "sequenceNumber": 0,
                     "relatedLot": "c" * 32,
                 }
             ]
         )
 
-        tender = self.MultiLotTender(initial_data)
+        tender = create_tender_instance(self.MultiLotTender, initial_data)
         with self.assertRaises(ModelValidationError) as e:
             tender.validate()
 
-        self.assertEqual(
-            e.exception.message, {"milestones": [{"relatedLot": [u"relatedLot should be one of the lots."]}]}
-        )
-
-    def test_validate_lot_sum_incorrect(self):
-        initial_data = dict(self.initial_tender_data)
-        initial_data.update(
-            milestones=[
-                {
-                    "title": "deliveryOfGoods",
-                    "code": "prepayment",
-                    "type": "financing",
-                    "duration": {"days": 2, "type": "banking"},
-                    "sequenceNumber": 0,
-                    "percentage": 50,
-                    "relatedLot": "a" * 32,
-                },
-                {
-                    "title": "deliveryOfGoods",
-                    "code": "postpayment",
-                    "type": "financing",
-                    "duration": {"days": 15, "type": "banking"},
-                    "sequenceNumber": 0,
-                    "percentage": 100,
-                    "relatedLot": "b" * 32,
-                },
-            ]
-        )
-
-        tender = self.MultiLotTender(initial_data)
-        with self.assertRaises(ModelValidationError) as e:
-            tender.validate()
-
-        self.assertEqual(
-            e.exception.message,
-            {
-                "milestones": [
-                    u"Sum of the financial milestone percentages 50.0 is not equal 100 for lot {}.".format("a" * 32)
-                ]
-            },
-        )
+        self.assertEqual(e.exception.messages, {"milestones": ["relatedLot should be one of the lots."]})
 
     def test_validate_lot_sum_success(self):
-        initial_data = dict(self.initial_tender_data)
+        initial_data = deepcopy(self.initial_tender_data)
         initial_data.update(
             milestones=[
                 {
@@ -330,7 +290,7 @@ class TestMultiLotTenderMilestones(unittest.TestCase):
                     "duration": {"days": 2, "type": "banking"},
                     "sequenceNumber": 0,
                     "percentage": 45.55,
-                    "relatedLot": "b" * 32,
+                    "relatedLot": initial_data["lots"][0]["id"],
                 },
                 {
                     "title": "deliveryOfGoods",
@@ -339,7 +299,7 @@ class TestMultiLotTenderMilestones(unittest.TestCase):
                     "duration": {"days": 2, "type": "banking"},
                     "sequenceNumber": 0,
                     "percentage": 54.45,
-                    "relatedLot": "b" * 32,
+                    "relatedLot": initial_data["lots"][0]["id"],
                 },
                 {
                     "title": "deliveryOfGoods",
@@ -348,72 +308,16 @@ class TestMultiLotTenderMilestones(unittest.TestCase):
                     "duration": {"days": 2, "type": "banking"},
                     "sequenceNumber": 0,
                     "percentage": 100.0,
-                    "relatedLot": "a" * 32,
+                    "relatedLot": initial_data["lots"][1]["id"],
                 },
             ]
         )
 
-        tender = self.MultiLotTender(initial_data)
+        tender = create_tender_instance(self.MultiLotTender, initial_data)
         tender.validate()
 
-    def test_validate_lot_sum_third(self):
-        initial_data = dict(self.initial_tender_data)
-        initial_data.update(
-            milestones=[
-                {
-                    "title": "deliveryOfGoods",
-                    "code": "prepayment",
-                    "type": "financing",
-                    "duration": {"days": 2, "type": "banking"},
-                    "sequenceNumber": 0,
-                    "percentage": 33.333,
-                    "relatedLot": "b" * 32,
-                },
-                {
-                    "title": "deliveryOfGoods",
-                    "code": "postpayment",
-                    "type": "financing",
-                    "duration": {"days": 2, "type": "banking"},
-                    "sequenceNumber": 0,
-                    "percentage": 33.333,
-                    "relatedLot": "b" * 32,
-                },
-                {
-                    "title": "deliveryOfGoods",
-                    "code": "prepayment",
-                    "type": "financing",
-                    "duration": {"days": 2, "type": "banking"},
-                    "sequenceNumber": 0,
-                    "percentage": 33.333,
-                    "relatedLot": "b" * 32,
-                },
-                {
-                    "title": "deliveryOfGoods",
-                    "code": "prepayment",
-                    "type": "financing",
-                    "duration": {"days": 15, "type": "banking"},
-                    "sequenceNumber": 0,
-                    "percentage": 100,
-                    "relatedLot": "a" * 32,
-                },
-            ]
-        )
-
-        tender = self.MultiLotTender(initial_data)
-        with self.assertRaises(ModelValidationError) as e:
-            tender.validate()
-
-        self.assertEqual(
-            e.exception.message,
-            {
-                "milestones": [
-                    u"Sum of the financial milestone percentages 99.999 is not equal 100 for lot {}.".format(u"b" * 32)
-                ]
-            },
-        )
-
     def test_validate_lot_sum_third_success(self):
-        initial_data = dict(self.initial_tender_data)
+        initial_data = deepcopy(self.initial_tender_data)
         initial_data.update(
             milestones=[
                 {
@@ -423,7 +327,7 @@ class TestMultiLotTenderMilestones(unittest.TestCase):
                     "duration": {"days": 2, "type": "banking"},
                     "sequenceNumber": 0,
                     "percentage": 33.333,
-                    "relatedLot": "b" * 32,
+                    "relatedLot": initial_data["lots"][1]["id"],
                 },
                 {
                     "title": "deliveryOfGoods",
@@ -432,7 +336,7 @@ class TestMultiLotTenderMilestones(unittest.TestCase):
                     "duration": {"days": 2, "type": "banking"},
                     "sequenceNumber": 0,
                     "percentage": 33.333,
-                    "relatedLot": "b" * 32,
+                    "relatedLot": initial_data["lots"][1]["id"],
                 },
                 {
                     "title": "deliveryOfGoods",
@@ -441,7 +345,7 @@ class TestMultiLotTenderMilestones(unittest.TestCase):
                     "duration": {"days": 2, "type": "banking"},
                     "sequenceNumber": 0,
                     "percentage": 33.334,
-                    "relatedLot": "b" * 32,
+                    "relatedLot": initial_data["lots"][1]["id"],
                 },
                 {
                     "title": "deliveryOfGoods",
@@ -450,7 +354,7 @@ class TestMultiLotTenderMilestones(unittest.TestCase):
                     "duration": {"days": 15, "type": "banking"},
                     "sequenceNumber": 0,
                     "percentage": 100,
-                    "relatedLot": "a" * 32,
+                    "relatedLot": initial_data["lots"][0]["id"],
                 },
                 {
                     "title": "deliveryOfGoods",
@@ -471,5 +375,5 @@ class TestMultiLotTenderMilestones(unittest.TestCase):
             ]
         )
 
-        tender = self.MultiLotTender(initial_data)
+        tender = create_tender_instance(self.MultiLotTender, initial_data)
         tender.validate()

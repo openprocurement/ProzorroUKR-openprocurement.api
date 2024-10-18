@@ -1,0 +1,45 @@
+POST /api/2.5/agreements/6a527caaceb94ad398f77579768a6d67/contracts/a2ac96f0669b459981b24978efb9c192/milestones?acc_token=7db1b5b8c8b3419a8f5ffea8a88b6230 HTTP/1.0
+Authorization: Bearer token
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "type": "ban",
+    "documents": [
+      {
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "milestone.doc",
+        "format": "application/msword",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/5ce8807b1c3340f39913e264387d8f38?Signature=FlXL02QnwffTbXUFIKSRvBgcZlgC9OsL058U%2FNaTy2TtsfjzhFxHPZV6ehKfidM1XcLdcI35gPMCrL4cNlN5Bw%3D%3D&KeyID=a8968c46"
+      }
+    ]
+  }
+}
+
+
+HTTP/1.0 201 Created
+Content-Type: application/json
+
+{
+  "data": {
+    "type": "ban",
+    "documents": [
+      {
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "milestone.doc",
+        "format": "application/msword",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/5ce8807b1c3340f39913e264387d8f38?Signature=h3Xve9Q40jQWKAczqvya8%2F1QKyovh%2BCCuhd2EU5WKt0Z%2FreOLgIX%2B1ErKONH%2FdxtPueIkcw3d9JJN%2BfCJUG4Cw%3D%3D&KeyID=a8968c46",
+        "language": "uk",
+        "id": "d7d49003bbc24ded9b48809c5f470d7d",
+        "datePublished": "2023-01-16T00:00:00+02:00",
+        "dateModified": "2023-01-16T00:00:00+02:00"
+      }
+    ],
+    "status": "scheduled",
+    "id": "cd5d86d574eb4a8d918cbd31d4b3ec6c",
+    "dueDate": "2023-04-16T00:00:00+03:00",
+    "dateModified": "2023-01-16T00:00:00+02:00"
+  }
+}
+

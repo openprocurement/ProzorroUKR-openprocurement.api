@@ -1,31 +1,32 @@
-PATCH /api/2.5/tenders/e5172ebc4c4c411f84f376ce6ede43b8/bids/410cb59a0945497eb61cc4461f661569/documents/181271c244124b6ba014c2833d0a8c9e?acc_token=7ba8d77208c04422b161882dc2c4b5c2 HTTP/1.0
+PATCH /api/2.5/tenders/30730028a07b4aee97ed094ebd250c58/bids/b5da67b11f7643f78cdf909b0d5c4595/documents/c8fe4f58931f46ccb98a76ee7f4138e1?acc_token=846eef8ae3ae4b00bba2d663a59ee0b5 HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 120
 Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
+
 {
   "data": {
-    "confidentialityRationale": "Only our company sells badgers with pink hair.", 
-    "confidentiality": "buyerOnly"
+    "confidentiality": "buyerOnly",
+    "confidentialityRationale": "Only our company sells badgers with pink hair."
   }
 }
 
-Response: 200 OK
-Content-Type: application/json; charset=UTF-8
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
 {
   "data": {
-    "hash": "md5:00000000000000000000000000000000", 
-    "confidentiality": "buyerOnly", 
-    "language": "uk", 
-    "format": "application/pdf", 
-    "url": "http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/e5172ebc4c4c411f84f376ce6ede43b8/bids/410cb59a0945497eb61cc4461f661569/documents/181271c244124b6ba014c2833d0a8c9e?download=462ce1c4b3c14bc68e1aa30e4abc6560", 
-    "confidentialityRationale": "Only our company sells badgers with pink hair.", 
-    "title": "Proposal_top_secrets.pdf", 
-    "documentOf": "tender", 
-    "datePublished": "2020-05-15T01:00:00+03:00", 
-    "id": "181271c244124b6ba014c2833d0a8c9e", 
-    "dateModified": "2020-05-15T01:00:00+03:00"
+    "confidentiality": "buyerOnly",
+    "confidentialityRationale": "Only our company sells badgers with pink hair.",
+    "id": "c8fe4f58931f46ccb98a76ee7f4138e1",
+    "datePublished": "2023-10-10T01:00:00+03:00",
+    "hash": "md5:00000000000000000000000000000000",
+    "title": "Proposal_top_secrets.pdf",
+    "format": "application/pdf",
+    "url": "http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/30730028a07b4aee97ed094ebd250c58/bids/b5da67b11f7643f78cdf909b0d5c4595/documents/c8fe4f58931f46ccb98a76ee7f4138e1?download=de9be10474b54e909bf8f48198108df6",
+    "documentOf": "tender",
+    "dateModified": "2023-10-10T01:00:00+03:00",
+    "language": "uk"
   }
 }
 

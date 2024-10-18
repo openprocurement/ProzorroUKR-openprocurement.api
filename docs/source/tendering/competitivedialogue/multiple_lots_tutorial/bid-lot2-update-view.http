@@ -1,59 +1,91 @@
-PATCH /api/2.5/tenders/086edc68f12d4a248ded4f9cea52e69c/bids/44e377d158fa42f3b8d4437c84bdda52?acc_token=ba937016906e447c8a960f506d237d20 HTTP/1.0
+PATCH /api/2.5/tenders/0122f7569ef34718a69b5de8643cccfd/bids/110e51882d0f47e5a0c6168c89e9595a?acc_token=e4b02cd63c0043b797c182e47876a189 HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 98
 Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
+
 {
   "data": {
-    "status": "pending", 
     "lotValues": [
       {
-        "relatedLot": "e928726a47b7461a9d8a00258123cf3d"
+        "relatedLot": "3d9bd8f913544205bad6df7a3843e883"
       }
-    ]
+    ],
+    "status": "pending"
   }
 }
 
-Response: 200 OK
-Content-Type: application/json; charset=UTF-8
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
 {
   "data": {
-    "status": "pending", 
-    "selfEligible": true, 
-    "lotValues": [
-      {
-        "relatedLot": "e928726a47b7461a9d8a00258123cf3d", 
-        "date": "2020-05-15T01:00:00+03:00", 
-        "status": "pending"
-      }
-    ], 
-    "selfQualified": true, 
+    "id": "110e51882d0f47e5a0c6168c89e9595a",
+    "date": "2023-10-10T01:01:00+03:00",
+    "submissionDate": "2023-10-10T01:01:00+03:00",
     "tenderers": [
       {
-        "contactPoint": {
-          "email": "aagt@gmail.com", 
-          "telephone": "+380 (322) 91-69-30", 
-          "name": "Андрій Олексюк"
-        }, 
-        "scale": "sme", 
-        "name": "ДКП «Книга»", 
+        "name": "ДКП «Книга»",
         "identifier": {
-          "scheme": "UA-EDR", 
-          "id": "00137226", 
+          "scheme": "UA-EDR",
+          "id": "00137226",
+          "legalName": "Державне комунальне підприємство громадського харчування «Школяр 2»",
           "uri": "http://www.sc.gov.ua/"
-        }, 
+        },
         "address": {
-          "postalCode": "79013", 
-          "countryName": "Україна", 
-          "streetAddress": "вул. Островського, 34", 
-          "region": "Львівська область", 
-          "locality": "м. Львів"
-        }
+          "streetAddress": "вул. Островського, 34",
+          "locality": "м. Львів",
+          "region": "Львівська область",
+          "postalCode": "79013",
+          "countryName": "Україна"
+        },
+        "contactPoint": {
+          "name": "Андрій Олексюк",
+          "email": "aagt@gmail.com",
+          "telephone": "+380322916930"
+        },
+        "scale": "sme"
       }
-    ], 
-    "date": "2020-05-15T01:00:00+03:00", 
-    "id": "44e377d158fa42f3b8d4437c84bdda52"
+    ],
+    "lotValues": [
+      {
+        "relatedLot": "3d9bd8f913544205bad6df7a3843e883",
+        "status": "pending",
+        "date": "2023-10-10T01:01:00+03:00"
+      }
+    ],
+    "documents": [
+      {
+        "confidentiality": "public",
+        "documentType": "proposal",
+        "id": "db2dd16eab3a49a8b074df8ae6357937",
+        "datePublished": "2023-10-10T01:00:00+03:00",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "sign.p7s",
+        "format": "sign/pkcs7-signature",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/5d1d76b0f8e3445e8a31e61f979f5573?Signature=E%2B5Iw8ryJ2jRjXPfJS8xzQxu55MCOlUOHWHlnqW1GrqI6U336XLU7%2F4AK2MTYW9FZQk%2BuH9z20shoiVWONzyAA%3D%3D&KeyID=a8968c46",
+        "documentOf": "tender",
+        "dateModified": "2023-10-10T01:00:00+03:00",
+        "language": "uk",
+        "isDescriptionDecision": false
+      },
+      {
+        "confidentiality": "public",
+        "documentType": "proposal",
+        "id": "db2dd16eab3a49a8b074df8ae6357937",
+        "datePublished": "2023-10-10T01:01:00+03:00",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "sign.p7s",
+        "format": "sign/pkcs7-signature",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/9d78f7768a524fdbb67399d5f45f3f7d?Signature=%2FQ%2BpbvHU267Zu%2BQ6Eg3es4klQ5xVF5YQN5CK9KAwJdNmSYZNmAWiocqkemox3XmQ7RuhPe1KwFcuTHVldWuUAA%3D%3D&KeyID=a8968c46",
+        "documentOf": "tender",
+        "dateModified": "2023-10-10T01:01:00+03:00",
+        "language": "uk",
+        "isDescriptionDecision": false
+      }
+    ],
+    "selfQualified": true,
+    "status": "pending"
   }
 }
 

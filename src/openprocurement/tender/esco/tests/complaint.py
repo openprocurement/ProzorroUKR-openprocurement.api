@@ -1,58 +1,53 @@
-# -*- coding: utf-8 -*-
 import unittest
 
 from openprocurement.api.tests.base import snitch
-from openprocurement.tender.belowthreshold.tests.base import test_author, test_draft_complaint
-
-from openprocurement.tender.belowthreshold.tests.complaint import TenderComplaintResourceTestMixin
+from openprocurement.tender.belowthreshold.tests.base import (
+    test_tender_below_author,
+    test_tender_below_draft_complaint,
+)
 from openprocurement.tender.belowthreshold.tests.complaint_blanks import (
-    # TenderComplaintDocumentResourceTest
-    not_found,
     create_tender_complaint_document,
+    not_found,
 )
-
-from openprocurement.tender.openua.tests.complaint import TenderUAComplaintResourceTestMixin
-from openprocurement.tender.openua.tests.complaint_blanks import (
-    # TenderComplaintDocumentResourceTest
-    patch_tender_complaint_document,
-    # TenderLotAwardComplaintResourceTest
-    create_tender_lot_complaint,
+from openprocurement.tender.esco.tests.base import (
+    BaseESCOContentWebTest,
+    test_tender_esco_bids,
+    test_tender_esco_lots,
 )
-
+from openprocurement.tender.open.tests.complaint import (
+    ComplaintObjectionMixin,
+    TenderAwardComplaintObjectionMixin,
+    TenderCancellationComplaintObjectionMixin,
+    TenderComplaintObjectionMixin,
+    TenderQualificationComplaintObjectionMixin,
+)
 from openprocurement.tender.openeu.tests.complaint_blanks import (
-    # TenderComplaintDocumentResourceTest
     put_tender_complaint_document,
 )
+from openprocurement.tender.openua.tests.complaint import (
+    CreateAwardComplaintMixin,
+    TenderUAComplaintResourceTestMixin,
+)
+from openprocurement.tender.openua.tests.complaint_blanks import (
+    patch_tender_complaint_document,
+)
 
-from openprocurement.tender.esco.tests.base import BaseESCOContentWebTest, test_lots, test_bids
 
-
-class TenderComplaintResourceTest(
-    BaseESCOContentWebTest, TenderComplaintResourceTestMixin, TenderUAComplaintResourceTestMixin
-):
+class TenderComplaintResourceTest(BaseESCOContentWebTest, TenderUAComplaintResourceTestMixin):
     initial_auth = ("Basic", ("broker", ""))
-    test_author = test_author
-
-
-class TenderLotAwardComplaintResourceTest(BaseESCOContentWebTest):
-    initial_lots = test_lots
-    test_author = test_author
-    initial_auth = ("Basic", ("broker", ""))
-
-    test_create_tender_complaint = snitch(create_tender_lot_complaint)
+    test_author = test_tender_below_author
 
 
 class TenderComplaintDocumentResourceTest(BaseESCOContentWebTest):
-
-    test_author = test_author
+    test_author = test_tender_below_author
     initial_auth = ("Basic", ("broker", ""))
 
     def setUp(self):
-        super(TenderComplaintDocumentResourceTest, self).setUp()
+        super().setUp()
         # Create complaint
         response = self.app.post_json(
             "/tenders/{}/complaints".format(self.tender_id),
-            {"data": test_draft_complaint},
+            {"data": test_tender_below_draft_complaint},
         )
         complaint = response.json["data"]
         self.complaint_id = complaint["id"]
@@ -64,11 +59,65 @@ class TenderComplaintDocumentResourceTest(BaseESCOContentWebTest):
     test_patch_tender_complaint_document = snitch(patch_tender_complaint_document)
 
 
+class TenderComplaintObjectionResourceTest(
+    BaseESCOContentWebTest,
+    TenderComplaintObjectionMixin,
+    ComplaintObjectionMixin,
+):
+    pass
+
+
+class TenderQualificationComplaintPostResourceTest(
+    BaseESCOContentWebTest,
+    TenderQualificationComplaintObjectionMixin,
+    ComplaintObjectionMixin,
+):
+    initial_status = "active.tendering"  # 'active.pre-qualification.stand-still' status sets in setUp
+    initial_bids = test_tender_esco_bids
+    initial_lots = test_tender_esco_lots
+    initial_auth = ("Basic", ("broker", ""))
+    author_data = test_tender_below_author
+
+    def setUp(self):
+        super().setUp()
+        self.create_qualification()
+
+
+class TenderAwardComplaintObjectionResourceTest(
+    BaseESCOContentWebTest,
+    CreateAwardComplaintMixin,
+    TenderAwardComplaintObjectionMixin,
+    ComplaintObjectionMixin,
+):
+    initial_status = "active.qualification"
+    initial_bids = test_tender_esco_bids
+    initial_lots = test_tender_esco_lots
+
+    def setUp(self):
+        super().setUp()
+        self.create_award()
+
+
+class TenderCancellationComplaintObjectionResourceTest(
+    BaseESCOContentWebTest,
+    TenderCancellationComplaintObjectionMixin,
+    ComplaintObjectionMixin,
+):
+
+    def setUp(self):
+        super().setUp()
+        self.set_complaint_period_end()
+        self.create_cancellation()
+
+
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(TenderComplaintDocumentResourceTest))
-    suite.addTest(unittest.makeSuite(TenderLotAwardComplaintResourceTest))
-    suite.addTest(unittest.makeSuite(TenderComplaintResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderComplaintDocumentResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderComplaintResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderComplaintObjectionResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderQualificationComplaintPostResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderAwardComplaintObjectionResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderCancellationComplaintObjectionResourceTest))
     return suite
 
 

@@ -1,31 +1,39 @@
-PATCH /api/2.5/plans/f580aa1bdcf84194995a102bc3a96d2d?acc_token=ead4319976ca4849973333da0242d440 HTTP/1.0
+PATCH /api/2.5/plans/647ea8f38f72484ea0245b71b7cd4231?acc_token=499da8e897254fb7a478ae7555785628 HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 301
 Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
+
 {
   "data": {
     "procuringEntity": {
       "identifier": {
-        "scheme": "UA-EDR", 
-        "id": "111983", 
+        "scheme": "UA-EDR",
+        "id": "111983",
         "legalName": "ДП Державне Управління Справами"
-      }, 
+      },
       "name": "ДУС"
     }
   }
 }
 
-Response: 422 Unprocessable Entity
-Content-Type: application/json; charset=UTF-8
+
+HTTP/1.0 422 Unprocessable Entity
+Content-Type: application/json
+
 {
-  "status": "error", 
+  "status": "error",
   "errors": [
     {
-      "description": "Can't update plan in 'complete' status", 
-      "location": "data", 
-      "name": "status"
+      "location": "body",
+      "name": "procuringEntity",
+      "description": {
+        "address": [
+          "This field is required."
+        ],
+        "kind": [
+          "This field is required."
+        ]
+      }
     }
   ]
 }

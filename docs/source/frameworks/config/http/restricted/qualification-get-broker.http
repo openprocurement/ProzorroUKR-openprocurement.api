@@ -1,0 +1,36 @@
+GET /api/2.5/qualifications/8e3a5dc35d454c998240d46d1abc2579 HTTP/1.0
+Authorization: Bearer brokerr
+Host: public-api-sandbox.prozorro.gov.ua
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "frameworkID": "08238232b095420687b4e273ae56d878",
+    "submissionID": "9e7c60f18fc848a2be97320340d21981",
+    "qualificationType": "dynamicPurchasingSystem",
+    "status": "pending",
+    "date": "2023-10-10T01:00:00+03:00",
+    "dateModified": "2023-10-10T01:00:00+03:00",
+    "documents": [
+      {
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "укр.doc",
+        "format": "application/msword",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/7b79a13cee8a432da99736d71b78fa04?Signature=uOzXHXf5MxZKG2NuP5QrTcPN8Ruj5bNoTZrSKemffFpnet8SkfmZHAa040aYXPjuzkKhatCU71v%2BzZEZv6RwCQ%3D%3D&KeyID=a8968c46",
+        "language": "uk",
+        "id": "e38c43db64c3439699a285ec82874d24",
+        "datePublished": "2023-10-10T01:00:00+03:00",
+        "dateModified": "2023-10-10T01:00:00+03:00"
+      }
+    ],
+    "id": "8e3a5dc35d454c998240d46d1abc2579"
+  },
+  "config": {
+    "restricted": true,
+    "qualificationComplainDuration": 0
+  }
+}
+

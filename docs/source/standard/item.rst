@@ -49,6 +49,11 @@ Schema
 
     It is mandatory to have at least one item with `ДКПП` as `scheme`.
 
+    Validation depends on:
+
+        * :ref:`NOT_REQUIRED_ADDITIONAL_CLASSIFICATION_FROM` constant
+        * :ref:`CPV_336_INN_FROM` constant (for :ref:`Tender` :ref:`Item`)
+
 :unit:
     :ref:`Unit`
 
@@ -95,6 +100,62 @@ Schema
 
     Id of related :ref:`lot`.
 
+Additionally in :ref:`pricequotation`:
+
+:profile:
+    string, required
+
+    ID for related profile
+
+
+Additional fields for :ref:`econtracting`:
+
+:attributes:
+    List of :ref:`ItemAttribute`
+
+
+.. _BidItem:
+
+BidItem
+=======
+
+Schema
+------
+
+:id:
+    string, auto-generated
+
+:description:
+    string, multilingual, required
+
+    |ocdsDescription|
+    A description of the goods, services to be provided.
+
+:unit:
+    :ref:`Unit`
+
+    |ocdsDescription|
+    Description of the unit which the good comes in e.g.  hours, kilograms.
+    Made up of a unit name, and the value of a single unit.
+
+:quantity:
+    integer
+
+    |ocdsDescription|
+    The number of units required
+
+:relatedLot:
+    string
+
+    Id of related :ref:`lot`.
+
+Additionally in :ref:`belowthreshold` :ref:`openua`, :ref:`openeu`, :ref:`open`, :ref:`competitiveordering`, :ref:`esco` and :ref:`competitivedialogue`: :ref:`pricequotation`:
+
+:product:
+    string, required
+
+    ID for related product from catalogue
+
 
 .. _Classification:
 
@@ -132,6 +193,8 @@ Schema
     A URI to identify the code. In the event individual URIs are not
     available for items in the identifier scheme this value should be left
     blank.
+
+    Regular expression for this field: ``^https?://\S+$``
 
 .. _Unit:
 

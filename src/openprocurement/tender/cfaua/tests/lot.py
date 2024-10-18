@@ -1,54 +1,49 @@
-# -*- coding: utf-8 -*-
 import unittest
+from copy import deepcopy
 
 from openprocurement.api.tests.base import snitch
-from openprocurement.tender.belowthreshold.tests.base import test_author
+from openprocurement.tender.belowthreshold.tests.base import test_tender_below_author
 from openprocurement.tender.belowthreshold.tests.lot_blanks import tender_lot_milestones
-
-
-from openprocurement.tender.cfaua.tests.base import BaseTenderContentWebTest, test_tender_data, test_lots, test_bids
-from openprocurement.tender.openeu.tests.lot_blanks import (
-    # TenderLotProcessTest
-    create_tender_bidder_invalid,
-    patch_tender_bidder,
+from openprocurement.tender.cfaua.tests.base import (
+    BaseTenderContentWebTest,
+    test_tender_cfaua_bids,
+    test_tender_cfaua_data,
+    test_tender_cfaua_lots,
 )
 from openprocurement.tender.cfaua.tests.lot_blanks import (
-    get_tender_lot,
-    get_tender_lots,
-    proc_1lot_0bid,
-    one_lot_1bid,
-    one_lot_2bid,
-    one_lot_3bid_1del,
-    one_lot_3bid_1un,
-    two_lot_3bid_1win_bug,
-    proc_1lot_1can,
-    create_tender_lot,
-    tender_lot_guarantee,
-    # TenderLotEdgeCasesTest
     claim_blocking,
-    question_blocking,
-    # TenderLotFeatureResourceTest
-    tender_value,
-    tender_features_invalid,
-    tender_lot_document,
-    one_lot_2bid_1unqualified,
-    # TenderLotFeatureBidderResourceTest
     create_tender_feature_bidder,
     create_tender_feature_bidder_invalid,
+    create_tender_lot,
+    get_tender_lot,
+    get_tender_lots,
+    one_lot_1bid,
+    one_lot_2bid_1unqualified,
     patch_tender_currency,
     patch_tender_lot,
     patch_tender_vat,
+    proc_1lot_0bid,
+    proc_1lot_1can,
+    question_blocking,
+    tender_features_invalid,
+    tender_lot_document,
+    tender_lot_guarantee,
+    tender_value,
 )
-
+from openprocurement.tender.core.tests.base import (
+    test_exclusion_criteria,
+    test_language_criteria,
+)
+from openprocurement.tender.openeu.tests.lot_blanks import patch_tender_bidder
 
 one_lot_restriction = True
 
 
 class TenderLotResourceTest(BaseTenderContentWebTest):
-
     initial_auth = ("Basic", ("broker", ""))
-    test_lots_data = test_lots  # TODO: change attribute identifier
-    initial_data = test_tender_data
+    test_lots_data = test_tender_cfaua_lots  # TODO: change attribute identifier
+    initial_data = test_tender_cfaua_data
+    initial_criteria = test_exclusion_criteria + test_language_criteria
 
     # test_create_tender_lot_invalid = None
     # test_delete_tender_lot = None
@@ -64,18 +59,18 @@ class TenderLotResourceTest(BaseTenderContentWebTest):
 
 class TenderLotEdgeCasesTest(BaseTenderContentWebTest):
     initial_auth = ("Basic", ("broker", ""))
-    initial_lots = test_lots
-    initial_bids = test_bids
-    test_author = test_author
+    initial_lots = test_tender_cfaua_lots
+    initial_bids = test_tender_cfaua_bids
+    test_author = test_tender_below_author
 
     test_question_blocking = snitch(question_blocking)
     test_claim_blocking = snitch(claim_blocking)
 
 
 class TenderLotFeatureResourceTest(BaseTenderContentWebTest):
-    initial_lots = test_lots
+    initial_lots = test_tender_cfaua_lots
     initial_auth = ("Basic", ("broker", ""))
-    initial_data = test_tender_data
+    initial_data = test_tender_cfaua_data
     invalid_feature_value = 0.4
     max_feature_value = 0.3
     sum_of_max_value_of_all_features = 0.3
@@ -86,35 +81,39 @@ class TenderLotFeatureResourceTest(BaseTenderContentWebTest):
 
 
 class TenderLotBidderResourceTest(BaseTenderContentWebTest):
-    initial_lots = test_lots
+    initial_lots = test_tender_cfaua_lots
     initial_auth = ("Basic", ("broker", ""))
-    test_bids_data = test_bids  # TODO: change attribute identifier
+    test_bids_data = test_tender_cfaua_bids  # TODO: change attribute identifier
 
-    test_create_tender_bidder_invalid = snitch(create_tender_bidder_invalid)
+    # TODO: uncomment when bid activation will be removed
+    # test_create_tender_bidder_invalid = snitch(create_tender_bidder_invalid)
     test_patch_tender_bidder = snitch(patch_tender_bidder)
 
 
 class TenderLotFeatureBidderResourceTest(BaseTenderContentWebTest):
-    initial_lots = test_lots
+    initial_lots = test_tender_cfaua_lots
     initial_auth = ("Basic", ("broker", ""))
-    initial_data = test_tender_data
-    test_bids_data = test_bids  # TODO: change attribute identifier
+    initial_data = test_tender_cfaua_data
+    test_bids_data = test_tender_cfaua_bids  # TODO: change attribute identifier
+    initial_criteria = test_exclusion_criteria + test_language_criteria
 
     def setUp(self):
-        super(TenderLotFeatureBidderResourceTest, self).setUp()
+        super().setUp()
         self.lot_id = self.initial_lots[0]["id"]
+        items = deepcopy(self.initial_data["items"])
+        items[0].update(relatedLot=self.lot_id, id="1")
         response = self.app.patch_json(
             "/tenders/{}?acc_token={}".format(self.tender_id, self.tender_token),
             {
                 "data": {
-                    "items": [{"relatedLot": self.lot_id, "id": "1"}],
+                    "items": items,
                     "features": [
                         {
                             "code": "code_item",
                             "featureOf": "item",
                             "relatedItem": "1",
-                            "title": u"item feature",
-                            "enum": [{"value": 0.01, "title": u"good"}, {"value": 0.02, "title": u"best"}],
+                            "title": "item feature",
+                            "enum": [{"value": 0.01, "title": "good"}, {"value": 0.02, "title": "best"}],
                         },
                         # {
                         #     "code": "code_lot",
@@ -135,8 +134,8 @@ class TenderLotFeatureBidderResourceTest(BaseTenderContentWebTest):
                         {
                             "code": "code_tenderer",
                             "featureOf": "tenderer",
-                            "title": u"tenderer feature",
-                            "enum": [{"value": 0.01, "title": u"good"}, {"value": 0.02, "title": u"best"}],
+                            "title": "tenderer feature",
+                            "enum": [{"value": 0.01, "title": "good"}, {"value": 0.02, "title": "best"}],
                         },
                     ],
                 }
@@ -152,9 +151,10 @@ class TenderLotFeatureBidderResourceTest(BaseTenderContentWebTest):
 
 class TenderLotProcessTest(BaseTenderContentWebTest):
     setUp = BaseTenderContentWebTest.setUp
-    test_lots_data = test_lots  # TODO: change attribute identifier
-    initial_data = test_tender_data
-    test_bids_data = test_bids  # TODO: change attribute identifier
+    test_lots_data = test_tender_cfaua_lots  # TODO: change attribute identifier
+    initial_data = test_tender_cfaua_data
+    test_bids_data = test_tender_cfaua_bids  # TODO: change attribute identifier
+    initial_criteria = test_exclusion_criteria + test_language_criteria
 
     days_till_auction_starts = 16
 
@@ -177,10 +177,10 @@ class TenderLotProcessTest(BaseTenderContentWebTest):
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(TenderLotResourceTest))
-    suite.addTest(unittest.makeSuite(TenderLotBidderResourceTest))
-    suite.addTest(unittest.makeSuite(TenderLotFeatureBidderResourceTest))
-    suite.addTest(unittest.makeSuite(TenderLotProcessTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderLotResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderLotBidderResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderLotFeatureBidderResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderLotProcessTest))
     return suite
 
 

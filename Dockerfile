@@ -1,14 +1,23 @@
-# Dockerfile is not optimized, for optimized build use werf.yml
-FROM python:2.7-slim-jessie
+FROM python:3.11-alpine3.20
 
-RUN apt-get update && apt-get install -y libsodium-dev git libevent-dev libzmq-dev libffi-dev libssl-dev gcc
+RUN apk --no-cache add gcc build-base git openssl-dev libffi-dev
+
+RUN addgroup -g 10000 user && \
+    adduser -S -u 10000 -G user -h /app user
 
 WORKDIR /app
-COPY requirements.txt /app/
-RUN pip install --upgrade pip && pip install -r requirements.txt
+COPY requirements.txt .
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
+
+# TODO: Remove for production build
+COPY requirements-test.txt .
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements-test.txt
 
 COPY . /app
 RUN pip install -e .
+
+RUN chown -R user:user /app
+USER user
 
 ENV TZ=Europe/Kiev
 ENV LANG="en_US.UTF-8"
@@ -19,4 +28,4 @@ ENV PYTHONPATH "/app/src/:${PYTHONPATH}"
 
 EXPOSE 80
 
-CMD ["chaussette", "--host", "0.0.0.0", "--port", "80", "--backend", "gevent", "paste:etc/service.ini"]
+CMD ["gunicorn", "--bind", "0.0.0.0:80", "-k", "gevent", "--paste", "/app/etc/service.ini", "--graceful-timeout=60", "--timeout=360"]

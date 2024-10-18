@@ -1,31 +1,36 @@
-POST /api/2.5/tenders/6ccc95c340c94e32bcf0b8c2183e62f7/bids/cc8919c6d27b47e89829b7c64b3a7878/documents?acc_token=ebff7d432d3d4d0a8756f67f9bb07ef5 HTTP/1.0
+POST /api/2.5/tenders/782a773bcc70490e923de940a94a5ada/bids/086af210a2bc41908a0dd9988134a118/documents?acc_token=7483e385045b4fdbbc4a88bf724bbcee HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 328
 Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
+
 {
   "data": {
-    "url": "http://public-docs-sandbox.prozorro.gov.ua/get/396c2bbf6e0c4ea1aa1292ff2f195d11?KeyID=a8968c46&Signature=cnar%2FZgM4vfn7TicnryGD60z0vXD34ooZcKdAi%2BKTOZZNVOahjEOyOo2d6LUiQvPxO%2FwfL1fB%2FBTXknWPTepCg%3D%3D", 
-    "title": "Proposal.pdf", 
-    "hash": "md5:00000000000000000000000000000000", 
-    "format": "application/pdf"
+    "title": "Proposal.p7s",
+    "url": "http://public-docs-sandbox.prozorro.gov.ua/get/e5d937aec73f4c07aec4e91e7de7d0c0?Signature=ThEuR34wf1tPqsNQroLH8otCJkwtR0BMJRBO%2BudrVDjRl85gUk6YcvjYxwBJPN0MXyGwn2jG51RrcgCPxHZHAA%3D%3D&KeyID=a8968c46",
+    "hash": "md5:00000000000000000000000000000000",
+    "format": "sign/p7s",
+    "documentType": "proposal"
   }
 }
 
-Response: 201 Created
-Content-Type: application/json; charset=UTF-8
-Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/6ccc95c340c94e32bcf0b8c2183e62f7/bids/cc8919c6d27b47e89829b7c64b3a7878/documents/b84352b9f54c4f14bf296d9b79f48ebc
+
+HTTP/1.0 201 Created
+Content-Type: application/json
+Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/782a773bcc70490e923de940a94a5ada/bids/086af210a2bc41908a0dd9988134a118/documents/b336781d876d47e281e111bf33ffd16b
+
 {
   "data": {
-    "hash": "md5:00000000000000000000000000000000", 
-    "title": "Proposal.pdf", 
-    "url": "http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/6ccc95c340c94e32bcf0b8c2183e62f7/bids/cc8919c6d27b47e89829b7c64b3a7878/documents/b84352b9f54c4f14bf296d9b79f48ebc?download=396c2bbf6e0c4ea1aa1292ff2f195d11", 
-    "format": "application/pdf", 
-    "documentOf": "tender", 
-    "datePublished": "2020-05-15T01:00:00+03:00", 
-    "id": "b84352b9f54c4f14bf296d9b79f48ebc", 
-    "dateModified": "2020-05-15T01:00:00+03:00"
+    "confidentiality": "public",
+    "documentType": "proposal",
+    "hash": "md5:00000000000000000000000000000000",
+    "title": "Proposal.p7s",
+    "format": "sign/p7s",
+    "url": "http://public-docs-sandbox.prozorro.gov.ua/get/e5d937aec73f4c07aec4e91e7de7d0c0?Signature=i1QFE0pwj%2BuQT99%2FY4GX2uZghCioK2WSMSpY6%2BMlXr1TETaF6FoXkWJE5ceSIenvOO9CMxJTx4kTn5aoga4JAw%3D%3D&KeyID=a8968c46",
+    "documentOf": "tender",
+    "language": "uk",
+    "id": "b336781d876d47e281e111bf33ffd16b",
+    "datePublished": "2023-10-10T01:00:00+03:00",
+    "dateModified": "2023-10-10T01:00:00+03:00"
   }
 }
 

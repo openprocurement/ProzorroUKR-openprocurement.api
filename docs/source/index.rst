@@ -17,7 +17,8 @@ Contents:
    tendering/index
    planning/index
    contracting/index
-   agreementcfaua/index
+   agreements/index
+   frameworks/index
    relocation/index
    medicines-registry/index
    centralized-procurements/index
@@ -25,6 +26,9 @@ Contents:
    performance
    cluster
    acceleration
+   constants
+   features/index
+   developers/index
 
 
 Indices and tables

@@ -50,10 +50,13 @@ Schema
     The date of the qualification.
 
 :documents:
-    List of :ref:`Document` objects
+    List of :ref:`ConfidentialDocument` objects
 
     Container for Qualification documentation, protocols, reasons for
     qualification or disqualification. Uploaded by tender committee.
+
+:complaints:
+    List of :ref:`Complaint` and :ref:`Claim` objects.
 
 :status:
     string

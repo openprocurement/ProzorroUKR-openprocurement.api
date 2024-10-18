@@ -1,44 +1,56 @@
-GET /api/2.5/tenders/6ccc95c340c94e32bcf0b8c2183e62f7/awards HTTP/1.0
+GET /api/2.5/tenders/782a773bcc70490e923de940a94a5ada/awards HTTP/1.0
 Authorization: Bearer broker
-Host: lb-api-sandbox.prozorro.gov.ua
+Host: public-api-sandbox.prozorro.gov.ua
 
-Response: 200 OK
-Content-Type: application/json; charset=UTF-8
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
 {
   "data": [
     {
-      "status": "pending", 
-      "lotID": "1b75c06ee58f4909a4201255b4ba5831", 
+      "id": "6671c674a42e455c887070851a9d944f",
+      "status": "pending",
+      "date": "2023-10-10T01:01:00+03:00",
+      "value": {
+        "amount": 499.0,
+        "currency": "UAH",
+        "valueAddedTaxIncluded": true
+      },
+      "weightedValue": {
+        "amount": 388.11,
+        "currency": "UAH",
+        "valueAddedTaxIncluded": true,
+        "denominator": 1.286
+      },
       "suppliers": [
         {
-          "contactPoint": {
-            "name": "Державне управління справами", 
-            "telephone": "0440000000"
-          }, 
-          "scale": "micro", 
-          "name": "Державне управління справами", 
+          "name": "Державне управління справами",
           "identifier": {
-            "scheme": "UA-EDR", 
-            "id": "00037257", 
+            "scheme": "UA-EDR",
+            "id": "00037257",
             "uri": "http://www.dus.gov.ua/"
-          }, 
+          },
           "address": {
-            "postalCode": "01220", 
-            "countryName": "Україна", 
-            "streetAddress": "вул. Банкова, 11, корпус 1", 
-            "region": "м. Київ", 
-            "locality": "м. Київ"
-          }
+            "streetAddress": "вул. Банкова, 11, корпус 1",
+            "locality": "м. Київ",
+            "region": "м. Київ",
+            "postalCode": "01220",
+            "countryName": "Україна"
+          },
+          "contactPoint": {
+            "name": "Державне управління справами",
+            "telephone": "+0440000000"
+          },
+          "scale": "micro"
         }
-      ], 
-      "bid_id": "d3401f691dc94a84ba7daa8eb8e0c4f0", 
-      "value": {
-        "currency": "UAH", 
-        "amount": 499.0, 
-        "valueAddedTaxIncluded": true
-      }, 
-      "date": "2020-05-15T01:00:00+03:00", 
-      "id": "d08a35e2285e472b96759a1401934d88"
+      ],
+      "bid_id": "5e3e02b6dd9849d98c48bf9d741a036e",
+      "lotID": "50fc7d0cb4e3423491c35387a046af42",
+      "period": {
+        "startDate": "2023-10-10T01:01:00+03:00",
+        "endDate": "2023-10-18T00:00:00+03:00"
+      }
     }
   ]
 }

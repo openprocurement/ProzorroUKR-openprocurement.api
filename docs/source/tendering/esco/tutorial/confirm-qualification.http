@@ -1,88 +1,111 @@
-PATCH /api/2.5/tenders/0aac695e27804293a2854dff7bed4be8/awards/577be693449349a8ac00a37dcd7e61ab?acc_token=82d005b2183e43fe8edbb00cc6eb36c1 HTTP/1.0
+PATCH /api/2.5/tenders/552fdec279c740ab85e2b30af7a37d37/awards/a6a73750ffe84e75bbaf483f2210cfba?acc_token=4d8039c4e08d4c278190842955a84ce4 HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 67
 Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
+
 {
   "data": {
-    "status": "active", 
-    "qualified": true, 
+    "status": "active",
+    "qualified": true,
     "eligible": true
   }
 }
 
-Response: 200 OK
-Content-Type: application/json; charset=UTF-8
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
 {
   "data": {
-    "status": "active", 
-    "eligible": true, 
+    "id": "a6a73750ffe84e75bbaf483f2210cfba",
+    "status": "active",
+    "date": "2023-10-10T01:02:01+03:00",
     "suppliers": [
       {
-        "contactPoint": {
-          "email": "soleksuk@gmail.com", 
-          "telephone": "+380 (432) 21-69-30", 
-          "name": "Сергій Олексюк"
-        }, 
-        "scale": "micro", 
-        "name": "ДКП «Школяр»", 
+        "name": "Школяр",
         "identifier": {
-          "scheme": "UA-EDR", 
-          "id": "00137256", 
+          "scheme": "UA-EDR",
+          "id": "00137256",
+          "legalName": "Державне комунальне підприємство громадського харчування «Школяр»",
           "uri": "http://www.sc.gov.ua/"
-        }, 
+        },
         "address": {
-          "postalCode": "21100", 
-          "countryName": "Україна", 
-          "streetAddress": "вул. Островського, 33", 
-          "region": "Вінницька область", 
-          "locality": "м. Вінниця"
-        }
+          "streetAddress": "вул. Островського, 33",
+          "locality": "м. Вінниця",
+          "region": "Вінницька область",
+          "postalCode": "21100",
+          "countryName": "Україна"
+        },
+        "contactPoint": {
+          "name": "Сергій Олексюк",
+          "email": "soleksuk@gmail.com",
+          "telephone": "+380432216930"
+        },
+        "scale": "micro"
       }
-    ], 
-    "complaintPeriod": {
-      "startDate": "2020-05-15T01:00:00+03:00", 
-      "endDate": "2020-05-26T00:00:00+03:00"
-    }, 
-    "bid_id": "e4528bc92c0f463ca1f661381961e106", 
+    ],
+    "bid_id": "cd1a12fedb634aa88390b3156568df61",
+    "lotID": "ce7777a3b9954a00a43ea3c722f5af5b",
+    "documents": [
+      {
+        "confidentiality": "public",
+        "documentType": "notice",
+        "id": "f8c66e011044408c831033ca95a3eb57",
+        "datePublished": "2023-10-10T01:02:01+03:00",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "sign.p7s",
+        "format": "sign/pkcs7-signature",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/648fa69612304d0194794528b84e5083?Signature=KJ1ClmcjmDJZCBplxMmtihSwgcdnV3iN%2Brq2I%2FxzO93vAcp0fzHdMzGNCQjSDzGK%2FHLc2kAM%2B9Swii5nXgJMDQ%3D%3D&KeyID=a8968c46",
+        "documentOf": "tender",
+        "dateModified": "2023-10-10T01:02:01+03:00",
+        "author": "tender_owner",
+        "language": "uk"
+      }
+    ],
+    "period": {
+      "startDate": "2023-10-10T01:02:01+03:00",
+      "endDate": "2023-10-18T00:00:00+03:00"
+    },
+    "qualified": true,
     "value": {
-      "yearlyPaymentsPercentage": 0.9, 
-      "valueAddedTaxIncluded": true, 
-      "currency": "UAH", 
-      "amount": 9065.34, 
-      "contractDuration": {
-        "days": 74, 
-        "years": 10
-      }, 
-      "amountPerformance": 829.39, 
+      "currency": "UAH",
+      "valueAddedTaxIncluded": true,
+      "amount": 9430.27,
+      "amountPerformance": 864.98,
+      "yearlyPaymentsPercentage": 0.9,
       "annualCostsReduction": [
-        500.0, 
-        1000.0, 
-        1000.0, 
-        1000.0, 
-        1000.0, 
-        1000.0, 
-        1000.0, 
-        1000.0, 
-        1000.0, 
-        1000.0, 
-        1000.0, 
-        1000.0, 
-        1000.0, 
-        1000.0, 
-        1000.0, 
-        1000.0, 
-        1000.0, 
-        1000.0, 
-        1000.0, 
-        1000.0, 
-        1000.0
-      ]
-    }, 
-    "qualified": true, 
-    "date": "2020-05-15T01:00:00+03:00", 
-    "id": "577be693449349a8ac00a37dcd7e61ab"
+        500,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000
+      ],
+      "contractDuration": {
+        "years": 10,
+        "days": 74
+      }
+    },
+    "eligible": true,
+    "complaintPeriod": {
+      "startDate": "2023-10-10T01:02:01+03:00",
+      "endDate": "2023-10-21T00:00:00+03:00"
+    }
   }
 }
 

@@ -1,61 +1,93 @@
-PATCH /api/2.5/tenders/086edc68f12d4a248ded4f9cea52e69c/bids/5c57011a1a184851aa1a971e0f443b6c?acc_token=e1acbdb735954beda3c4b55d6dffc720 HTTP/1.0
+PATCH /api/2.5/tenders/0122f7569ef34718a69b5de8643cccfd/bids/67eb57fa061f47b9836630fd4f90122a?acc_token=4d7feff188c5479ba9b421f97a1a7aa8 HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 188
 Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
+
 {
   "data": {
-    "status": "pending", 
     "lotValues": [
       {
-        "relatedLot": "e928726a47b7461a9d8a00258123cf3d", 
-        "subcontractingDetails": "ДКП «Орфей»"
+        "subcontractingDetails": "ДКП «Орфей»",
+        "relatedLot": "3d9bd8f913544205bad6df7a3843e883"
       }
-    ]
+    ],
+    "status": "pending"
   }
 }
 
-Response: 200 OK
-Content-Type: application/json; charset=UTF-8
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
 {
   "data": {
-    "status": "pending", 
-    "selfEligible": true, 
-    "lotValues": [
-      {
-        "relatedLot": "e928726a47b7461a9d8a00258123cf3d", 
-        "date": "2020-05-15T01:00:00+03:00", 
-        "status": "pending", 
-        "subcontractingDetails": "ДКП «Орфей»"
-      }
-    ], 
-    "selfQualified": true, 
+    "id": "67eb57fa061f47b9836630fd4f90122a",
+    "date": "2023-10-10T01:01:00+03:00",
+    "submissionDate": "2023-10-10T01:01:00+03:00",
     "tenderers": [
       {
-        "contactPoint": {
-          "email": "soleksuk@gmail.com", 
-          "telephone": "+380 (432) 21-69-30", 
-          "name": "Сергій Олексюк"
-        }, 
-        "scale": "micro", 
-        "name": "ДКП «Школяр»", 
+        "name": "ДКП «Школяр»",
         "identifier": {
-          "scheme": "UA-EDR", 
-          "id": "00137256", 
+          "scheme": "UA-EDR",
+          "id": "00137256",
+          "legalName": "Державне комунальне підприємство громадського харчування «Школяр»",
           "uri": "http://www.sc.gov.ua/"
-        }, 
+        },
         "address": {
-          "postalCode": "21100", 
-          "countryName": "Україна", 
-          "streetAddress": "вул. Островського, 33", 
-          "region": "Вінницька область", 
-          "locality": "м. Вінниця"
-        }
+          "streetAddress": "вул. Островського, 33",
+          "locality": "м. Вінниця",
+          "region": "Вінницька область",
+          "postalCode": "21100",
+          "countryName": "Україна"
+        },
+        "contactPoint": {
+          "name": "Сергій Олексюк",
+          "email": "soleksuk@gmail.com",
+          "telephone": "+380432216930"
+        },
+        "scale": "micro"
       }
-    ], 
-    "date": "2020-05-15T01:00:00+03:00", 
-    "id": "5c57011a1a184851aa1a971e0f443b6c"
+    ],
+    "lotValues": [
+      {
+        "relatedLot": "3d9bd8f913544205bad6df7a3843e883",
+        "subcontractingDetails": "ДКП «Орфей»",
+        "status": "pending",
+        "date": "2023-10-10T01:01:00+03:00"
+      }
+    ],
+    "documents": [
+      {
+        "confidentiality": "public",
+        "documentType": "proposal",
+        "id": "8e5745e3890d4fc5a0880b9d660d1a87",
+        "datePublished": "2023-10-10T01:00:00+03:00",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "sign.p7s",
+        "format": "sign/pkcs7-signature",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/4b252822257244ad88043516442077d2?Signature=q4ewE%2Bk5MUJVcLtUZr8D7LewQqIszknTKJFfg0mLJv42T3ZO6RoqkicMjyneSmsbtz%2BMqXevRZ81Lk%2BfAEfPDQ%3D%3D&KeyID=a8968c46",
+        "documentOf": "tender",
+        "dateModified": "2023-10-10T01:00:00+03:00",
+        "language": "uk",
+        "isDescriptionDecision": false
+      },
+      {
+        "confidentiality": "public",
+        "documentType": "proposal",
+        "id": "8e5745e3890d4fc5a0880b9d660d1a87",
+        "datePublished": "2023-10-10T01:01:00+03:00",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "sign.p7s",
+        "format": "sign/pkcs7-signature",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/d9455bb631094b518573fff998fb8a3b?Signature=F5VWBp1uR0XqLigY%2BJ7IDuf2Xt2vrjJ%2Fn9ghtfc4ClneD3xNLHCPV2LS69Q%2BMDXKp7a0FpvjEC4EKuraJddXAA%3D%3D&KeyID=a8968c46",
+        "documentOf": "tender",
+        "dateModified": "2023-10-10T01:01:00+03:00",
+        "language": "uk",
+        "isDescriptionDecision": false
+      }
+    ],
+    "selfQualified": true,
+    "status": "pending"
   }
 }
 

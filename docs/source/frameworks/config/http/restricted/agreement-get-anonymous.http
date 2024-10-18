@@ -1,0 +1,104 @@
+GET /api/2.5/agreements/84e5a3fd2a244df7af98316bcb7e4b5a HTTP/1.0
+Host: public-api-sandbox.prozorro.gov.ua
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "agreementID": "UA-2023-10-10-000001",
+    "frameworkID": "08238232b095420687b4e273ae56d878",
+    "agreementType": "dynamicPurchasingSystem",
+    "status": "active",
+    "period": {
+      "startDate": "2023-10-10T01:00:00+03:00",
+      "endDate": "2023-12-09T01:00:00+03:00"
+    },
+    "procuringEntity": {
+      "name": "Державне управління справами",
+      "identifier": {
+        "scheme": "UA-EDR",
+        "id": "00037256",
+        "legalName": "Назва організації"
+      },
+      "address": {
+        "countryName": "Україна",
+        "streetAddress": "вул. Банкова, 11, корпус 1",
+        "locality": "м. Київ",
+        "region": "м. Київ",
+        "postalCode": "01220"
+      },
+      "contactPoint": {
+        "name": "Державне управління справами",
+        "telephone": "+0440000000",
+        "email": "aa@aa.com"
+      },
+      "kind": "defense"
+    },
+    "classification": {
+      "description": "Mustard seeds",
+      "scheme": "ДК021",
+      "id": "03111600-8"
+    },
+    "additionalClassifications": [
+      {
+        "scheme": "ДК003",
+        "id": "17.21.1",
+        "description": "папір і картон гофровані, паперова й картонна тара"
+      }
+    ],
+    "contracts": [
+      {
+        "id": "98ef4c690e3242c9a78962b45048318c",
+        "qualificationID": "8e3a5dc35d454c998240d46d1abc2579",
+        "submissionID": "9e7c60f18fc848a2be97320340d21981",
+        "status": "active",
+        "suppliers": [
+          {
+            "name": "ДКП «Школяр»",
+            "scale": "micro",
+            "identifier": {
+              "scheme": "UA-EDR",
+              "id": "00137256",
+              "uri": "http://www.sc.gov.ua/",
+              "legalName": "Державне комунальне підприємство громадського харчування «Школяр»"
+            },
+            "address": {
+              "countryName": "Приховано",
+              "streetAddress": "Приховано",
+              "locality": "Приховано",
+              "region": "Приховано",
+              "postalCode": "Приховано"
+            },
+            "contactPoint": {
+              "name": "Приховано",
+              "telephone": "Приховано",
+              "email": "Приховано"
+            }
+          }
+        ],
+        "milestones": [
+          {
+            "id": "9ee9f2e3e6334b899e5ec39abb574553",
+            "status": "scheduled",
+            "type": "activation",
+            "dueDate": "2023-12-09T01:00:00+03:00",
+            "dateModified": "2023-10-10T01:00:00+03:00"
+          }
+        ],
+        "date": "2023-10-10T01:00:00+03:00"
+      }
+    ],
+    "owner": "brokerr",
+    "dateModified": "2023-10-10T01:00:00+03:00",
+    "date": "2023-10-10T01:00:00+03:00",
+    "next_check": "2023-12-09T01:00:00+03:00",
+    "dateCreated": "2023-10-10T01:00:00+03:00",
+    "id": "84e5a3fd2a244df7af98316bcb7e4b5a"
+  },
+  "config": {
+    "restricted": true
+  }
+}
+

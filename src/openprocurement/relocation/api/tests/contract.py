@@ -1,11 +1,14 @@
-# -*- coding: utf-8 -*-
 import os
 from copy import deepcopy
+from uuid import uuid4
 
 from openprocurement.api.tests.base import BaseWebTest
-from openprocurement.tender.core.tests.base import change_auth
-from openprocurement.contracting.api.tests.data import test_tender_token as test_contract_tender_token, \
-    test_contract_data
+from openprocurement.contracting.core.tests.data import (
+    test_tender_token as test_contract_tender_token,
+)
+from openprocurement.contracting.econtract.tests.data import test_contract_data
+from openprocurement.contracting.econtract.tests.utils import create_contract
+from openprocurement.tender.core.tests.utils import change_auth
 
 
 class BaseContractOwnershipChangeTest(BaseWebTest):
@@ -16,22 +19,38 @@ class BaseContractOwnershipChangeTest(BaseWebTest):
     initial_auth = ("Basic", (first_owner, ""))
 
     def setUp(self):
-        super(BaseContractOwnershipChangeTest, self).setUp()
+        super().setUp()
         self.create_contract()
 
     def create_contract(self):
         data = deepcopy(self.initial_data)
-        data["owner"] = self.first_owner
-        with change_auth(self.app, ("Basic", ("contracting", ""))):
-            response = self.app.post_json("/contracts", {"data": data})
-        self.contract = response.json["data"]
+        data['id'] = uuid4().hex
+        data['owner'] = self.first_owner
+        self.contract = create_contract(self, data)
         self.contract_id = self.contract["id"]
         response = self.app.patch_json(
-            "/contracts/{}/credentials?acc_token={}".format(self.contract_id, self.tender_token), {"data": ""}
+            f"/contracts/{self.contract_id}/credentials?acc_token={self.tender_token}", {"data": ""}
         )
         self.assertEqual(response.status, "200 OK")
         self.contract_token = response.json["access"]["token"]
         self.contract_transfer = response.json["access"]["transfer"]
+
+        # TODO: Test pending contract
+
+        response = self.app.patch_json(
+            "/contracts/{}?acc_token={}".format(self.contract_id, self.contract_token),
+            {
+                "data": {
+                    "status": "active",
+                    "period": {
+                        "startDate": "2014-01-01T00:00:00+02:00",
+                        "endDate": "2015-01-01T00:00:00+02:00",
+                    },
+                    "contractNumber": 1,
+                }
+            },
+        )
+        self.assertEqual(response.status, "200 OK")
 
 
 class ContractOwnershipChangeTest(BaseContractOwnershipChangeTest):
@@ -46,7 +65,7 @@ class ContractOwnershipChangeTest(BaseContractOwnershipChangeTest):
         self.assertEqual(response.status, "422 Unprocessable Entity")
         self.assertEqual(
             response.json["errors"],
-            [{u"description": u"This field is required.", u"location": u"body", u"name": u"transfer"}],
+            [{"description": "This field is required.", "location": "body", "name": "transfer"}],
         )
 
     def test_change_ownership(self):
@@ -86,11 +105,9 @@ class ContractOwnershipChangeTest(BaseContractOwnershipChangeTest):
         # try to use already applied transfer
         data = deepcopy(self.initial_data)
         data["owner"] = self.first_owner
-        data.pop("id")
-        with change_auth(self.app, ("Basic", ("contracting", ""))):
-            response = self.app.post_json("/contracts", {"data": data})
-        contract = response.json["data"]
-
+        data["id"] = uuid4().hex
+        data["tender_token"] = self.tender_token
+        contract = create_contract(self, data)
         response = self.app.patch_json(
             "/contracts/{}/credentials?acc_token={}".format(contract["id"], self.tender_token), {"data": ""}
         )
@@ -106,15 +123,15 @@ class ContractOwnershipChangeTest(BaseContractOwnershipChangeTest):
         self.assertEqual(response.status, "403 Forbidden")
         self.assertEqual(
             response.json["errors"],
-            [{u"description": u"Transfer already used", u"location": u"body", u"name": u"transfer"}],
+            [{"description": "Transfer already used", "location": "body", "name": "transfer"}],
         )
 
         # simulate half-applied transfer activation process (i.e. transfer
         # is successfully applied to a contract and relation is saved in transfer,
         # but contract is not stored with new credentials)
-        transfer_doc = self.db.get(transfer["id"])
+        transfer_doc = self.mongodb.transfers.get(transfer["id"])
         transfer_doc["usedFor"] = "/contracts/" + contract["id"]
-        self.db.save(transfer_doc)
+        self.mongodb.transfers.save(transfer_doc)
         with change_auth(self.app, ("Basic", (self.second_owner, ""))):
             response = self.app.post_json(
                 "/contracts/{}/ownership".format(contract["id"]),
@@ -152,7 +169,7 @@ class ContractOwnershipChangeTest(BaseContractOwnershipChangeTest):
         )
         self.assertEqual(response.status, "403 Forbidden")
         self.assertEqual(
-            response.json["errors"], [{u"description": u"Invalid transfer", u"location": u"body", u"name": u"transfer"}]
+            response.json["errors"], [{"description": "Invalid transfer", "location": "body", "name": "transfer"}]
         )
 
         response = self.app.post_json(
@@ -162,7 +179,7 @@ class ContractOwnershipChangeTest(BaseContractOwnershipChangeTest):
         )
         self.assertEqual(response.status, "403 Forbidden")
         self.assertEqual(
-            response.json["errors"], [{u"description": u"Invalid transfer", u"location": u"body", u"name": u"transfer"}]
+            response.json["errors"], [{"description": "Invalid transfer", "location": "body", "name": "transfer"}]
         )
 
     def test_accreditation_level(self):
@@ -184,9 +201,9 @@ class ContractOwnershipChangeTest(BaseContractOwnershipChangeTest):
             response.json["errors"],
             [
                 {
-                    u"description": u"Broker Accreditation level does not permit ownership change",
-                    u"location": u"ownership",
-                    u"name": u"accreditation",
+                    "description": "Broker Accreditation level does not permit ownership change",
+                    "location": "url",
+                    "name": "accreditation",
                 }
             ],
         )
@@ -211,9 +228,9 @@ class ContractOwnershipChangeTest(BaseContractOwnershipChangeTest):
             response.json["errors"],
             [
                 {
-                    u"description": u"Broker Accreditation level does not permit ownership change",
-                    u"location": u"ownership",
-                    u"name": u"mode",
+                    "description": "Broker Accreditation level does not permit ownership change",
+                    "location": "url",
+                    "name": "mode",
                 }
             ],
         )
@@ -251,9 +268,9 @@ class ContractOwnershipChangeTest(BaseContractOwnershipChangeTest):
             response.json["errors"],
             [
                 {
-                    u"description": u"Broker Accreditation level does not permit ownership change",
-                    u"location": u"ownership",
-                    u"name": u"accreditation",
+                    "description": "Broker Accreditation level does not permit ownership change",
+                    "location": "url",
+                    "name": "accreditation",
                 }
             ],
         )
@@ -276,9 +293,9 @@ class ContractOwnershipChangeTest(BaseContractOwnershipChangeTest):
             response.json["errors"],
             [
                 {
-                    u"description": u"Can't update credentials in current (terminated) contract status",
-                    u"location": u"body",
-                    u"name": u"data",
+                    "description": "Can't update credentials in current (terminated) contract status",
+                    "location": "body",
+                    "name": "data",
                 }
             ],
         )
@@ -307,9 +324,9 @@ class ContractOwnerOwnershipChangeTest(BaseContractOwnershipChangeTest):
             response.json["errors"],
             [
                 {
-                    u"description": u"Owner Accreditation level does not permit ownership change",
-                    u"location": u"ownership",
-                    u"name": u"accreditation",
+                    "description": "Owner Accreditation level does not permit ownership change",
+                    "location": "url",
+                    "name": "accreditation",
                 }
             ],
         )
@@ -322,9 +339,9 @@ class ContractOwnerOwnershipChangeTest(BaseContractOwnershipChangeTest):
         transfer = response.json["data"]
         transfer_tokens = response.json["access"]
 
-        contract_doc = self.db.get(self.contract_id)
+        contract_doc = self.mongodb.contracts.get(self.contract_id)
         contract_doc["owner"] = "deleted_broker"
-        self.db.save(contract_doc)
+        self.mongodb.contracts.save(contract_doc)
 
         with change_auth(self.app, ("Basic", (self.second_owner, ""))):
             response = self.app.post_json(
