@@ -196,14 +196,13 @@ After Release 2020-04-19
             pending; satisfied; accepted;
         }
         satisfied -> resolved;
+        edge[style=dotted];
+        draft -> pending;
         edge[style=dashed];
-        draft -> {pending,mistaken};
-        pending -> stopping;
-        accepted -> stopping;
+        draft -> mistaken;
         edge[style=bold];
         accepted -> {declined,satisfied,stopped};
         pending -> {accepted,invalid};
-        stopping -> {stopped,invalid,declined,satisfied};
     }
 
 Tutorials
@@ -257,9 +256,6 @@ Statuses
 
 :satisfied:
     Complaint is the satisfied by reviewer
-
-:stopping:
-    Complaint recalled by participant
 
 :stopped:
     Terminal status

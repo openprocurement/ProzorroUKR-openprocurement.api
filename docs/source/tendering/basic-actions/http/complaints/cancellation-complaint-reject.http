@@ -1,0 +1,87 @@
+PATCH /api/2.5/tenders/b3e50c95aba5434d9d21eb46e65d8f4d/cancellations/8b3cf6c0fad24bc1a5cf5fb05119836b/complaints/0972251759564683adc0d7cfd4d3ed84 HTTP/1.0
+Authorization: Bearer reviewer
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "status": "invalid",
+    "rejectReason": "tenderCancelled",
+    "rejectReasonDescription": "reject reason description"
+  }
+}
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "id": "0972251759564683adc0d7cfd4d3ed84",
+    "complaintID": "UA-2023-10-10-000001-a.3",
+    "date": "2023-10-10T01:00:00+03:00",
+    "status": "invalid",
+    "type": "complaint",
+    "author": {
+      "name": "ДКП «Школяр»",
+      "address": {
+        "streetAddress": "вул. Островського, 33",
+        "locality": "м. Вінниця",
+        "region": "Вінницька область",
+        "postalCode": "21100",
+        "countryName": "Україна"
+      },
+      "contactPoint": {
+        "name": "Сергій Олексюк",
+        "email": "soleksuk@gmail.com",
+        "telephone": "+380432216930"
+      },
+      "identifier": {
+        "scheme": "UA-EDR",
+        "uri": "http://www.sc.gov.ua/",
+        "id": "00137256",
+        "legalName": "ДКП «Школяр»"
+      }
+    },
+    "title": "Недостатньо інформації",
+    "description": "Умови виставлені замовником не містять достатньо інформації, щоб заявка мала сенс.",
+    "dateSubmitted": "2023-10-10T01:00:00+03:00",
+    "objections": [
+      {
+        "id": "a753022692c542589891eda1c6393624",
+        "title": "My objection",
+        "description": "Test objection",
+        "relatesTo": "cancellation",
+        "relatedItem": "8b3cf6c0fad24bc1a5cf5fb05119836b",
+        "classification": {
+          "scheme": "violation_amcu",
+          "id": "corruptionDescription",
+          "description": "test classification"
+        },
+        "requestedRemedies": [
+          {
+            "id": "a34510cceffb4f04a9763fb6c65a0cf5",
+            "type": "setAsideAward",
+            "description": "test"
+          }
+        ],
+        "arguments": [
+          {
+            "id": "81f9897d733745eca0a55fba2499f369",
+            "description": "test argument"
+          }
+        ],
+        "sequenceNumber": 1
+      }
+    ],
+    "rejectReasonDescription": "reject reason description",
+    "value": {
+      "amount": 2000.0,
+      "currency": "UAH"
+    },
+    "rejectReason": "tenderCancelled",
+    "dateDecision": "2023-10-10T01:00:00+03:00",
+    "acceptance": false
+  }
+}
+

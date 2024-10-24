@@ -1,0 +1,33 @@
+POST /api/2.5/submissions/7c37a548e4db48a0ac3c1b4d9ead2c5f/documents?acc_token=680e74861490448a9177bf199cb6395b HTTP/1.0
+Authorization: Bearer broker
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "title": "submission_docs.doc",
+    "url": "http://public-docs-sandbox.prozorro.gov.ua/get/d9006a35da3b4389bf1be5cd34a3071a?Signature=AAVs8klPItfOgpXmSLKSdPVkqkyurE0Cb6Ert1YivEQN3KXJ33xrlDNzdtvxaxnnzkmwnZThFNaJoHXuxs4%2FBQ%3D%3D&KeyID=a8968c46",
+    "hash": "md5:00000000000000000000000000000000",
+    "format": "application/msword"
+  }
+}
+
+
+HTTP/1.0 201 Created
+Content-Type: application/json
+Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/submissions/7c37a548e4db48a0ac3c1b4d9ead2c5f/documents/51eb561eb78c4fa49dad5d1097e9c7cc
+
+{
+  "data": {
+    "hash": "md5:00000000000000000000000000000000",
+    "title": "submission_docs.doc",
+    "format": "application/msword",
+    "url": "http://public-docs-sandbox.prozorro.gov.ua/get/d9006a35da3b4389bf1be5cd34a3071a?Signature=i8SHbMgp8F%2BDTPKCmPFxk0f7CTww8xsbmAdwhOky%2FgyFcAIuTveMDAT69TBjFyLOOYgdCosl%2FL%2FQ6JWzoPq%2BCA%3D%3D&KeyID=a8968c46",
+    "language": "uk",
+    "confidentiality": "public",
+    "id": "51eb561eb78c4fa49dad5d1097e9c7cc",
+    "datePublished": "2023-10-26T01:00:00+03:00",
+    "dateModified": "2023-10-26T01:00:00+03:00"
+  }
+}
+

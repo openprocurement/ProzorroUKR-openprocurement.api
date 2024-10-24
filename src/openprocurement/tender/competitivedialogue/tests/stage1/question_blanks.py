@@ -1,10 +1,7 @@
-# -*- coding: utf-8 -*-
-
-
 # CompetitiveDialogEUQuestionResourceTest
 def create_tender_question_invalid_eu(self):
     """
-      Test the creating invalid question
+    Test the creating invalid question
     """
 
     # Try create question with invalid tender_id
@@ -16,9 +13,7 @@ def create_tender_question_invalid_eu(self):
     self.assertEqual(response.status, "404 Not Found")
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"tender_id"}]
-    )
+    self.assertEqual(response.json["errors"], [{"description": "Not Found", "location": "url", "name": "tender_id"}])
 
     request_path = "/tenders/{}/questions".format(self.tender_id)
 
@@ -31,9 +26,9 @@ def create_tender_question_invalid_eu(self):
         response.json["errors"],
         [
             {
-                u"description": u"Content-Type header should be one of ['application/json']",
-                u"location": u"header",
-                u"name": u"Content-Type",
+                "description": "Content-Type header should be one of ['application/json']",
+                "location": "header",
+                "name": "Content-Type",
             }
         ],
     )
@@ -45,7 +40,7 @@ def create_tender_question_invalid_eu(self):
     self.assertEqual(response.json["status"], "error")
     self.assertEqual(
         response.json["errors"],
-        [{u"description": u"No JSON object could be decoded", u"location": u"body", u"name": u"data"}],
+        [{"description": "Expecting value: line 1 column 1 (char 0)", "location": "body", "name": "data"}],
     )
 
     # Try create question with bad json
@@ -54,7 +49,7 @@ def create_tender_question_invalid_eu(self):
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["status"], "error")
     self.assertEqual(
-        response.json["errors"], [{u"description": u"Data not available", u"location": u"body", u"name": u"data"}]
+        response.json["errors"], [{"description": "Data not available", "location": "body", "name": "data"}]
     )
 
     # Try create question with invalid json
@@ -63,7 +58,7 @@ def create_tender_question_invalid_eu(self):
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["status"], "error")
     self.assertEqual(
-        response.json["errors"], [{u"description": u"Data not available", u"location": u"body", u"name": u"data"}]
+        response.json["errors"], [{"description": "Data not available", "location": "body", "name": "data"}]
     )
 
     # Try create question without required fields
@@ -74,8 +69,8 @@ def create_tender_question_invalid_eu(self):
     self.assertEqual(
         response.json["errors"],
         [
-            {u"description": [u"This field is required."], u"location": u"body", u"name": u"author"},
-            {u"description": [u"This field is required."], u"location": u"body", u"name": u"title"},
+            {"description": ["This field is required."], "location": "body", "name": "author"},
+            {"description": ["This field is required."], "location": "body", "name": "title"},
         ],
     )
 
@@ -85,7 +80,7 @@ def create_tender_question_invalid_eu(self):
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["status"], "error")
     self.assertEqual(
-        response.json["errors"], [{u"description": u"Rogue field", u"location": u"body", u"name": u"invalid_field"}]
+        response.json["errors"], [{"description": "Rogue field", "location": "body", "name": "invalid_field"}]
     )
 
     # Try create question with invalid identifier
@@ -97,11 +92,11 @@ def create_tender_question_invalid_eu(self):
         response.json["errors"],
         [
             {
-                u"description": {
-                    u"identifier": [u"Please use a mapping for this field or Identifier instance instead of unicode."]
+                "description": {
+                    "identifier": ["Please use a mapping for this field or Identifier instance instead of str."]
                 },
-                u"location": u"body",
-                u"name": u"author",
+                "location": "body",
+                "name": "author",
             }
         ],
     )
@@ -119,14 +114,14 @@ def create_tender_question_invalid_eu(self):
         response.json["errors"],
         [
             {
-                u"description": {
-                    u"contactPoint": [u"This field is required."],
-                    u"identifier": {u"scheme": [u"This field is required."], u"id": [u"This field is required."]},
-                    u"name": [u"This field is required."],
-                    u"address": [u"This field is required."],
+                "description": {
+                    "contactPoint": ["This field is required."],
+                    "identifier": {"scheme": ["This field is required."], "id": ["This field is required."]},
+                    "name": ["This field is required."],
+                    "address": ["This field is required."],
                 },
-                u"location": u"body",
-                u"name": u"author",
+                "location": "body",
+                "name": "author",
             }
         ],
     )
@@ -150,17 +145,17 @@ def create_tender_question_invalid_eu(self):
         response.json["errors"],
         [
             {
-                u"description": {
-                    u"contactPoint": [u"This field is required."],
-                    u"identifier": {
-                        u"scheme": [u"This field is required."],
-                        u"id": [u"This field is required."],
-                        u"uri": [u"Not a well formed URL."],
+                "description": {
+                    "contactPoint": ["This field is required."],
+                    "identifier": {
+                        "scheme": ["This field is required."],
+                        "id": ["This field is required."],
+                        "uri": ["Not a well formed URL."],
                     },
-                    u"address": [u"This field is required."],
+                    "address": ["This field is required."],
                 },
-                u"location": u"body",
-                u"name": u"author",
+                "location": "body",
+                "name": "author",
             }
         ],
     )
@@ -183,7 +178,7 @@ def create_tender_question_invalid_eu(self):
     self.assertEqual(response.json["status"], "error")
     self.assertEqual(
         response.json["errors"],
-        [{u"description": [u"This field is required."], u"location": u"body", u"name": u"relatedItem"}],
+        [{"description": ["This field is required."], "location": "body", "name": "relatedItem"}],
     )
 
     # Try create question with bad relatedItem id
@@ -205,13 +200,13 @@ def create_tender_question_invalid_eu(self):
     self.assertEqual(response.json["status"], "error")
     self.assertEqual(
         response.json["errors"],
-        [{u"description": [u"relatedItem should be one of lots"], u"location": u"body", u"name": u"relatedItem"}],
+        [{"description": ["relatedItem should be one of lots"], "location": "body", "name": "relatedItem"}],
     )
 
 
 def create_tender_question_eu(self):
     """
-      Create question with many posible ways
+    Create question with many posible ways
     """
 
     # Create question, and check fields match
@@ -222,12 +217,12 @@ def create_tender_question_eu(self):
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.content_type, "application/json")
     question = response.json["data"]
-    self.assertEqual(question["author"]["name"], self.test_bids_data[0]["tenderers"][0]["name"])
+    self.assertIn("hash", question["author"])
     self.assertIn("id", question)
     self.assertIn(question["id"], response.headers["Location"])
 
     # Shift time to end of enquiry period
-    self.time_shift("enquiryPeriod_ends")
+    self.set_enquiry_period_end()
 
     # Try create question, when enquiry period end
     response = self.app.post_json(
@@ -255,7 +250,7 @@ def create_tender_question_eu(self):
 
 def get_tender_question_eu(self):
     """
-      Try get tender question
+    Try get tender question
     """
     # Create question
     response = self.app.post_json(
@@ -270,7 +265,8 @@ def get_tender_question_eu(self):
     response = self.app.get("/tenders/{}/questions/{}".format(self.tender_id, question["id"]))
     self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(set(response.json["data"]), set([u"id", u"date", u"title", u"description", u"questionOf"]))
+    self.assertEqual(set(response.json["data"]), {"id", "date", "title", "description", "questionOf", "author"})
+    self.assertEqual(set(response.json["data"]["author"]), {"hash"})
 
     # Add answer to question
     response = self.app.patch_json(
@@ -285,7 +281,7 @@ def get_tender_question_eu(self):
     question["dateAnswered"] = response.json["data"]["dateAnswered"]
 
     self.time_shift("active.pre-qualification")  # Shift time tender to status active.pre-qualification
-    self.check_chronograph()
+    response = self.check_chronograph()
 
     # Get question by token_id, and question_id
     response = self.app.get("/tenders/{}/questions/{}".format(self.tender_id, question["id"]))
@@ -298,23 +294,19 @@ def get_tender_question_eu(self):
     self.assertEqual(response.status, "404 Not Found")
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"question_id"}]
-    )
+    self.assertEqual(response.json["errors"], [{"description": "Not Found", "location": "url", "name": "question_id"}])
 
     # Try get question by bad token_id, and question_id
     response = self.app.get("/tenders/some_id/questions/some_id", status=404)
     self.assertEqual(response.status, "404 Not Found")
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"tender_id"}]
-    )
+    self.assertEqual(response.json["errors"], [{"description": "Not Found", "location": "url", "name": "tender_id"}])
 
 
 def get_tender_questions_eu(self):
     """
-      Test the get questions
+    Test the get questions
     """
     # Create question
     response = self.app.post_json(
@@ -329,7 +321,8 @@ def get_tender_questions_eu(self):
     response = self.app.get("/tenders/{}/questions".format(self.tender_id))
     self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(set(response.json["data"][0]), set([u"id", u"date", u"title", u"description", u"questionOf"]))
+    self.assertEqual(set(response.json["data"][0]), {"id", "date", "title", "description", "questionOf", "author"})
+    self.assertEqual(set(response.json["data"][0]["author"]), {"hash"})
 
     # Add answer on question
     response = self.app.patch_json(
@@ -357,6 +350,4 @@ def get_tender_questions_eu(self):
     self.assertEqual(response.status, "404 Not Found")
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"tender_id"}]
-    )
+    self.assertEqual(response.json["errors"], [{"description": "Not Found", "location": "url", "name": "tender_id"}])

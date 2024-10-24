@@ -3,39 +3,31 @@
 Tutorial
 ========
 
-Exploring basic rules
----------------------
-
-Let's try exploring the `/tenders` endpoint:
-
-.. include:: tutorial/tender-listing.http
-   :code:
-
-Just invoking it reveals empty set.
-
-Now let's attempt creating some tender:
-
-.. include:: tutorial/tender-post-attempt.http
-   :code:
-
-Error states that the only accepted Content-Type is `application/json`.
-
-Let's satisfy the Content-type requirement:
-
-.. include:: tutorial/tender-post-attempt-json.http
-   :code:
-
-Error states that no `data` has been found in JSON body.
-
-
 .. index:: Tender
+
+Configuration
+-------------
+
+The set of possible configuration values for `competitiveDialogueEU`:
+
+.. csv-table::
+   :file: csv/config-eu-stage1.csv
+   :header-rows: 1
+
+The set of possible configuration values for `competitiveDialogueUA`:
+
+.. csv-table::
+   :file: csv/config-ua-stage1.csv
+   :header-rows: 1
+
+You can look for more details in :ref:`config` section.
 
 Creating tender on first stage
 ------------------------------
 
 Let's provide the data attribute in the submitted body :
 
-.. include:: tutorial/tender-post-attempt-json-data.http
+.. http:example:: tutorial/tender-post-attempt-json-data.http
    :code:
 
 Success! Now we can see that new object was created. Response code is `201`
@@ -43,7 +35,7 @@ and `Location` response header reports the location of the created object.  The
 body of response reveals the information about the created tender: its internal
 `id` (that matches the `Location` segment), its official `tenderID` and
 `dateModified` datestamp stating the moment in time when tender was last
-modified.  Note that tender is created with `active.tendering` status.
+modified.  Note that tender is created with `draft` status.
 
 The peculiarity of the CompetitiveDialogue procedure is that ``procurementMethodType`` can be ``CompetitiveDialogueEU`` or ``CompetitiveDialogueUA``.
 
@@ -54,7 +46,7 @@ Also there is no opportunity to set up ``enquiryPeriod``, it will be assigned au
 
 Let's access the URL of the created object (the `Location` header of the response):
 
-.. include:: tutorial/blank-tender-view.http
+.. http:example:: tutorial/blank-tender-view.http
    :code:
 
 .. XXX body is empty for some reason (printf fails)
@@ -63,17 +55,48 @@ We can see the same response we got after creating tender.
 
 Let's see what listing of tenders reveals us:
 
-.. include:: tutorial/tender-listing-no-auth.http
+.. http:example:: tutorial/tender-listing-no-auth.http
    :code:
 
-We do see the internal `id` of a tender (that can be used to construct full URL by prepending `http://api-sandbox.openprocurement.org/api/0/tenders/`) and its `dateModified` datestamp.
+We don't see internal `id` of tender, because tender appears in the listing from ``active.tendering`` status.
+
+Tender can contain several different lots. We can add lot using the following way:
+
+.. http:example:: tutorial/tender-add-lot.http
+   :code:
+
+Also you will need to update data about item's related lots:
+
+.. http:example:: tutorial/tender-add-relatedLot-to-item.http
+   :code:
+
+Tender activating
+-----------------
+
+At first we needed to add EXCLUSION criteria to our tender(:ref:`About criteria you can read here<criteria_operation>`).
+
+.. http:example:: tutorial/add-exclusion-criteria.http
+   :code:
+
+After adding needed criteria we can activate our tender, so let's do that:
+
+.. http:example:: tutorial/tender-activating.http
+   :code:
+
+Let's see what listing of tenders reveals us:
+
+.. http:example:: tutorial/active-tender-listing-no-auth.http
+   :code:
+
+Now We do see the internal `id` of a tender (that can be used to construct full URL by prepending `http://api-sandbox.openprocurement.org/api/0/tenders/`) and its `dateModified` datestamp.
+
 
 Modifying tender
 ----------------
 
 Let's update tender by supplementing it with all other essential properties:
 
-.. include:: tutorial/patch-items-value-periods.http
+.. http:example:: tutorial/patch-items-value-periods.http
    :code:
 
 .. XXX body is empty for some reason (printf fails)
@@ -82,22 +105,22 @@ We see the added properies have merged with existing tender data. Additionally, 
 
 Checking the listing again reflects the new modification date:
 
-.. include:: tutorial/tender-listing-after-patch.http
+.. http:example:: tutorial/tender-listing-after-patch.http
    :code:
 
 Procuring entity can not change tender if there are less than 7 days before tenderPeriod ends. Changes will not be accepted by API.
 
-.. include:: tutorial/update-tender-after-enqiery.http
+.. http:example:: tutorial/update-tender-after-enqiery.http
    :code:
 
 That is why tenderPeriod has to be extended by 7 days.
 
-.. include:: tutorial/update-tender-after-enqiery-with-update-periods.http
+.. http:example:: tutorial/update-tender-after-enqiery-with-update-periods.http
    :code:
 
 Procuring entity can set bid guarantee:
 
-.. include:: tutorial/set-bid-guarantee.http
+.. http:example:: tutorial/set-bid-guarantee.http
    :code:
 
 
@@ -109,26 +132,26 @@ Uploading documentation
 Procuring entity can upload PDF files into the created tender. Uploading should
 follow the :ref:`upload` rules.
 
-.. include:: tutorial/upload-tender-notice.http
+.. http:example:: tutorial/upload-tender-notice.http
    :code:
 
 `201 Created` response code and `Location` header confirm document creation.
 We can additionally query the `documents` collection API endpoint to confirm the
 action:
 
-.. include:: tutorial/tender-documents.http
+.. http:example:: tutorial/tender-documents.http
    :code:
 
 
 And again we can confirm that there are two documents uploaded.
 
-.. include:: tutorial/tender-documents-2.http
+.. http:example:: tutorial/tender-documents-2.http
    :code:
 
 
 And we can see that it is overriding the original version:
 
-.. include:: tutorial/tender-documents-3.http
+.. http:example:: tutorial/tender-documents-3.http
    :code:
 
 
@@ -139,28 +162,28 @@ Enquiries
 
 When tender has ``active.tendering`` status and ``Tender.enqueryPeriod.endDate``  hasn't come yet, interested parties can ask questions:
 
-.. include:: tutorial/ask-question.http
+.. http:example:: tutorial/ask-question.http
    :code:
 
 Procuring entity can answer them:
 
-.. include:: tutorial/answer-question.http
+.. http:example:: tutorial/answer-question.http
    :code:
 
 One can retrieve either questions list:
 
-.. include:: tutorial/list-question.http
+.. http:example:: tutorial/list-question.http
    :code:
 
 or individual answer:
 
-.. include:: tutorial/get-answer.http
+.. http:example:: tutorial/get-answer.http
    :code:
 
 
 Enquiries can be made only during ``Tender.enqueryPeriod``
 
-.. include:: tutorial/ask-question-after-enquiry-period.http
+.. http:example:: tutorial/ask-question-after-enquiry-period.http
    :code:
 
 
@@ -171,36 +194,56 @@ Registering bid
 
 Tender status ``active.tendering`` allows registration of bids.
 
-Bidder can register a bid with `draft` status:
+Bidder can register a bid for lot №1 with `draft` status:
 
-.. include:: tutorial/register-bidder.http
+.. http:example:: tutorial/register-bidder.http
    :code:
 
-and approve to pending status:
+And append responses for criteria requirements:
 
-.. include:: tutorial/activate-bidder.http
+.. http:example:: tutorial/add-requirement-responses-to-bidder.http
+   :code:
+
+Then bidder should approve bid with pending status. If `tenderers.identifier.scheme = 'UA-EDR'` it is required to add sign document to bid.
+If there is no sign document during activation, we will see an error:
+
+.. http:example:: tutorial/activate-bidder-without-proposal.http
+   :code:
+
+Sign document should have `documentType: proposal` and `title: *.p7s`. Let's add such document:
+
+.. http:example:: tutorial/upload-bid-proposal.http
+   :code:
+
+Let's try to activate bid one more time:
+
+.. http:example:: tutorial/activate-bidder.http
+   :code:
+
+If we patched some fields in pending bid, then bid becomes `invalid` and should be signed one more time:
+
+.. http:example:: tutorial/patch-pending-bid.http
+   :code:
+
+If we try to activate bidder the new sign will be needed:
+
+.. http:example:: tutorial/activate-bidder-without-sign.http
    :code:
 
 Proposal Uploading
 ~~~~~~~~~~~~~~~~~~
-
-Then bidder should upload proposal technical document(s):
-
-.. include:: tutorial/upload-bid-proposal.http
-   :code:
-
 
 Document can be type descriptive decision.
 If you want that document be descriptive decision need set `isDescriptionDecision`
 
 First upload file
 
-.. include:: tutorial/upload-bid-descriptive-decision-proposal.http
+.. http:example:: tutorial/upload-bid-descriptive-decision-proposal.http
    :code:
 
 Then set `isDescriptionDecision`
 
-.. include:: tutorial/mark-bid-doc-decision-proposal.http
+.. http:example:: tutorial/mark-bid-doc-decision-proposal.http
    :code:
 
 Confidentiality
@@ -215,7 +258,7 @@ Documents can be either public or private:
 
 Let's upload private document:
 
-.. include:: tutorial/upload-bid-private-proposal.http
+.. http:example:: tutorial/upload-bid-private-proposal.http
    :code:
 
 To define the document as "private" - `confidentiality` and `confidentialityRationale` fields should be set.
@@ -228,19 +271,19 @@ Content of private documents (`buyerOnly`) can be accessed only by procuring ent
 
 Let's mark the document as "private":
 
-.. include:: tutorial/mark-bid-doc-private.http
+.. http:example:: tutorial/mark-bid-doc-private.http
    :code:
 
 When documents with parameter ``isDescriptionDecision`` set to privacy ``confidentialityRationale`` must be missed.
 
 Let's mark the document as "private":
 
-.. include:: tutorial/mark-bid-doc-decision-private.http
+.. http:example:: tutorial/mark-bid-doc-decision-private.http
    :code:
 
 It is possible to check the uploaded documents:
 
-.. include:: tutorial/bidder-documents.http
+.. http:example:: tutorial/bidder-documents.http
    :code:
 
 .. _competitivedialogue_envelopes:
@@ -251,7 +294,7 @@ Bid invalidation
 
 If tender is modified, status of all bid proposals will be changed to ``invalid``. Bid proposal will look the following way after tender has been modified:
 
-.. include:: tutorial/bidder-after-changing-tender.http
+.. http:example:: tutorial/bidder-after-changing-tender.http
    :code:
 
 Bid confirmation
@@ -259,17 +302,17 @@ Bid confirmation
 
 Bidder should confirm bid proposal:
 
-.. include:: tutorial/bidder-activate-after-changing-tender.http
+.. http:example:: tutorial/bidder-activate-after-changing-tender.http
    :code:
 
 Competitive Dialogue procedure demands at least three bidders:
 
-.. include:: tutorial/register-2nd-bidder.http
+.. http:example:: tutorial/register-2nd-bidder.http
    :code:
 
 Register two more bid:
 
-.. include:: tutorial/register-3rd-bidder.http
+.. http:example:: tutorial/register-3rd-bidder.http
    :code:
 
 Batch-mode bid registration
@@ -277,7 +320,7 @@ Batch-mode bid registration
 
 Register one more bid with documents using single request (batch-mode):
 
-.. include:: tutorial/register-4rd-bidder.http
+.. http:example:: tutorial/register-4rd-bidder.http
    :code:
 
 
@@ -291,40 +334,52 @@ Competitive Dialogue procedure requires bid qualification.
 Let's list qualifications:
 
 
-.. include:: tutorial/qualifications-listing.http
+.. http:example:: tutorial/qualifications-listing.http
    :code:
 
 Approve first three bids through qualification objects:
 
-.. include:: tutorial/approve-qualification1.http
+.. http:example:: tutorial/approve-qualification1.http
    :code:
 
-.. include:: tutorial/approve-qualification2.http
+.. http:example:: tutorial/approve-qualification2.http
    :code:
 
-.. include:: tutorial/approve-qualification4.http
+.. http:example:: tutorial/approve-qualification4.http
    :code:
 
 We can also reject bid:
 
-.. include:: tutorial/reject-qualification3.http
+.. http:example:: tutorial/reject-qualification3.http
    :code:
 
 And check that qualified bids are switched to `active`:
 
-.. include:: tutorial/qualificated-bids-view.http
+.. http:example:: tutorial/qualificated-bids-view.http
    :code:
 
 Rejected bid is not shown in `bids/` listing.
 
 We can access rejected bid by id:
 
-.. include:: tutorial/rejected-bid-view.http
+.. http:example:: tutorial/rejected-bid-view.http
    :code:
 
-Procuring entity approves qualifications by switching to next status:
+Procuring entity approves qualifications by switching to next status.
 
-.. include:: tutorial/pre-qualification-confirmation.http
+Before approving qualifications it is required to add sign document to tender. Sign doc should be added generally for tender if there is no lots. If there is no sign document during approving qualification, we will see an error:
+
+.. http:example:: tutorial/pre-qualification-sign-doc-is-required.http
+   :code:
+
+Sign document should have `documentType: evaluationReports` and `title: *.p7s`. Let's add such document:
+
+.. http:example:: tutorial/upload-evaluation-reports-doc.http
+   :code:
+
+Let's approve qualifications one more time:
+
+.. http:example:: tutorial/pre-qualification-confirmation.http
    :code:
 
 You may notice 10 day stand-still time set in `qualificationPeriod`.
@@ -337,13 +392,13 @@ When qualification period end tender will has status active.stage2.pending
 
 Lets look on your tender
 
-.. include:: tutorial/stage2-pending.http
+.. http:example:: tutorial/stage2-pending.http
    :code:
 
 
 Hoт purchasing can set that he is ready for second stage, by setting status to ``active.stage2.waiting``.
 
-.. include:: tutorial/stage2-waiting.http
+.. http:example:: tutorial/stage2-waiting.http
    :code:
 
 
@@ -354,13 +409,13 @@ When tender status is ``complete``, we can get id new stage.
 
 First lets look on tender and find field ``stage2TenderID``
 
-.. include:: tutorial/tender_stage1_complete.http
+.. http:example:: tutorial/tender_stage1_complete.http
    :code:
 
 
 Form making changes in second stage we need token
 
-.. include:: tutorial/tender_stage2_get_token.http
+.. http:example:: tutorial/tender_stage2_get_token.http
     :code:
 
 Make changes second stage
@@ -369,7 +424,7 @@ Make changes second stage
 Good, now we get token, and can make changes, so lets change status from ``draft.stage2`` to ``active.tendering``
 
 
-.. include:: tutorial/tender_stage2_modify_status.http
+.. http:example:: tutorial/tender_stage2_modify_status.http
     :code:
 
 Stage2 EU
@@ -387,80 +442,3 @@ Stage2 UA
     :maxdepth: 1
 
     tutorial_stage2UA
-
-
-Cancelling tender
------------------
-
-Tender creator can cancel tender anytime. The following steps should be applied:
-
-1. Prepare cancellation request.
-2. Fill it with the protocol describing the cancellation reasons.
-3. Passing complaint period(10 days)
-4. Cancel the tender with the prepared reasons.
-
-Only the request that has been activated (th step above) has power to
-cancel tender.  I.e.  you have to not only prepare cancellation request but
-to activate it as well.
-
-For cancelled cancellation you need to update cancellation status to `unsuccessful`
-from `draft` or `pending`.
-
-See :ref:`cancellation` data structure for details.
-
-Preparing the cancellation request
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Tender creator can cancel tender anytime (except when tender in status `active.auction` or in terminal status e.g. `unsuccessful`, `canceled`, `complete`).
-
-The following steps should be applied:
-
-There are four possible types of cancellation reason - tender was `noDemand`, `unFixable`, `forceMajeure` and `expensesCut`.
-
-`id` is autogenerated and passed in the `Location` header of response.
-
-.. include::  tutorial/prepare-cancellation.http
-   :code:
-
-You can change ``reasonType`` value to any of the above.
-
-.. include::  tutorial/update-cancellation-reasonType.http
-   :code:
-
-Filling cancellation with protocol and supplementary documentation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-This step is required. Without documents you can't update tender status.
-
-Upload the file contents
-
-.. include::  tutorial/upload-cancellation-doc.http
-   :code:
-
-Change the document description and other properties
-
-
-.. include::  tutorial/patch-cancellation.http
-   :code:
-
-Upload new version of the document
-
-
-.. include::  tutorial/update-cancellation-doc.http
-   :code:
-
-Passing Complaint Period
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-For activate complaint period, you need to update cancellation from `draft` to `pending`.
-
-.. include::  tutorial/pending-cancellation.http
-   :code:
-
-When cancellation in `pending` status the tender owner is prohibited from all actions on the tender.
-
-Activating the request and cancelling tender
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-if the complaint period(duration 10 days) is over and there were no complaints or
-all complaints are canceled, then cancellation will automatically update status to `active`.

@@ -1,0 +1,37 @@
+GET /api/2.5/submissions?opt_fields=frameworkID,status,documents HTTP/1.0
+Authorization: Bearer brokerr
+Host: public-api-sandbox.prozorro.gov.ua
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": [
+    {
+      "documents": [
+        {
+          "id": "686803c789dd4159a7b2c881e5f9de60",
+          "datePublished": "2023-10-10T01:00:00+03:00",
+          "hash": "md5:00000000000000000000000000000000",
+          "title": "укр.doc",
+          "format": "application/msword",
+          "url": "http://public-api-sandbox.prozorro.gov.ua/api/2.5/submissions/9e7c60f18fc848a2be97320340d21981/documents/686803c789dd4159a7b2c881e5f9de60?download=881d14f2c96d4d3f969444e886f17d19",
+          "dateModified": "2023-10-10T01:00:00+03:00",
+          "language": "uk",
+          "confidentiality": "public"
+        }
+      ],
+      "frameworkID": "08238232b095420687b4e273ae56d878",
+      "status": "active",
+      "dateModified": "2023-10-10T01:00:00+03:00",
+      "id": "9e7c60f18fc848a2be97320340d21981"
+    }
+  ],
+  "next_page": {
+    "offset": "1696888800.0000000006",
+    "path": "/api/2.5/submissions?opt_fields=documents%2CframeworkID%2Cstatus&offset=1696888800.0000000006",
+    "uri": "http://public-api-sandbox.prozorro.gov.ua/api/2.5/submissions?opt_fields=documents%2CframeworkID%2Cstatus&offset=1696888800.0000000006"
+  }
+}
+

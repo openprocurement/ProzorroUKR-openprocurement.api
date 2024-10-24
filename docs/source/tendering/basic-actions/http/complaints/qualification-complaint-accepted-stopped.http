@@ -1,0 +1,93 @@
+PATCH /api/2.5/tenders/d816e417c06e4dc4a33d89a4478b102f/qualifications/cc89ff18122c432eb4f5331a15969dec/complaints/a5dffa63f25c4cc49b81dd07ad4e4979 HTTP/1.0
+Authorization: Bearer reviewer
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "decision": "Тендер скасовується замовником",
+    "status": "stopped",
+    "rejectReason": "tenderCancelled"
+  }
+}
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "id": "a5dffa63f25c4cc49b81dd07ad4e4979",
+    "complaintID": "UA-2023-10-10-000001-a.5",
+    "date": "2023-10-10T01:00:01+03:00",
+    "status": "stopped",
+    "type": "complaint",
+    "relatedLot": "9fa780b5476240129cdd58b49c4d6ddf",
+    "bid_id": "86755359857c4eea9ea8f8e088f71e3b",
+    "author": {
+      "name": "ДКП «Школяр»",
+      "address": {
+        "streetAddress": "вул. Островського, 33",
+        "locality": "м. Вінниця",
+        "region": "Вінницька область",
+        "postalCode": "21100",
+        "countryName": "Україна"
+      },
+      "contactPoint": {
+        "name": "Сергій Олексюк",
+        "email": "soleksuk@gmail.com",
+        "telephone": "+380432216930"
+      },
+      "identifier": {
+        "scheme": "UA-EDR",
+        "uri": "http://www.sc.gov.ua/",
+        "id": "00137256",
+        "legalName": "ДКП «Школяр»"
+      }
+    },
+    "title": "Недостатньо інформації",
+    "description": "Умови виставлені замовником не містять достатньо інформації, щоб заявка мала сенс.",
+    "dateSubmitted": "2023-10-10T01:00:01+03:00",
+    "objections": [
+      {
+        "id": "672a12482e96403e92e931c96d2f0966",
+        "title": "My objection",
+        "description": "Test objection",
+        "relatesTo": "qualification",
+        "relatedItem": "cc89ff18122c432eb4f5331a15969dec",
+        "classification": {
+          "scheme": "violation_amcu",
+          "id": "corruptionDescription",
+          "description": "test classification"
+        },
+        "requestedRemedies": [
+          {
+            "id": "c8f8786178fb4b9c89504eda44cc550f",
+            "type": "setAsideAward",
+            "description": "test"
+          }
+        ],
+        "arguments": [
+          {
+            "id": "9351379ae19046b3b906718b58288591",
+            "description": "test argument"
+          }
+        ],
+        "sequenceNumber": 1
+      }
+    ],
+    "decision": "Тендер скасовується замовником",
+    "acceptance": true,
+    "dateAccepted": "2023-10-10T01:00:01+03:00",
+    "reviewDate": "2023-10-10T01:00:01+03:00",
+    "reviewPlace": "Place of review",
+    "value": {
+      "amount": 3000.0,
+      "currency": "UAH"
+    },
+    "rejectReason": "tenderCancelled",
+    "dateDecision": "2023-10-10T01:00:01+03:00",
+    "dateCanceled": "2023-10-10T01:00:01+03:00"
+  }
+}
+

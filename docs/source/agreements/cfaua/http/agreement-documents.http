@@ -1,0 +1,36 @@
+GET /api/2.5/agreements/b7536ab0fbe34a1dafa73fe7943ff79c/documents?acc_token=9870067ea6e64d14adf4016d24d15f0c HTTP/1.0
+Authorization: Bearer broker
+Host: public-api-sandbox.prozorro.gov.ua
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": [
+    {
+      "relatedItem": "4f32972b3cfd4f248814b2a88e8e21d6",
+      "id": "59daf3cfcf9c441281a2a215d44bfb65",
+      "datePublished": "2023-10-10T01:00:00+03:00",
+      "hash": "md5:00000000000000000000000000000000",
+      "title": "agreement_changes.doc",
+      "format": "application/msword",
+      "url": "http://public-docs-sandbox.prozorro.gov.ua/get/6c343bcdd7d241068f88138036b4e52a?Signature=cU7WXirw65OUUhuS5lZDppSTLBBAEOZ6GMLIefKy1mqh5Qe9B9T8b%2B%2BfoucGKMRZRL2%2FSJeoZWpypUlbWdU5DA%3D%3D&KeyID=a8968c46",
+      "dateModified": "2023-10-10T01:00:00+03:00",
+      "language": "uk",
+      "documentOf": "change"
+    },
+    {
+      "hash": "md5:00000000000000000000000000000000",
+      "title": "agreement.doc",
+      "format": "application/msword",
+      "url": "http://public-docs-sandbox.prozorro.gov.ua/get/11eb2dec3c4941aaa20b9f9f3242da8a?Signature=aSUaH4aKyvvHHNyDgX%2BUS92rE%2Fpy8aEUBTNaribYkkc5XyYX4awtgUD8TuwG0XeiLc87akD36sgPaPE32NZnCg%3D%3D&KeyID=a8968c46",
+      "language": "uk",
+      "documentOf": "agreement",
+      "id": "34286f7d023a4c1abd83c3bcece2707f",
+      "datePublished": "2023-10-10T01:00:00+03:00",
+      "dateModified": "2023-10-10T01:00:00+03:00"
+    }
+  ]
+}
+

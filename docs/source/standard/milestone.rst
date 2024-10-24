@@ -14,16 +14,7 @@ Schema
 :title:
     string, required
 
-    Possible values are:
-
-    * `executionOfWorks`
-    * `deliveryOfGoods`
-    * `submittingServices`
-    * `signingTheContract`
-    * `submissionDateOfApplications`
-    * `dateOfInvoicing`
-    * `endDateOfTheReportingPeriod`
-    * `anotherEvent`
+    Possible values should be from `milestones <https://prozorroukr.github.io/standards/codelists/milestones/title.json>`__ dictionaries.
 
 :description:
     string, required if title == `anotherEvent`
@@ -34,17 +25,15 @@ Schema
     The only possible value is:
 
     * `financing`
+    * `delivery`
 
 :code:
     string, required
 
-    Possible values are:
-
-    * `prepayment`
-    * `postpayment`
+    Possible values should be from `milestones <https://prozorroukr.github.io/standards/codelists/milestones/code.json>`_ dictionaries.
 
 :percentage:
-    float, required, 0..100
+    float, 0..100
 
     Sum of all tender (or lot) milestones should be 100
 
@@ -58,6 +47,48 @@ Schema
     uid
 
     Id of related :ref:`lot`.
+
+
+Milestone in :ref:`frameworks_electroniccatalogue`
+==================================================
+
+Schema
+------
+
+:id:
+    uid, auto-generated
+
+:type:
+    string, required
+
+    The only possible value is:
+
+    * `activation`
+    * `ban`
+
+:status:
+    string
+
+    The only possible value is:
+
+    * `scheduled`
+    * `met`
+    * `notMet`
+    * `partiallyMet`
+
+:dueDate:
+    string, :ref:`date`
+
+:documents:
+    List of :ref:`document` objects
+
+:dateModified:
+    string, :ref:`date`, auto-generated, read-only
+
+    The date of milestone change.
+
+:dateMet:
+    string, :ref:`date`
 
 
 .. _Duration:

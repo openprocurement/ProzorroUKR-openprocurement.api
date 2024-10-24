@@ -1,0 +1,44 @@
+POST /api/2.5/tenders/d62f91e236e14e5da1b00c2ff89b753b/criteria/947ff50dcf6549189085ee3723213288/requirement_groups/638322bdff484f88a17037ea543928bf/requirements?acc_token=b1a7c4a35e744a1c91a58030c417f5a8 HTTP/1.0
+Authorization: Bearer broker
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "dataType": "boolean",
+    "eligibleEvidences": [
+      {
+        "title": "Документальне підтвердження",
+        "description": "Довідка в довільній формі",
+        "type": "document"
+      }
+    ],
+    "expectedValue": true,
+    "title": "Фізична особа, яка є учасником процедури закупівлі, не була засуджена за злочин, учинений з корисливих мотивів (зокрема, пов'язаний з хабарництвом та відмиванням коштів), судимість з якої знято або погашено у встановленому законом порядку"
+  }
+}
+
+
+HTTP/1.0 201 Created
+Content-Type: application/json
+Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/d62f91e236e14e5da1b00c2ff89b753b/criteria/947ff50dcf6549189085ee3723213288/requirement_groups/638322bdff484f88a17037ea543928bf/requirements/48c3e0562e9444c58f0ef1e6f288df75
+
+{
+  "data": {
+    "id": "48c3e0562e9444c58f0ef1e6f288df75",
+    "title": "Фізична особа, яка є учасником процедури закупівлі, не була засуджена за злочин, учинений з корисливих мотивів (зокрема, пов'язаний з хабарництвом та відмиванням коштів), судимість з якої знято або погашено у встановленому законом порядку",
+    "dataType": "boolean",
+    "eligibleEvidences": [
+      {
+        "title": "Документальне підтвердження",
+        "description": "Довідка в довільній формі",
+        "type": "document",
+        "id": "53e7cc2f43d748f39745ba3da483c820"
+      }
+    ],
+    "status": "active",
+    "expectedValue": true,
+    "datePublished": "2023-10-10T01:00:00+03:00"
+  }
+}
+

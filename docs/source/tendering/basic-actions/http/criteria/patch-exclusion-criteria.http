@@ -1,0 +1,26 @@
+PATCH /api/2.5/tenders/d62f91e236e14e5da1b00c2ff89b753b/criteria/ed4d14635657422aa3908c23504042b9?acc_token=b1a7c4a35e744a1c91a58030c417f5a8 HTTP/1.0
+Authorization: Bearer broker
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "title": "Updated title"
+  }
+}
+
+
+HTTP/1.0 403 Forbidden
+Content-Type: application/json
+
+{
+  "status": "error",
+  "errors": [
+    {
+      "location": "body",
+      "name": "data",
+      "description": "Can't update exclusion ecriteria objects"
+    }
+  ]
+}
+

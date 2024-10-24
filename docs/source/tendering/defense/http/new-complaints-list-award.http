@@ -1,0 +1,46 @@
+GET /api/2.5/tenders/3e9fd6ac911442ae885681a8d3f842de/awards?acc_token=b7ec4924ad964a0180f3b4a7e87ca3dd HTTP/1.0
+Authorization: Bearer broker
+Host: public-api-sandbox.prozorro.gov.ua
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": [
+    {
+      "status": "pending",
+      "suppliers": [
+        {
+          "name": "Державне управління справами",
+          "identifier": {
+            "scheme": "UA-IPN",
+            "id": "00037256",
+            "legalName": "Державне управління справами",
+            "uri": "http://www.dus.gov.ua/"
+          },
+          "address": {
+            "streetAddress": "вул. Банкова, 11, корпус 1",
+            "locality": "м. Київ",
+            "region": "м. Київ",
+            "postalCode": "01220",
+            "countryName": "Україна"
+          },
+          "contactPoint": {
+            "name": "Державне управління справами",
+            "telephone": "+0440000000"
+          },
+          "scale": "micro"
+        }
+      ],
+      "bid_id": "144d20967d934033b80441760bebc161",
+      "id": "077fe45b908440a0865d8a2fea58f7b3",
+      "date": "2023-10-10T01:00:00+03:00",
+      "period": {
+        "startDate": "2023-10-10T01:00:00+03:00",
+        "endDate": "2023-10-18T00:00:00+03:00"
+      }
+    }
+  ]
+}
+

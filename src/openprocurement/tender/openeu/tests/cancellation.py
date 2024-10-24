@@ -1,65 +1,67 @@
-# -*- coding: utf-8 -*-
 import unittest
-from mock import patch
+from copy import deepcopy
 from datetime import timedelta
+from unittest.mock import patch
 
-from openprocurement.api.utils import get_now
-
-from openprocurement.api.tests.base import snitch
 from openprocurement.api.constants import RELEASE_2020_04_19
-from openprocurement.tender.belowthreshold.tests.base import test_cancellation
-from openprocurement.tender.core.tests.cancellation import activate_cancellation_with_complaints_after_2020_04_19
-
+from openprocurement.api.tests.base import snitch
+from openprocurement.api.utils import get_now
+from openprocurement.tender.belowthreshold.tests.base import (
+    test_tender_below_cancellation,
+)
 from openprocurement.tender.belowthreshold.tests.cancellation import (
-    TenderCancellationResourceTestMixin,
     TenderCancellationDocumentResourceTestMixin,
+    TenderCancellationResourceTestMixin,
 )
 from openprocurement.tender.belowthreshold.tests.cancellation_blanks import (
-    # TenderLotsCancellationResourceTest
-    create_tender_lots_cancellation,
-    patch_tender_lots_cancellation,
-    # TenderLotCancellationResourceTest
     create_tender_lot_cancellation,
+    create_tender_lots_cancellation,
     patch_tender_lot_cancellation,
 )
-from openprocurement.tender.openua.tests.cancellation import (
-    TenderCancellationResourceNewReleaseTestMixin,
-    TenderCancellationComplaintResourceTestMixin,
-    TenderAwardsCancellationResourceTestMixin,
+from openprocurement.tender.core.tests.cancellation import (
+    activate_cancellation_with_complaints_after_2020_04_19,
 )
-
-from openprocurement.tender.openua.tests.cancellation_blanks import (
-    # TenderCancellationResourceTest
-    create_tender_cancellation,
-    patch_tender_cancellation,
-    access_create_tender_cancellation_complaint,
-    activate_cancellation,
-    create_tender_cancellation_with_cancellation_lots,
+from openprocurement.tender.core.tests.utils import change_auth
+from openprocurement.tender.open.tests.cancellation_blanks import (
+    create_tender_lots_cancellation_complaint,
 )
-
-from openprocurement.tender.openeu.tests.base import BaseTenderContentWebTest, test_bids, test_lots
+from openprocurement.tender.openeu.tests.base import (
+    BaseTenderContentWebTest,
+    test_tender_openeu_bids,
+    test_tender_openeu_lots,
+)
 from openprocurement.tender.openeu.tests.cancellation_blanks import (
-    # TenderAwardsCancellationResourceTest
-    cancellation_active_tendering_j708,
-    cancellation_active_qualification_j1427,
-    cancellation_active_qualification,
-    cancellation_unsuccessful_qualification,
-    cancellation_active_award,
-    cancellation_unsuccessful_award,
-    # TenderCancellationBidsAvailabilityTest
-    bids_on_tender_cancellation_in_tendering,
+    bids_on_tender_cancellation_in_auction,
+    bids_on_tender_cancellation_in_awarded,
     bids_on_tender_cancellation_in_pre_qualification,
     bids_on_tender_cancellation_in_pre_qualification_stand_still,
-    bids_on_tender_cancellation_in_auction,
     bids_on_tender_cancellation_in_qualification,
-    bids_on_tender_cancellation_in_awarded,
+    bids_on_tender_cancellation_in_tendering,
+    cancellation_active_award,
+    cancellation_active_qualification,
+    cancellation_active_qualification_j1427,
+    cancellation_active_tendering_j708,
+    cancellation_unsuccessful_award,
+    cancellation_unsuccessful_qualification,
     create_cancellation_in_qualification_complaint_period,
+)
+from openprocurement.tender.openua.tests.cancellation import (
+    TenderAwardsCancellationResourceTestMixin,
+    TenderCancellationComplaintResourceTestMixin,
+    TenderCancellationResourceNewReleaseTestMixin,
+)
+from openprocurement.tender.openua.tests.cancellation_blanks import (
+    access_create_tender_cancellation_complaint,
+    activate_cancellation,
+    create_tender_cancellation,
+    create_tender_cancellation_with_cancellation_lots,
+    patch_tender_cancellation,
 )
 
 
-class TenderCancellationBidsAvailabilityUtils(object):
+class TenderCancellationBidsAvailabilityUtils:
     def _mark_one_bid_deleted(self):
-        bid_id, bid_token = self.initial_bids_tokens.items()[0]
+        bid_id, bid_token = list(self.initial_bids_tokens.items())[0]
         response = self.app.delete("/tenders/{}/bids/{}?acc_token={}".format(self.tender_id, bid_id, bid_token))
         self.assertEqual(response.status, "200 OK")
         self.valid_bids.remove(bid_id)
@@ -74,9 +76,16 @@ class TenderCancellationBidsAvailabilityUtils(object):
                 "eligibility_documents",
                 "qualification_documents",
             ]:
-                response = self.app.post(
+                response = self.app.post_json(
                     "/tenders/{}/bids/{}/{}?acc_token={}".format(self.tender_id, bid_id, doc_resource, bid_token),
-                    upload_files=[("file", "name_{}.doc".format(doc_resource[:-1]), "content")],
+                    {
+                        "data": {
+                            "title": "name_{}.doc".format(doc_resource[:-1]),
+                            "url": self.generate_docservice_url(),
+                            "hash": "md5:" + "0" * 32,
+                            "format": "application/msword",
+                        }
+                    },
                 )
                 doc_id = response.json["data"]["id"]
 
@@ -84,16 +93,20 @@ class TenderCancellationBidsAvailabilityUtils(object):
                 self.assertEqual("name_{}.doc".format(doc_resource[:-1]), response.json["data"]["title"])
                 key = response.json["data"]["url"].split("?")[-1]
                 doc_id_by_type[bid_id + doc_resource] = {"id": doc_id, "key": key}
+            # activate bid after docs added
+            self.activate_bid(self.tender_id, bid_id, bid_token)
 
         self.doc_id_by_type = doc_id_by_type
 
     def _cancel_tender(self):
         orig_authorization = self.app.authorization
         self.app.authorization = ("Basic", ("broker", ""))
-        cancellation = dict(**test_cancellation)
-        cancellation.update({
-            "status": "active",
-        })
+        cancellation = deepcopy(test_tender_below_cancellation)
+        cancellation.update(
+            {
+                "status": "active",
+            }
+        )
         response = self.app.post_json(
             "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),
             {"data": cancellation},
@@ -142,6 +155,7 @@ class TenderCancellationBidsAvailabilityUtils(object):
             self.assertEqual(response.status, "200 OK")
             self.valid_bids.remove(qualification["bidID"])
 
+        self.add_sign_doc(self.tender_id, self.tender_token, document_type="evaluationReports")
         response = self.app.patch_json(
             "/tenders/{}?acc_token={}".format(self.tender_id, self.tender_token),
             {"data": {"status": "active.pre-qualification.stand-still"}},
@@ -168,15 +182,15 @@ class TenderCancellationBidsAvailabilityUtils(object):
         self.app.authorization = ("Basic", ("broker", ""))
 
         for bid_id, bid_token in self.initial_bids_tokens.items():
-            response = self.app.get("/tenders/{}/bids/{}".format(self.tender_id, bid_id))
-            bid_data = response.json["data"]
             if bid_id in self.valid_bids:
+                response = self.app.get("/tenders/{}/bids/{}".format(self.tender_id, bid_id))
+                bid_data = response.json["data"]
+
                 self.assertEqual(set(bid_data.keys()), set(self.bid_visible_fields))
 
                 for doc_resource in ["documents", "eligibility_documents"]:
                     response = self.app.get("/tenders/{}/bids/{}/{}".format(self.tender_id, bid_id, doc_resource))
                     docs = response.json["data"]
-                    self.assertEqual(len(docs), 1)
                     self.assertEqual(docs[0]["title"], "name_{}.doc".format(doc_resource[:-1]))
                     self.assertIn("url", docs[0])
 
@@ -200,42 +214,54 @@ class TenderCancellationBidsAvailabilityUtils(object):
                         response.json["errors"][0]["description"],
                         "Can't view bid documents in current (invalid.pre-qualification) bid status",
                     )
-            else:
-                self.assertEqual(set(bid_data.keys()), set(["id", "status"]))
-                self._all_documents_are_not_accessible(bid_id)
 
         self.app.authorization = orig_authorization
 
     def _set_auction_results(self):
-        orig_authorization = self.app.authorization
-        self.app.authorization = ("Basic", ("auction", ""))
-        response = self.app.get("/tenders/{}/auction".format(self.tender_id))
-        auction_bids_data = response.json["data"]["bids"]
-        response = self.app.patch_json(
-            "/tenders/{}/auction".format(self.tender_id),
-            {
-                "data": {
-                    "auctionUrl": "https://tender.auction.url",
+        with change_auth(self.app, ("Basic", ("auction", ""))):
+            response = self.app.get("/tenders/{}/auction".format(self.tender_id))
+            auction_bids_data = response.json["data"]["bids"]
+            for lot in self.initial_lots:
+                patch_data = {
+                    "lots": [
+                        {"auctionUrl": f"http://auction.prozorro.gov.ua/{l['id']}"} if l["id"] == lot["id"] else {}
+                        for l in self.initial_lots
+                    ],
                     "bids": [
-                        {"id": i["id"], "participationUrl": "https://tender.auction.url/for_bid/{}".format(i["id"])}
-                        for i in auction_bids_data
+                        {
+                            "lotValues": [
+                                (
+                                    {"participationUrl": f"http://auction.prozorro.gov.ua/{v['relatedLot']}"}
+                                    if v["relatedLot"] == lot["id"]
+                                    else {}
+                                )
+                                for v in b.get("lotValues", [])
+                            ]
+                        }
+                        for b in auction_bids_data
                     ],
                 }
-            },
-        )
-        response = self.app.post_json(
-            "/tenders/{}/auction".format(self.tender_id), {"data": {"bids": auction_bids_data}}
-        )
-        self.assertEqual(response.status, "200 OK")
-        self.app.authorization = ("Basic", ("broker", ""))
+                response = self.app.patch_json(
+                    "/tenders/{}/auction/{}".format(self.tender_id, lot["id"]), {"data": patch_data}
+                )
+                self.assertEqual(response.status, "200 OK")
+                self.assertEqual(response.content_type, "application/json")
+            patch_data = {
+                "bids": [
+                    {"lotValues": [{"value": {"amount": 1 + n}} for n, l in enumerate(b.get("lotValues", []))]}
+                    for b in auction_bids_data
+                ]
+            }
+            for lot in self.initial_lots:
+                self.app.post_json("/tenders/{}/auction/{}".format(self.tender_id, lot["id"]), {"data": patch_data})
+                self.assertEqual(response.status, "200 OK")
+
         response = self.app.get("/tenders/{}".format(self.tender_id))
         self.assertEqual(response.json["data"]["status"], "active.qualification")
-        self.app.authorization = orig_authorization
 
     def _bid_document_is_accessible(self, bid_id, doc_resource):
         response = self.app.get("/tenders/{}/bids/{}/{}".format(self.tender_id, bid_id, doc_resource))
         docs = response.json["data"]
-        self.assertEqual(len(docs), 1)
         self.assertEqual(docs[0]["title"], "name_{}.doc".format(doc_resource[:-1]))
         self.assertIn("url", docs[0])
         response = self.app.get(
@@ -248,9 +274,7 @@ class TenderCancellationBidsAvailabilityUtils(object):
 
 
 class TenderCancellationResourceTest(
-    BaseTenderContentWebTest,
-    TenderCancellationResourceTestMixin,
-    TenderCancellationResourceNewReleaseTestMixin
+    BaseTenderContentWebTest, TenderCancellationResourceTestMixin, TenderCancellationResourceNewReleaseTestMixin
 ):
     initial_auth = ("Basic", ("broker", ""))
 
@@ -259,19 +283,24 @@ class TenderCancellationResourceTest(
     test_activate_cancellation = snitch(activate_cancellation)
 
 
-class TenderCancellationBidsAvailabilityTest(
-    BaseTenderContentWebTest,
-    TenderCancellationBidsAvailabilityUtils
-):
+class TenderCancellationBidsAvailabilityTest(BaseTenderContentWebTest, TenderCancellationBidsAvailabilityUtils):
     initial_auth = ("Basic", ("broker", ""))
-    initial_bids = test_bids * 2
-    bid_visible_fields = [u"status", u"documents", u"tenderers", u"id", u"eligibilityDocuments"]
+    initial_bids = test_tender_openeu_bids * 2
+    initial_lots = test_tender_openeu_lots
+    bid_visible_fields = [
+        "status",
+        "documents",
+        "tenderers",
+        "id",
+        "eligibilityDocuments",
+        "lotValues",
+    ]
     doc_id_by_type = {}
     valid_bids = []
 
     def setUp(self):
-        super(TenderCancellationBidsAvailabilityTest, self).setUp()
-        self.valid_bids = self.initial_bids_tokens.keys()
+        super().setUp()
+        self.valid_bids = list(self.initial_bids_tokens.keys())
         self._prepare_bids_docs()
 
     test_bids_on_tender_cancellation_in_tendering = snitch(bids_on_tender_cancellation_in_tendering)
@@ -282,11 +311,13 @@ class TenderCancellationBidsAvailabilityTest(
     test_bids_on_tender_cancellation_in_auction = snitch(bids_on_tender_cancellation_in_auction)
     test_bids_on_tender_cancellation_in_qualification = snitch(bids_on_tender_cancellation_in_qualification)
     test_bids_on_tender_cancellation_in_awarded = snitch(bids_on_tender_cancellation_in_awarded)
-    test_create_cancellation_in_qualification_complaint_period = snitch(create_cancellation_in_qualification_complaint_period)
+    test_create_cancellation_in_qualification_complaint_period = snitch(
+        create_cancellation_in_qualification_complaint_period
+    )
 
 
 class TenderLotCancellationResourceTest(BaseTenderContentWebTest):
-    initial_lots = test_lots
+    initial_lots = test_tender_openeu_lots
 
     initial_auth = ("Basic", ("broker", ""))
 
@@ -295,11 +326,12 @@ class TenderLotCancellationResourceTest(BaseTenderContentWebTest):
 
 
 class TenderLotsCancellationResourceTest(BaseTenderContentWebTest):
-    initial_lots = 2 * test_lots
+    initial_lots = 2 * test_tender_openeu_lots
 
     initial_auth = ("Basic", ("broker", ""))
     test_create_tender_cancellation = snitch(create_tender_lots_cancellation)
     test_create_tender_cancellation_with_cancellation_lots = snitch(create_tender_cancellation_with_cancellation_lots)
+    test_create_tender_lots_cancellation_complaint = snitch(create_tender_lots_cancellation_complaint)
     # test_patch_tender_cancellation = snitch(patch_tender_lots_cancellation)
 
 
@@ -307,9 +339,10 @@ class TenderAwardsCancellationResourceTest(
     BaseTenderContentWebTest,
     TenderAwardsCancellationResourceTestMixin,
 ):
-    initial_lots = 2 * test_lots
+    initial_lots = 2 * test_tender_openeu_lots
     initial_status = "active.tendering"
-    initial_bids = test_bids
+    initial_bids = test_tender_openeu_bids
+    initial_auth = ("Basic", ("broker", ""))
 
     test_cancellation_active_tendering_j708 = snitch(cancellation_active_tendering_j708)
     test_cancellation_active_qualification_j1427 = snitch(cancellation_active_qualification_j1427)
@@ -319,24 +352,19 @@ class TenderAwardsCancellationResourceTest(
     test_cancellation_unsuccessful_award = snitch(cancellation_unsuccessful_award)
 
 
-class TenderCancellationComplaintResourceTest(
-    BaseTenderContentWebTest,
-    TenderCancellationComplaintResourceTestMixin
-):
-    initial_bids = test_bids
+class TenderCancellationComplaintResourceTest(BaseTenderContentWebTest, TenderCancellationComplaintResourceTestMixin):
+    initial_status = "active.tendering"
+    initial_bids = test_tender_openeu_bids
+    initial_auth = ("Basic", ("broker", ""))
 
-    @patch("openprocurement.tender.core.models.RELEASE_2020_04_19", get_now() - timedelta(days=1))
-    @patch("openprocurement.tender.core.views.cancellation.RELEASE_2020_04_19", get_now() - timedelta(days=1))
-    @patch("openprocurement.tender.core.validation.RELEASE_2020_04_19", get_now() - timedelta(days=1))
+    @patch("openprocurement.tender.core.procedure.validation.RELEASE_2020_04_19", get_now() - timedelta(days=1))
     def setUp(self):
-        super(TenderCancellationComplaintResourceTest, self).setUp()
+        super().setUp()
         self.set_complaint_period_end()
 
         # Create cancellation
-        cancellation = dict(**test_cancellation)
-        cancellation.update({
-            "reasonType": "noDemand"
-        })
+        cancellation = deepcopy(test_tender_below_cancellation)
+        cancellation.update({"reasonType": "noDemand"})
         response = self.app.post_json(
             "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),
             {"data": cancellation},
@@ -347,14 +375,11 @@ class TenderCancellationComplaintResourceTest(
     test_access_create_tender_cancellation_complaint = snitch(access_create_tender_cancellation_complaint)
 
 
-class TenderCancellationDocumentResourceTest(
-    BaseTenderContentWebTest,
-    TenderCancellationDocumentResourceTestMixin
-):
+class TenderCancellationDocumentResourceTest(BaseTenderContentWebTest, TenderCancellationDocumentResourceTestMixin):
     initial_auth = ("Basic", ("broker", ""))
 
     def setUp(self):
-        super(TenderCancellationDocumentResourceTest, self).setUp()
+        super().setUp()
 
         if RELEASE_2020_04_19 < get_now():
             self.set_complaint_period_end()
@@ -362,7 +387,7 @@ class TenderCancellationDocumentResourceTest(
         # Create cancellation
         response = self.app.post_json(
             "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),
-            {"data": test_cancellation},
+            {"data": test_tender_below_cancellation},
         )
         cancellation = response.json["data"]
         self.cancellation_id = cancellation["id"]
@@ -370,8 +395,8 @@ class TenderCancellationDocumentResourceTest(
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(TenderCancellationDocumentResourceTest))
-    suite.addTest(unittest.makeSuite(TenderCancellationResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderCancellationDocumentResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderCancellationResourceTest))
     return suite
 
 

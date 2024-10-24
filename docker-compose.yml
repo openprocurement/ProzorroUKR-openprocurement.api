@@ -7,26 +7,44 @@ services:
     environment:
       SANDBOX_MODE: 'True'
     depends_on:
-      - couchdb
-    volumes:
-      - "./src:/app/src:delegated"
-      - "./docs:/app/docs:delegated"
-    ports:
-      - "8000:80"
-    command: sleep infinity
-  test:
-    build:
-      context: .
-      dockerfile: DockerfileTest
-    depends_on:
-      - couchdb
+      - mongo
     volumes:
       - "./src/openprocurement:/app/src/openprocurement:delegated"
       - "./docs:/app/docs:delegated"
-  couchdb:
-    image: "couchdb:1.6"
-    environment:
-      COUCHDB_USER: op
-      COUCHDB_PASSWORD: op
+      - "./etc:/app/etc:delegated"
     ports:
-      - "5984:5984"
+      - "8000:80"
+    command: ["gunicorn", "--bind", "0.0.0.0:80", "-k", "gevent", "--paste", "etc/service.ini", "--graceful-timeout=60", "--timeout=3600"]
+
+  mongo:
+    image: 'bitnami/mongodb:4.4.10'
+    environment:
+      MONGODB_ROOT_PASSWORD: example
+      MONGODB_ADVERTISED_HOSTNAME: mongo
+      MONGODB_REPLICA_SET_MODE: primary
+      MONGODB_REPLICA_SET_NAME: rs0
+      MONGODB_REPLICA_SET_KEY: replicaSetKey
+    ports:
+      - 27017:27017
+
+#  replica:
+#    image: 'bitnami/mongodb:latest'
+#    environment:
+#      MONGODB_INITIAL_PRIMARY_ROOT_PASSWORD: example
+#      MONGODB_INITIAL_PRIMARY_HOST: mongo
+#      MONGODB_REPLICA_SET_MODE: secondary
+#      MONGODB_REPLICA_SET_NAME: rs0
+#      MONGODB_REPLICA_SET_KEY: replicaSetKey
+#    depends_on:
+#      - mongo
+
+#  mongo-express:
+#    image: mongo-express
+#    depends_on:
+#      - mongo
+#    environment:
+#      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+#      ME_CONFIG_MONGODB_ADMINPASSWORD: example
+#      ME_CONFIG_MONGODB_SERVER: mongo
+#    ports:
+#      - 8081:8081

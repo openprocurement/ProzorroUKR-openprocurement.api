@@ -1,0 +1,61 @@
+GET /api/2.5/submissions/9e7c60f18fc848a2be97320340d21981 HTTP/1.0
+Host: public-api-sandbox.prozorro.gov.ua
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "tenderers": [
+      {
+        "name": "ДКП «Школяр»",
+        "scale": "micro",
+        "identifier": {
+          "scheme": "UA-EDR",
+          "id": "00137256",
+          "uri": "http://www.sc.gov.ua/",
+          "legalName": "Державне комунальне підприємство громадського харчування «Школяр»"
+        },
+        "address": {
+          "countryName": "Приховано",
+          "streetAddress": "Приховано",
+          "locality": "Приховано",
+          "region": "Приховано",
+          "postalCode": "Приховано"
+        },
+        "contactPoint": {
+          "name": "Приховано",
+          "telephone": "Приховано",
+          "email": "Приховано"
+        }
+      }
+    ],
+    "documents": [
+      {
+        "id": "686803c789dd4159a7b2c881e5f9de60",
+        "datePublished": "2023-10-10T01:00:00+03:00",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "Приховано",
+        "format": "application/msword",
+        "url": "Приховано",
+        "dateModified": "2023-10-10T01:00:00+03:00",
+        "language": "uk",
+        "confidentiality": "public"
+      }
+    ],
+    "frameworkID": "08238232b095420687b4e273ae56d878",
+    "status": "active",
+    "dateModified": "2023-10-10T01:00:00+03:00",
+    "date": "2023-10-10T01:00:00+03:00",
+    "owner": "brokerr",
+    "submissionType": "dynamicPurchasingSystem",
+    "qualificationID": "8e3a5dc35d454c998240d46d1abc2579",
+    "datePublished": "2023-10-10T01:00:00+03:00",
+    "id": "9e7c60f18fc848a2be97320340d21981"
+  },
+  "config": {
+    "restricted": true
+  }
+}
+

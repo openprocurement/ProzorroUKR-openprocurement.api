@@ -1,46 +1,43 @@
-# -*- coding: utf-8 -*-
 import unittest
-from mock import patch
 from datetime import timedelta
+from unittest.mock import patch
 
-from openprocurement.api.utils import get_now
-from openprocurement.api.tests.base import snitch
 from openprocurement.api.constants import RELEASE_2020_04_19
-
-from openprocurement.tender.belowthreshold.tests.base import test_lots, test_cancellation
-from openprocurement.tender.belowthreshold.tests.cancellation import (
-    TenderCancellationResourceTestMixin,
-    TenderCancellationDocumentResourceTestMixin,
+from openprocurement.api.tests.base import snitch
+from openprocurement.api.utils import get_now
+from openprocurement.tender.belowthreshold.tests.base import (
+    test_tender_below_cancellation,
+    test_tender_below_lots,
 )
-from openprocurement.tender.belowthreshold.tests.cancellation_blanks import (
-    # TenderCancellationResourceTest
+from openprocurement.tender.belowthreshold.tests.cancellation import (
+    TenderCancellationDocumentResourceTestMixin,
+    TenderCancellationResourceTestMixin,
+)
+from openprocurement.tender.belowthreshold.tests.cancellation_blanks import (  # TenderCancellationResourceTest; TenderLotCancellationResourceTest; TenderLotsCancellationResourceTest
     create_tender_cancellation,
-    patch_tender_cancellation,
-    # TenderLotCancellationResourceTest
     create_tender_lot_cancellation,
-    patch_tender_lot_cancellation,
-    # TenderLotsCancellationResourceTest
     create_tender_lots_cancellation,
+    patch_tender_cancellation,
+    patch_tender_lot_cancellation,
     patch_tender_lots_cancellation,
 )
-from openprocurement.tender.openua.tests.base import test_bids
 from openprocurement.tender.openua.tests.cancellation import (
-    TenderCancellationResourceNewReleaseTestMixin,
     TenderCancellationComplaintResourceTestMixin,
+    TenderCancellationResourceNewReleaseTestMixin,
 )
 from openprocurement.tender.openua.tests.cancellation_blanks import (
     access_create_tender_cancellation_complaint,
     activate_cancellation,
     create_tender_cancellation_with_cancellation_lots,
 )
-
-from openprocurement.tender.openuadefense.tests.base import BaseTenderUAContentWebTest
+from openprocurement.tender.openuadefense.tests.base import (
+    BaseTenderUAContentWebTest,
+    test_tender_openuadefense_bids,
+)
 
 
 class TenderCancellationResourceTest(
-    BaseTenderUAContentWebTest,
-    TenderCancellationResourceTestMixin,
-    TenderCancellationResourceNewReleaseTestMixin
+    BaseTenderUAContentWebTest, TenderCancellationResourceTestMixin, TenderCancellationResourceNewReleaseTestMixin
 ):
     valid_reasonType_choices = ["noDemand", "unFixable", "expensesCut"]
 
@@ -50,42 +47,34 @@ class TenderCancellationResourceTest(
 
 
 class TenderLotCancellationResourceTest(BaseTenderUAContentWebTest):
-    initial_lots = test_lots
+    initial_lots = test_tender_below_lots
 
     test_create_tender_cancellation = snitch(create_tender_lot_cancellation)
     test_patch_tender_cancellation = snitch(patch_tender_lot_cancellation)
 
 
 class TenderLotsCancellationResourceTest(BaseTenderUAContentWebTest):
-    initial_lots = 2 * test_lots
+    initial_lots = 2 * test_tender_below_lots
 
     test_create_tender_cancellation = snitch(create_tender_lots_cancellation)
     test_patch_tender_cancellation = snitch(patch_tender_lots_cancellation)
     test_create_tender_cancellation_with_cancellation_lots = snitch(create_tender_cancellation_with_cancellation_lots)
 
 
-class TenderCancellationComplaintResourceTest(
-    BaseTenderUAContentWebTest,
-    TenderCancellationComplaintResourceTestMixin
-):
-    initial_bids = test_bids
+class TenderCancellationComplaintResourceTest(BaseTenderUAContentWebTest, TenderCancellationComplaintResourceTestMixin):
+    initial_bids = test_tender_openuadefense_bids
 
-    @patch("openprocurement.tender.core.models.RELEASE_2020_04_19", get_now() - timedelta(days=1))
-    @patch("openprocurement.tender.core.views.cancellation.RELEASE_2020_04_19", get_now() - timedelta(days=1))
-    @patch("openprocurement.tender.core.validation.RELEASE_2020_04_19", get_now() - timedelta(days=1))
+    @patch("openprocurement.tender.core.procedure.validation.RELEASE_2020_04_19", get_now() - timedelta(days=1))
     def setUp(self):
-        super(TenderCancellationComplaintResourceTest, self).setUp()
+        super().setUp()
         # Create cancellation
 
         self.set_complaint_period_end()
 
-        cancellation = dict(**test_cancellation)
-        cancellation.update({
-            "reasonType": "noDemand"
-        })
+        test_tender_below_cancellation.update({"reasonType": "noDemand"})
         response = self.app.post_json(
             "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),
-            {"data": cancellation},
+            {"data": test_tender_below_cancellation},
         )
         cancellation = response.json["data"]
         self.cancellation_id = cancellation["id"]
@@ -93,12 +82,9 @@ class TenderCancellationComplaintResourceTest(
     test_access_create_tender_cancellation_complaint = snitch(access_create_tender_cancellation_complaint)
 
 
-class TenderCancellationDocumentResourceTest(
-    BaseTenderUAContentWebTest,
-    TenderCancellationDocumentResourceTestMixin
-):
+class TenderCancellationDocumentResourceTest(BaseTenderUAContentWebTest, TenderCancellationDocumentResourceTestMixin):
     def setUp(self):
-        super(TenderCancellationDocumentResourceTest, self).setUp()
+        super().setUp()
 
         if RELEASE_2020_04_19 < get_now():
             self.set_complaint_period_end()
@@ -106,7 +92,7 @@ class TenderCancellationDocumentResourceTest(
         # Create cancellation
         response = self.app.post_json(
             "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),
-            {"data": test_cancellation},
+            {"data": test_tender_below_cancellation},
         )
         cancellation = response.json["data"]
         self.cancellation_id = cancellation["id"]
@@ -114,8 +100,8 @@ class TenderCancellationDocumentResourceTest(
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(TenderCancellationDocumentResourceTest))
-    suite.addTest(unittest.makeSuite(TenderCancellationResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderCancellationDocumentResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderCancellationResourceTest))
     return suite
 
 

@@ -1,20 +1,24 @@
-GET /api/2.5/tenders/e5172ebc4c4c411f84f376ce6ede43b8/agreements/85b5a0dd7da441c08eb664e2412cc5d5/documents HTTP/1.0
+GET /api/2.5/tenders/30730028a07b4aee97ed094ebd250c58/agreements/b996fbc0afc54062aac0fbaa492eb9e0/documents HTTP/1.0
 Authorization: Bearer broker
-Host: lb-api-sandbox.prozorro.gov.ua
+Host: public-api-sandbox.prozorro.gov.ua
 
-Response: 200 OK
-Content-Type: application/json; charset=UTF-8
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
 {
   "data": [
     {
-      "hash": "md5:00000000000000000000000000000000", 
-      "title": "agreement_first_document.doc", 
-      "url": "http://public-docs-sandbox.prozorro.gov.ua/get/9a798ae84f1245279847a0383649333a?KeyID=a8968c46&Signature=Oy4In%2FIXmvZq5pCOBlM%2Fiq91zMKTq%252B%2FyqlgZ5A3Sm7bEeu1n%2Fw6ASH9b8zyJt2Gi%252B484%2FPTOYpsRPBnV9RpfCA%253D%253D", 
-      "format": "application/msword", 
-      "documentOf": "tender", 
-      "datePublished": "2020-05-15T01:00:00+03:00", 
-      "id": "e846fc10d0b24aa38e445012b9287be5", 
-      "dateModified": "2020-05-15T01:00:00+03:00"
+      "confidentiality": "public",
+      "hash": "md5:00000000000000000000000000000000",
+      "title": "agreement_first_document.doc",
+      "format": "application/msdoc",
+      "url": "http://public-docs-sandbox.prozorro.gov.ua/get/633d2c4405c7411c964a2f74bef204a7?Signature=2FPFBDAzfNSjUJaNN2kihHCxVudB2V0CD6h50sD7W1ycSlcAAXwRxoJBUbxf5xayR7FIx2%2B1bw8tl8s0jqACBQ%3D%3D&KeyID=a8968c46",
+      "documentOf": "tender",
+      "language": "uk",
+      "id": "98985d798dfd435094a925ea3451931b",
+      "datePublished": "2023-10-10T01:02:01+03:00",
+      "dateModified": "2023-10-10T01:02:01+03:00"
     }
   ]
 }

@@ -1,19 +1,21 @@
 GET /api/2.5/tenders?opt_pretty=1 HTTP/1.0
-Host: lb-api-sandbox.prozorro.gov.ua
+Host: public-api-sandbox.prozorro.gov.ua
 
-Response: 200 OK
-Content-Type: application/json; charset=UTF-8
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
 {
-  "next_page": {
-    "path": "/api/2.5/tenders?offset=2020-05-15T01%3A00%3A00%2B03%3A00", 
-    "uri": "http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders?offset=2020-05-15T01%3A00%3A00%2B03%3A00", 
-    "offset": "2020-05-15T01:00:00+03:00"
-  }, 
   "data": [
     {
-      "id": "0cd37a4798fe40d1b45324a394f61c9f", 
-      "dateModified": "2020-05-15T01:00:00+03:00"
+      "dateModified": "2023-10-10T01:00:00+03:00",
+      "id": "57baff7abc454a00be404f9f6ba19f64"
     }
-  ]
+  ],
+  "next_page": {
+    "offset": "1696888800.0000000004",
+    "path": "/api/2.5/tenders?offset=1696888800.0000000004",
+    "uri": "http://public-api-sandbox.prozorro.gov.ua/api/2.5/tenders?offset=1696888800.0000000004"
+  }
 }
 

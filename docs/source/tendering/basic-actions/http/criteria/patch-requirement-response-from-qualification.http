@@ -1,0 +1,85 @@
+PATCH /api/2.5/tenders/e8ac48a7259d4badb25eaebe193c8a4a/qualifications/5e7250d3a3f143eba6e5278524327429?acc_token=289610ea5a9b448e9b44db767a3ca67f HTTP/1.0
+Authorization: Bearer broker
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "requirementResponses": [
+      {
+        "title": "Requirement response 1",
+        "description": "some description",
+        "requirement": {
+          "id": "e24e1b05b98145c49f557d3c3a9eec59",
+          "title": "Тендерна пропозиція подана учасником конкурентної процедури закупівлі або участь у переговорній процедурі бере учасник, який є пов'язаною особою з іншими учасниками процедури закупівлі та/або з уповноваженою особою (особами), та/або з керівником замовника"
+        },
+        "evidences": [
+          {
+            "title": "Requirement response",
+            "relatedDocument": {
+              "id": "a486651eeba943fcbf37de360d534430",
+              "title": "name.doc"
+            },
+            "type": "document"
+          }
+        ],
+        "value": true
+      }
+    ]
+  }
+}
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "requirementResponses": [
+      {
+        "title": "Requirement response 1",
+        "description": "some description",
+        "requirement": {
+          "id": "e24e1b05b98145c49f557d3c3a9eec59",
+          "title": "Тендерна пропозиція подана учасником конкурентної процедури закупівлі або участь у переговорній процедурі бере учасник, який є пов'язаною особою з іншими учасниками процедури закупівлі та/або з уповноваженою особою (особами), та/або з керівником замовника"
+        },
+        "evidences": [
+          {
+            "title": "Requirement response",
+            "type": "document",
+            "relatedDocument": {
+              "id": "a486651eeba943fcbf37de360d534430",
+              "title": "name.doc"
+            },
+            "id": "5b7940f94d40421398e798324e8edb59"
+          }
+        ],
+        "value": true,
+        "id": "36ca732bafe842678f0252070c17bf51"
+      }
+    ],
+    "id": "5e7250d3a3f143eba6e5278524327429",
+    "bidID": "1e5a862911ab40f98c27427d3a3c1320",
+    "lotID": "290d1c910a734651b728c7f3f4eac72a",
+    "status": "pending",
+    "date": "2023-10-10T01:00:00+03:00",
+    "documents": [
+      {
+        "confidentiality": "public",
+        "id": "a486651eeba943fcbf37de360d534430",
+        "datePublished": "2023-10-10T01:00:00+03:00",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "name.doc",
+        "format": "application/msword",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/c0e9ce2d85214717a9a8c36a8b8ead0e?Signature=wvbBm%2F5ovppg8BizL%2FmRQ1N5zsdTrC4p1vL%2FbZ5gGWdUSvfpnyw3jbH1FpYdqAEonMC%2FFLjWUPSi5dLPNvbcAQ%3D%3D&KeyID=a8968c46",
+        "documentOf": "tender",
+        "dateModified": "2023-10-10T01:00:00+03:00",
+        "author": "tender_owner",
+        "language": "uk"
+      }
+    ],
+    "qualified": false,
+    "eligible": false
+  }
+}
+

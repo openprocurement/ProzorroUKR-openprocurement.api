@@ -1,41 +1,36 @@
-# -*- coding: utf-8 -*-
 import unittest
 
 from openprocurement.api.tests.base import snitch
-
-from openprocurement.tender.belowthreshold.tests.base import test_lots, test_author
-from openprocurement.tender.belowthreshold.tests.question import TenderQuestionResourceTestMixin
+from openprocurement.tender.belowthreshold.tests.base import (
+    test_tender_below_author,
+    test_tender_below_lots,
+)
+from openprocurement.tender.belowthreshold.tests.question import (
+    TenderQuestionResourceTestMixin,
+)
 from openprocurement.tender.belowthreshold.tests.question_blanks import (
-    # TenderQuestionResourceTest
-    patch_tender_question,
-    # TenderLotQuestionResourceTest
+    create_tender_question,
     lot_create_tender_question,
     lot_patch_tender_question,
     lot_patch_tender_question_lots_none,
+    patch_tender_question,
 )
-
 from openprocurement.tender.openua.tests.question_blanks import (
-    # TenderQuestionResourceTest
-    create_tender_question,
-    # TenderLotQuestionResourceTest
-    tender_has_unanswered_questions,
-    lot_has_unanswered_questions,
     item_has_unanswered_questions,
+    lot_has_unanswered_questions,
+    tender_has_unanswered_questions,
 )
-
 from openprocurement.tender.openuadefense.tests.base import BaseTenderUAContentWebTest
 
 
 class TenderQuestionResourceTest(BaseTenderUAContentWebTest, TenderQuestionResourceTestMixin):
-
     test_create_tender_question = snitch(create_tender_question)
     test_patch_tender_question = snitch(patch_tender_question)
 
 
 class TenderLotQuestionResourceTest(BaseTenderUAContentWebTest):
-
-    initial_lots = 2 * test_lots
-    author_data = test_author
+    initial_lots = 2 * test_tender_below_lots
+    author_data = test_tender_below_author
 
     def create_question_for(self, questionOf, relatedItem):
         response = self.app.post_json(
@@ -46,7 +41,7 @@ class TenderLotQuestionResourceTest(BaseTenderUAContentWebTest):
                     "description": "question description",
                     "questionOf": questionOf,
                     "relatedItem": relatedItem,
-                    "author": test_author,
+                    "author": test_tender_below_author,
                 }
             },
         )
@@ -63,8 +58,8 @@ class TenderLotQuestionResourceTest(BaseTenderUAContentWebTest):
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(TenderQuestionResourceTest))
-    suite.addTest(unittest.makeSuite(TenderLotQuestionResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderQuestionResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderLotQuestionResourceTest))
     return suite
 
 

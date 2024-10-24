@@ -1,0 +1,98 @@
+PATCH /api/2.5/tenders/d816e417c06e4dc4a33d89a4478b102f/qualifications/cc89ff18122c432eb4f5331a15969dec/complaints/cebe355f90434f498ed10306128fc635 HTTP/1.0
+Authorization: Bearer bot
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "status": "pending"
+  }
+}
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "id": "cebe355f90434f498ed10306128fc635",
+    "complaintID": "UA-2023-10-10-000001-a.1",
+    "date": "2023-10-10T01:00:01+03:00",
+    "status": "pending",
+    "documents": [
+      {
+        "confidentiality": "public",
+        "id": "f77930ef917a412886575918c07704a1",
+        "datePublished": "2023-10-10T01:00:01+03:00",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "Complaint_Attachment.pdf",
+        "format": "application/pdf",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/4f4338770f5d44ce84251ce3d6a8f0a4?Signature=EwzKj917ojXxFNkQ4ZSk5IMQEcXsDa%2BhfkjgF84WKomRiP0BG%2FRGPFaXLSJwZgB5cBbPK5WI219Npt6B0xY4CA%3D%3D&KeyID=a8968c46",
+        "documentOf": "tender",
+        "dateModified": "2023-10-10T01:00:01+03:00",
+        "author": "complaint_owner",
+        "language": "uk"
+      }
+    ],
+    "type": "complaint",
+    "relatedLot": "9fa780b5476240129cdd58b49c4d6ddf",
+    "bid_id": "86755359857c4eea9ea8f8e088f71e3b",
+    "author": {
+      "name": "ДКП «Школяр»",
+      "address": {
+        "streetAddress": "вул. Островського, 33",
+        "locality": "м. Вінниця",
+        "region": "Вінницька область",
+        "postalCode": "21100",
+        "countryName": "Україна"
+      },
+      "contactPoint": {
+        "name": "Сергій Олексюк",
+        "email": "soleksuk@gmail.com",
+        "telephone": "+380432216930"
+      },
+      "identifier": {
+        "scheme": "UA-EDR",
+        "uri": "http://www.sc.gov.ua/",
+        "id": "00137256",
+        "legalName": "ДКП «Школяр»"
+      }
+    },
+    "title": "Недостатньо інформації",
+    "description": "Умови виставлені замовником не містять достатньо інформації, щоб заявка мала сенс.",
+    "objections": [
+      {
+        "id": "3c441dbba9af4ede99647d1949d2d9b0",
+        "title": "My objection",
+        "description": "Test objection",
+        "relatesTo": "qualification",
+        "relatedItem": "cc89ff18122c432eb4f5331a15969dec",
+        "classification": {
+          "scheme": "violation_amcu",
+          "id": "corruptionDescription",
+          "description": "test classification"
+        },
+        "requestedRemedies": [
+          {
+            "id": "7b6c79ad149442809c88ce6f59500fff",
+            "type": "setAsideAward",
+            "description": "test"
+          }
+        ],
+        "arguments": [
+          {
+            "id": "de77e8c9f14745069bb33a7dbc80cad3",
+            "description": "test argument"
+          }
+        ],
+        "sequenceNumber": 1
+      }
+    ],
+    "value": {
+      "amount": 3000.0,
+      "currency": "UAH"
+    },
+    "dateSubmitted": "2023-10-10T01:00:01+03:00"
+  }
+}
+

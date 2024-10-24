@@ -1,0 +1,78 @@
+PATCH /api/2.5/tenders/14be9ab9e27d4db8aed4f62d015d0a56/awards/b8fb3660bde84144b43165b9834128f5?acc_token=3e7eb9dbf94945df86ba3402d00ee7c7 HTTP/1.0
+Authorization: Bearer broker
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "status": "cancelled"
+  }
+}
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/14be9ab9e27d4db8aed4f62d015d0a56/awards/274c06e363a74c2baaff5d1ff22fb498
+
+{
+  "data": {
+    "id": "b8fb3660bde84144b43165b9834128f5",
+    "status": "cancelled",
+    "date": "2023-10-10T01:00:01+03:00",
+    "value": {
+      "amount": 500.0,
+      "currency": "UAH",
+      "valueAddedTaxIncluded": true
+    },
+    "suppliers": [
+      {
+        "name": "Державне управління справами",
+        "identifier": {
+          "scheme": "UA-IPN",
+          "id": "00037256",
+          "legalName": "Державне управління справами",
+          "uri": "http://www.dus.gov.ua/"
+        },
+        "address": {
+          "streetAddress": "вул. Банкова, 11, корпус 1",
+          "locality": "м. Київ",
+          "region": "м. Київ",
+          "postalCode": "01220",
+          "countryName": "Україна"
+        },
+        "contactPoint": {
+          "name": "Державне управління справами",
+          "telephone": "+0440000000"
+        },
+        "scale": "micro"
+      }
+    ],
+    "bid_id": "7e8035c3c6b44b569d9088da434a9df1",
+    "complaintPeriod": {
+      "startDate": "2023-10-10T01:00:00+03:00",
+      "endDate": "2023-10-10T01:00:00+03:00"
+    },
+    "documents": [
+      {
+        "confidentiality": "public",
+        "documentType": "notice",
+        "id": "3fc54dc75be640e0bdafe6d76ef5a8cd",
+        "datePublished": "2023-10-10T01:00:00+03:00",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "sign.p7s",
+        "format": "sign/pkcs7-signature",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/a112352fe2eb47028ff2061a7e0a4cb0?Signature=r0jmi9AJKVaH2mvOOo56a7J6eqeB0RdcGsLPDWG3icMuJIyT%2B%2BpDaDWzmVlvXmYK2iOZT%2B3Nz8vFvkYD6y69CA%3D%3D&KeyID=a8968c46",
+        "documentOf": "tender",
+        "dateModified": "2023-10-10T01:00:00+03:00",
+        "author": "tender_owner",
+        "language": "uk"
+      }
+    ],
+    "period": {
+      "startDate": "2023-10-10T01:00:00+03:00",
+      "endDate": "2023-10-18T00:00:00+03:00"
+    },
+    "qualified": true
+  }
+}
+

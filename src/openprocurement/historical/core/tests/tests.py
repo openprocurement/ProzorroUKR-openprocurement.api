@@ -1,39 +1,42 @@
-# -*- coding: utf-8 -*-
-import unittest
 import os
+import unittest
 from copy import deepcopy
 from uuid import uuid4
-from pyramid.testing import DummyRequest
-from pyramid import testing
-from openprocurement.api.auth import AuthenticationPolicy, check_accreditations, authenticated_role
-from pyramid.authorization import ACLAuthorizationPolicy
-from pyramid.events import NewRequest, ContextFound
+
 from jsonpointer import resolve_pointer
+from pyramid import testing
+from pyramid.authorization import ACLAuthorizationPolicy
+from pyramid.events import ContextFound, NewRequest
+from pyramid.renderers import JSONP
+from pyramid.testing import DummyRequest
 from webtest import TestApp
-from openprocurement.historical.core.constants import VERSION, HASH, PREVIOUS_HASH
-from openprocurement.historical.core.utils import Root, add_responce_headers, parse_hash, extract_doc, HasRequestMethod
 
 import openprocurement.api.tests
+from openprocurement.api.auth import (
+    AuthenticationPolicy,
+    authenticated_role,
+    check_accreditations,
+)
 from openprocurement.api.subscribers import add_logging_context, set_logging_context
-from openprocurement.historical.core.tests.utils import mock_doc, Db
+from openprocurement.historical.core.constants import HASH, PREVIOUS_HASH, VERSION
+from openprocurement.historical.core.tests.utils import Db, mock_doc
+from openprocurement.historical.core.utils import (
+    HasRequestMethod,
+    add_responce_headers,
+    extract_doc,
+    parse_hash,
+)
 
-
-db = Db()
+mongodb = Db()
 
 
 class HistoricalUtilsTestCase(unittest.TestCase):
     def _make_req(self):
         req = DummyRequest()
-        req.registry.db = db
+        req.registry.mongodb = mongodb
         req.matchdict["doc_id"] = mock_doc.id
         req.validated = {}
         return req
-
-    def test_root(self):
-        req = self._make_req()
-        root = Root(req)
-        self.assertEqual(req.registry.db, root.db)
-        self.assertEqual(req, root.request)
 
     def test_parse_hash(self):
         _hash = ""
@@ -99,8 +102,6 @@ class HistoricalUtilsTestCase(unittest.TestCase):
 
 class HistoricalResourceTestCase(unittest.TestCase):
     def setUp(self):
-        from pyramid.renderers import JSONP
-
         self.config = testing.setUp()
         self.config.add_renderer("jsonp", JSONP(param_name="callback"))
         self.config.include("cornice")
@@ -113,7 +114,7 @@ class HistoricalResourceTestCase(unittest.TestCase):
         self.config.add_request_method(authenticated_role, reify=True)
         self.config.include("openprocurement.historical.core.includeme.includeme")
 
-        self.config.registry.db = db
+        self.config.registry.mongodb = mongodb
 
         self.authn_policy = AuthenticationPolicy(
             "{}/auth.ini".format(os.path.dirname(os.path.abspath(openprocurement.api.tests.__file__))), __name__
@@ -121,7 +122,7 @@ class HistoricalResourceTestCase(unittest.TestCase):
         self.config.set_authentication_policy(self.authn_policy)
         self.config.scan("openprocurement.historical.core.tests.utils")
         self.app = TestApp(self.config.make_wsgi_app())
-        self.app.authorization = ("Basic", ("broker", ""))
+        self.app.authorization = ("Basic", ("brokerh", ""))
 
     def tearDown(self):
         testing.tearDown()
@@ -130,9 +131,7 @@ class HistoricalResourceTestCase(unittest.TestCase):
         resp = self.app.get("/mock/{}/historical".format("invalid"), status=404)
         self.assertEqual(resp.status, "404 Not Found")
         self.assertEqual(resp.json["status"], "error")
-        self.assertEqual(
-            resp.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"mock_id"}]
-        )
+        self.assertEqual(resp.json["errors"], [{"description": "Not Found", "location": "url", "name": "mock_id"}])
 
     def test_base_view_called(self):
         resp = self.app.get("/mock/{}/historical".format(mock_doc.id))
@@ -160,13 +159,12 @@ class HistoricalResourceTestCase(unittest.TestCase):
         self.assertEqual(resp.status, "200 OK")
 
     def test_get_header_invalid(self):
-
         for header in ["0", "-1", "asdsf", "10000000"]:
             resp = self.app.get("/mock/{}/historical".format(mock_doc.id), headers={"X-Revision-N": header}, status=404)
             self.assertEqual(resp.status, "404 Not Found")
             self.assertEqual(resp.json["status"], "error")
             self.assertEqual(
-                resp.json["errors"], [{u"description": u"Not Found", u"location": u"header", u"name": u"version"}]
+                resp.json["errors"], [{"description": "Not Found", "location": "header", "name": "version"}]
             )
 
     def test_route_not_found(self):
@@ -174,9 +172,7 @@ class HistoricalResourceTestCase(unittest.TestCase):
 
         response = self.app.get("/mock/{}/historical".format(mock_doc.id), status=404)
         self.assertEqual(response.status, "404 Not Found")
-        self.assertEqual(
-            response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"mock_id"}]
-        )
+        self.assertEqual(response.json["errors"], [{"description": "Not Found", "location": "url", "name": "mock_id"}])
 
     def test_responce_header_present(self):
         resp = self.app.get("/mock/{}/historical".format(mock_doc.id))
@@ -203,7 +199,7 @@ class HistoricalResourceTestCase(unittest.TestCase):
         self.assertEqual(response.status, "501 Not Implemented")
         self.assertEqual(
             response.json["errors"],
-            [{u"description": u"Not Implemented", u"location": u"tender", u"name": u"revision"}],
+            [{"description": "Not Implemented", "location": "body", "name": "revision"}],
         )
 
     def test_hash_not_found(self):
@@ -216,9 +212,7 @@ class HistoricalResourceTestCase(unittest.TestCase):
             status=404,
         )
         self.assertEqual(response.status, "404 Not Found")
-        self.assertEqual(
-            response.json["errors"], [{u"description": u"Not Found", u"location": u"header", u"name": u"hash"}]
-        )
+        self.assertEqual(response.json["errors"], [{"description": "Not Found", "location": "header", "name": "hash"}])
 
     def test_get_version_by_date(self):
         # The date is longer than the date of modification
@@ -230,7 +224,7 @@ class HistoricalResourceTestCase(unittest.TestCase):
         self.assertEqual(response.status, "404 Not Found")
         self.assertEqual(response.json["status"], "error")
         self.assertEqual(
-            response.json["errors"], [{u"description": u"Not Found", u"location": u"header", u"name": u"version"}]
+            response.json["errors"], [{"description": "Not Found", "location": "header", "name": "version"}]
         )
         # Date is less than the date of create the tender
         response = self.app.get(
@@ -241,7 +235,7 @@ class HistoricalResourceTestCase(unittest.TestCase):
         self.assertEqual(response.status, "404 Not Found")
         self.assertEqual(response.json["status"], "error")
         self.assertEqual(
-            response.json["errors"], [{u"description": u"Not Found", u"location": u"header", u"name": u"version"}]
+            response.json["errors"], [{"description": "Not Found", "location": "header", "name": "version"}]
         )
 
         # The correct date to search
@@ -288,7 +282,7 @@ class HistoricalResourceTestCase(unittest.TestCase):
 
         self.assertEqual(response.status, "404 Not Found")
         self.assertEqual(
-            response.json["errors"], [{u"description": u"Not Found", u"location": u"header", u"name": u"version"}]
+            response.json["errors"], [{"description": "Not Found", "location": "header", "name": "version"}]
         )
 
         response = self.app.get(
@@ -310,14 +304,14 @@ class HistoricalResourceTestCase(unittest.TestCase):
             status=404,
         )
         self.assertEqual(
-            response.json["errors"], [{u"description": u"Not Found", u"location": u"header", u"name": u"version"}]
+            response.json["errors"], [{"description": "Not Found", "location": "header", "name": "version"}]
         )
 
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(HistoricalUtilsTestCase))
-    suite.addTest(unittest.makeSuite(HistoricalResourceTestCase))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(HistoricalUtilsTestCase))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(HistoricalResourceTestCase))
     return suite
 
 

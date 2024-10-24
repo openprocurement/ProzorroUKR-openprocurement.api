@@ -1,11 +1,12 @@
-# -*- coding: utf-8 -*-
 import os
 from copy import deepcopy
 
 from openprocurement.api.tests.base import BaseWebTest
-from openprocurement.tender.core.tests.base import change_auth
-from openprocurement.agreement.cfaua.tests.data import test_tender_token as test_agreement_tender_token, \
-    test_agreement_data
+from openprocurement.framework.cfaua.tests.data import test_agreement_data
+from openprocurement.framework.cfaua.tests.data import (
+    test_tender_token as test_agreement_tender_token,
+)
+from openprocurement.tender.core.tests.utils import change_auth
 
 
 class BaseAgreementOwnershipChangeTest(BaseWebTest):
@@ -16,7 +17,7 @@ class BaseAgreementOwnershipChangeTest(BaseWebTest):
     initial_auth = ("Basic", (first_owner, ""))
 
     def setUp(self):
-        super(BaseAgreementOwnershipChangeTest, self).setUp()
+        super().setUp()
         self.create_agreement()
 
     def create_agreement(self):
@@ -46,7 +47,7 @@ class AgreementOwnershipChangeTest(BaseAgreementOwnershipChangeTest):
         self.assertEqual(response.status, "422 Unprocessable Entity")
         self.assertEqual(
             response.json["errors"],
-            [{u"description": u"This field is required.", u"location": u"body", u"name": u"transfer"}],
+            [{"description": "This field is required.", "location": "body", "name": "transfer"}],
         )
 
     def test_change_ownership(self):
@@ -106,15 +107,15 @@ class AgreementOwnershipChangeTest(BaseAgreementOwnershipChangeTest):
         self.assertEqual(response.status, "403 Forbidden")
         self.assertEqual(
             response.json["errors"],
-            [{u"description": u"Transfer already used", u"location": u"body", u"name": u"transfer"}],
+            [{"description": "Transfer already used", "location": "body", "name": "transfer"}],
         )
 
         # simulate half-applied transfer activation process (i.e. transfer
         # is successfully applied to a agreement and relation is saved in transfer,
         # but agreement is not stored with new credentials)
-        transfer_doc = self.db.get(transfer["id"])
+        transfer_doc = self.mongodb.transfers.get(transfer["id"])
         transfer_doc["usedFor"] = "/agreements/" + agreement["id"]
-        self.db.save(transfer_doc)
+        self.mongodb.transfers.save(transfer_doc)
         with change_auth(self.app, ("Basic", (self.second_owner, ""))):
             response = self.app.post_json(
                 "/agreements/{}/ownership".format(agreement["id"]),
@@ -152,7 +153,7 @@ class AgreementOwnershipChangeTest(BaseAgreementOwnershipChangeTest):
         )
         self.assertEqual(response.status, "403 Forbidden")
         self.assertEqual(
-            response.json["errors"], [{u"description": u"Invalid transfer", u"location": u"body", u"name": u"transfer"}]
+            response.json["errors"], [{"description": "Invalid transfer", "location": "body", "name": "transfer"}]
         )
         response = self.app.post_json(
             "/agreements/{}/ownership".format(self.agreement_id),
@@ -161,7 +162,7 @@ class AgreementOwnershipChangeTest(BaseAgreementOwnershipChangeTest):
         )
         self.assertEqual(response.status, "403 Forbidden")
         self.assertEqual(
-            response.json["errors"], [{u"description": u"Invalid transfer", u"location": u"body", u"name": u"transfer"}]
+            response.json["errors"], [{"description": "Invalid transfer", "location": "body", "name": "transfer"}]
         )
 
     def test_accreditation_level(self):
@@ -183,9 +184,9 @@ class AgreementOwnershipChangeTest(BaseAgreementOwnershipChangeTest):
             response.json["errors"],
             [
                 {
-                    u"description": u"Broker Accreditation level does not permit ownership change",
-                    u"location": u"ownership",
-                    u"name": u"accreditation",
+                    "description": "Broker Accreditation level does not permit ownership change",
+                    "location": "url",
+                    "name": "accreditation",
                 }
             ],
         )
@@ -210,9 +211,9 @@ class AgreementOwnershipChangeTest(BaseAgreementOwnershipChangeTest):
             response.json["errors"],
             [
                 {
-                    u"description": u"Broker Accreditation level does not permit ownership change",
-                    u"location": u"ownership",
-                    u"name": u"mode",
+                    "description": "Broker Accreditation level does not permit ownership change",
+                    "location": "url",
+                    "name": "mode",
                 }
             ],
         )
@@ -250,9 +251,9 @@ class AgreementOwnershipChangeTest(BaseAgreementOwnershipChangeTest):
             response.json["errors"],
             [
                 {
-                    u"description": u"Broker Accreditation level does not permit ownership change",
-                    u"location": u"ownership",
-                    u"name": u"accreditation",
+                    "description": "Broker Accreditation level does not permit ownership change",
+                    "location": "url",
+                    "name": "accreditation",
                 }
             ],
         )
@@ -275,9 +276,9 @@ class AgreementOwnershipChangeTest(BaseAgreementOwnershipChangeTest):
             response.json["errors"],
             [
                 {
-                    u"description": u"Can't update credentials in current (terminated) agreement status",
-                    u"location": u"body",
-                    u"name": u"data",
+                    "description": "Can't update credentials in current (terminated) agreement status",
+                    "location": "body",
+                    "name": "data",
                 }
             ],
         )
@@ -306,9 +307,9 @@ class AgreementOwnerOwnershipChangeTest(BaseAgreementOwnershipChangeTest):
             response.json["errors"],
             [
                 {
-                    u"description": u"Owner Accreditation level does not permit ownership change",
-                    u"location": u"ownership",
-                    u"name": u"accreditation",
+                    "description": "Owner Accreditation level does not permit ownership change",
+                    "location": "url",
+                    "name": "accreditation",
                 }
             ],
         )
@@ -321,9 +322,9 @@ class AgreementOwnerOwnershipChangeTest(BaseAgreementOwnershipChangeTest):
         transfer = response.json["data"]
         transfer_tokens = response.json["access"]
 
-        agreement_doc = self.db.get(self.agreement_id)
+        agreement_doc = self.mongodb.agreements.get(self.agreement_id)
         agreement_doc["owner"] = "deleted_broker"
-        self.db.save(agreement_doc)
+        self.mongodb.agreements.save(agreement_doc)
 
         with change_auth(self.app, ("Basic", (self.second_owner, ""))):
             response = self.app.post_json(

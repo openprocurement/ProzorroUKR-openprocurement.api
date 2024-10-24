@@ -1,96 +1,98 @@
-POST /api/2.5/tenders/e5172ebc4c4c411f84f376ce6ede43b8/bids HTTP/1.0
+POST /api/2.5/tenders/30730028a07b4aee97ed094ebd250c58/bids HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 891
 Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
+
 {
   "data": {
-    "selfEligible": true, 
-    "selfQualified": true, 
-    "lotValues": [
-      {
-        "relatedLot": "c7555f1bb878434d8815dea318304673", 
-        "value": {
-          "amount": 499
-        }
-      }
-    ], 
     "tenderers": [
       {
-        "contactPoint": {
-          "email": "aagt@gmail.com", 
-          "telephone": "+380 (322) 91-69-30", 
-          "name": "Андрій Олексюк"
-        }, 
-        "scale": "sme", 
-        "name": "ДКП «Книга»", 
-        "identifier": {
-          "scheme": "UA-EDR", 
-          "id": "00137226", 
-          "uri": "http://www.sc.gov.ua/"
-        }, 
         "address": {
-          "countryName": "Україна", 
-          "postalCode": "79013", 
-          "region": "Львівська область", 
-          "streetAddress": "вул. Островського, 34", 
-          "locality": "м. Львів"
-        }
+          "countryName": "Україна",
+          "locality": "м. Львів",
+          "postalCode": "79013",
+          "region": "Львівська область",
+          "streetAddress": "вул. Островського, 34"
+        },
+        "contactPoint": {
+          "email": "aagt@gmail.com",
+          "name": "Андрій Олексюк",
+          "telephone": "+380322916930"
+        },
+        "identifier": {
+          "scheme": "UA-EDR",
+          "legalName": "Державне комунальне підприємство громадського харчування «Школяр 2»",
+          "id": "00137226",
+          "uri": "http://www.sc.gov.ua/"
+        },
+        "name": "ДКП «Книга»",
+        "scale": "sme"
       }
-    ]
+    ],
+    "lotValues": [
+      {
+        "value": {
+          "amount": 499
+        },
+        "relatedLot": "9dea7e57fca24c0fa6c43f752611342d"
+      }
+    ],
+    "selfQualified": true,
+    "status": "draft"
   }
 }
 
-Response: 201 Created
-Content-Type: application/json; charset=UTF-8
-Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/e5172ebc4c4c411f84f376ce6ede43b8/bids/e88e8fc3020640178a79c6e66d3dfd5f
+
+HTTP/1.0 201 Created
+Content-Type: application/json
+Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/30730028a07b4aee97ed094ebd250c58/bids/5d3dc5765f7b493e88a8cf48097c37b1
+
 {
-  "access": {
-    "transfer": "ad22cf4f696a4ae581936d20f1070ef4", 
-    "token": "6efd2617b0c1409f9949bec517f22600"
-  }, 
   "data": {
-    "status": "pending", 
-    "selfEligible": true, 
-    "lotValues": [
-      {
-        "relatedLot": "c7555f1bb878434d8815dea318304673", 
-        "date": "2020-05-15T01:00:00+03:00", 
-        "status": "pending", 
-        "value": {
-          "currency": "UAH", 
-          "amount": 499, 
-          "valueAddedTaxIncluded": true
-        }
-      }
-    ], 
-    "selfQualified": true, 
     "tenderers": [
       {
-        "contactPoint": {
-          "email": "aagt@gmail.com", 
-          "telephone": "+380 (322) 91-69-30", 
-          "name": "Андрій Олексюк"
-        }, 
-        "scale": "sme", 
-        "name": "ДКП «Книга»", 
+        "name": "ДКП «Книга»",
         "identifier": {
-          "scheme": "UA-EDR", 
-          "id": "00137226", 
+          "scheme": "UA-EDR",
+          "id": "00137226",
+          "legalName": "Державне комунальне підприємство громадського харчування «Школяр 2»",
           "uri": "http://www.sc.gov.ua/"
-        }, 
+        },
         "address": {
-          "postalCode": "79013", 
-          "countryName": "Україна", 
-          "streetAddress": "вул. Островського, 34", 
-          "region": "Львівська область", 
-          "locality": "м. Львів"
-        }
+          "streetAddress": "вул. Островського, 34",
+          "locality": "м. Львів",
+          "region": "Львівська область",
+          "postalCode": "79013",
+          "countryName": "Україна"
+        },
+        "contactPoint": {
+          "name": "Андрій Олексюк",
+          "email": "aagt@gmail.com",
+          "telephone": "+380322916930"
+        },
+        "scale": "sme"
       }
-    ], 
-    "date": "2020-05-15T01:00:00+03:00", 
-    "id": "e88e8fc3020640178a79c6e66d3dfd5f"
+    ],
+    "status": "draft",
+    "lotValues": [
+      {
+        "status": "pending",
+        "value": {
+          "amount": 499.0,
+          "currency": "UAH",
+          "valueAddedTaxIncluded": true
+        },
+        "relatedLot": "9dea7e57fca24c0fa6c43f752611342d",
+        "date": "2023-10-10T01:02:01+03:00"
+      }
+    ],
+    "selfQualified": true,
+    "id": "5d3dc5765f7b493e88a8cf48097c37b1",
+    "date": "2023-10-10T01:02:01+03:00"
+  },
+  "access": {
+    "token": "e9e3b7169e234b0c8172ce5501506de0",
+    "transfer": "a2f56ac59b9d45fb9a7c7443ace9a615"
   }
 }
 

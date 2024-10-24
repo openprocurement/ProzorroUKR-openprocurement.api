@@ -1,26 +1,33 @@
-# -*- coding: utf-8 -*-
-from openprocurement.tender.belowthreshold.tests.base import test_organization, test_author, test_cancellation
+from copy import deepcopy
+
 from openprocurement.api.constants import RELEASE_2020_04_19
+from openprocurement.api.tests.base import change_auth
+from openprocurement.api.utils import get_now
+from openprocurement.tender.belowthreshold.tests.base import (
+    test_tender_below_author,
+    test_tender_below_cancellation,
+)
 from openprocurement.tender.core.tests.cancellation import (
     activate_cancellation_after_2020_04_19,
 )
-from openprocurement.tender.core.utils import get_now
-
-# TenderQuestionResourceTest
 
 
 def create_tender_question_invalid(self):
     response = self.app.post_json(
         "/tenders/some_id/questions",
-        {"data": {"title": "question title", "description": "question description", "author": test_author}},
+        {
+            "data": {
+                "title": "question title",
+                "description": "question description",
+                "author": test_tender_below_author,
+            }
+        },
         status=404,
     )
     self.assertEqual(response.status, "404 Not Found")
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"tender_id"}]
-    )
+    self.assertEqual(response.json["errors"], [{"description": "Not Found", "location": "url", "name": "tender_id"}])
 
     request_path = "/tenders/{}/questions".format(self.tender_id)
 
@@ -32,9 +39,9 @@ def create_tender_question_invalid(self):
         response.json["errors"],
         [
             {
-                u"description": u"Content-Type header should be one of ['application/json']",
-                u"location": u"header",
-                u"name": u"Content-Type",
+                "description": "Content-Type header should be one of ['application/json']",
+                "location": "header",
+                "name": "Content-Type",
             }
         ],
     )
@@ -45,7 +52,7 @@ def create_tender_question_invalid(self):
     self.assertEqual(response.json["status"], "error")
     self.assertEqual(
         response.json["errors"],
-        [{u"description": u"No JSON object could be decoded", u"location": u"body", u"name": u"data"}],
+        [{"description": "Expecting value: line 1 column 1 (char 0)", "location": "body", "name": "data"}],
     )
 
     response = self.app.post_json(request_path, "data", status=422)
@@ -53,7 +60,7 @@ def create_tender_question_invalid(self):
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["status"], "error")
     self.assertEqual(
-        response.json["errors"], [{u"description": u"Data not available", u"location": u"body", u"name": u"data"}]
+        response.json["errors"], [{"description": "Data not available", "location": "body", "name": "data"}]
     )
 
     response = self.app.post_json(request_path, {"not_data": {}}, status=422)
@@ -61,7 +68,7 @@ def create_tender_question_invalid(self):
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["status"], "error")
     self.assertEqual(
-        response.json["errors"], [{u"description": u"Data not available", u"location": u"body", u"name": u"data"}]
+        response.json["errors"], [{"description": "Data not available", "location": "body", "name": "data"}]
     )
 
     response = self.app.post_json(request_path, {"data": {}}, status=422)
@@ -71,8 +78,8 @@ def create_tender_question_invalid(self):
     self.assertEqual(
         response.json["errors"],
         [
-            {u"description": [u"This field is required."], u"location": u"body", u"name": u"author"},
-            {u"description": [u"This field is required."], u"location": u"body", u"name": u"title"},
+            {"description": ["This field is required."], "location": "body", "name": "author"},
+            {"description": ["This field is required."], "location": "body", "name": "title"},
         ],
     )
 
@@ -81,7 +88,7 @@ def create_tender_question_invalid(self):
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["status"], "error")
     self.assertEqual(
-        response.json["errors"], [{u"description": u"Rogue field", u"location": u"body", u"name": u"invalid_field"}]
+        response.json["errors"], [{"description": "Rogue field", "location": "body", "name": "invalid_field"}]
     )
 
     response = self.app.post_json(request_path, {"data": {"author": {"identifier": "invalid_value"}}}, status=422)
@@ -92,11 +99,11 @@ def create_tender_question_invalid(self):
         response.json["errors"],
         [
             {
-                u"description": {
-                    u"identifier": [u"Please use a mapping for this field or Identifier instance instead of unicode."]
+                "description": {
+                    "identifier": ["Please use a mapping for this field or Identifier instance instead of str."]
                 },
-                u"location": u"body",
-                u"name": u"author",
+                "location": "body",
+                "name": "author",
             }
         ],
     )
@@ -113,14 +120,14 @@ def create_tender_question_invalid(self):
         response.json["errors"],
         [
             {
-                u"description": {
-                    u"contactPoint": [u"This field is required."],
-                    u"identifier": {u"scheme": [u"This field is required."], u"id": [u"This field is required."]},
-                    u"name": [u"This field is required."],
-                    u"address": [u"This field is required."],
+                "description": {
+                    "contactPoint": ["This field is required."],
+                    "identifier": {"scheme": ["This field is required."], "id": ["This field is required."]},
+                    "name": ["This field is required."],
+                    "address": ["This field is required."],
                 },
-                u"location": u"body",
-                u"name": u"author",
+                "location": "body",
+                "name": "author",
             }
         ],
     )
@@ -143,17 +150,17 @@ def create_tender_question_invalid(self):
         response.json["errors"],
         [
             {
-                u"description": {
-                    u"contactPoint": [u"This field is required."],
-                    u"identifier": {
-                        u"scheme": [u"This field is required."],
-                        u"id": [u"This field is required."],
-                        u"uri": [u"Not a well formed URL."],
+                "description": {
+                    "contactPoint": ["This field is required."],
+                    "identifier": {
+                        "scheme": ["This field is required."],
+                        "id": ["This field is required."],
+                        "uri": ["Not a well formed URL."],
                     },
-                    u"address": [u"This field is required."],
+                    "address": ["This field is required."],
                 },
-                u"location": u"body",
-                u"name": u"author",
+                "location": "body",
+                "name": "author",
             }
         ],
     )
@@ -164,7 +171,7 @@ def create_tender_question_invalid(self):
             "data": {
                 "title": "question title",
                 "description": "question description",
-                "author": test_author,
+                "author": test_tender_below_author,
                 "questionOf": "lot",
             }
         },
@@ -175,7 +182,7 @@ def create_tender_question_invalid(self):
     self.assertEqual(response.json["status"], "error")
     self.assertEqual(
         response.json["errors"],
-        [{u"description": [u"This field is required."], u"location": u"body", u"name": u"relatedItem"}],
+        [{"description": ["This field is required."], "location": "body", "name": "relatedItem"}],
     )
 
     response = self.app.post_json(
@@ -184,7 +191,7 @@ def create_tender_question_invalid(self):
             "data": {
                 "title": "question title",
                 "description": "question description",
-                "author": test_author,
+                "author": test_tender_below_author,
                 "questionOf": "lot",
                 "relatedItem": "0" * 32,
             }
@@ -196,7 +203,7 @@ def create_tender_question_invalid(self):
     self.assertEqual(response.json["status"], "error")
     self.assertEqual(
         response.json["errors"],
-        [{u"description": [u"relatedItem should be one of lots"], u"location": u"body", u"name": u"relatedItem"}],
+        [{"description": ["relatedItem should be one of lots"], "location": "body", "name": "relatedItem"}],
     )
 
     response = self.app.post_json(
@@ -205,7 +212,7 @@ def create_tender_question_invalid(self):
             "data": {
                 "title": "question title",
                 "description": "question description",
-                "author": test_author,
+                "author": test_tender_below_author,
                 "questionOf": "item",
                 "relatedItem": "0" * 32,
             }
@@ -217,27 +224,71 @@ def create_tender_question_invalid(self):
     self.assertEqual(response.json["status"], "error")
     self.assertEqual(
         response.json["errors"],
-        [{u"description": [u"relatedItem should be one of items"], u"location": u"body", u"name": u"relatedItem"}],
+        [{"description": ["relatedItem should be one of items"], "location": "body", "name": "relatedItem"}],
+    )
+
+    with change_auth(self.app, ("Basic", ("broker1", ""))):
+        response = self.app.post_json(
+            "/tenders/{}/questions".format(self.tender_id),
+            {
+                "data": {
+                    "title": "question title",
+                    "description": "question description",
+                    "author": test_tender_below_author,
+                },
+            },
+            status=403,
+        )
+    self.assertEqual(response.status, "403 Forbidden")
+    self.assertEqual(response.content_type, "application/json")
+    self.assertEqual(
+        response.json["errors"][0]["description"], "Broker Accreditation level does not permit question creation"
     )
 
 
 def create_tender_question(self):
     response = self.app.post_json(
         "/tenders/{}/questions".format(self.tender_id),
-        {"data": {"title": "question title", "description": "question description", "author": test_author}},
+        {
+            "data": {
+                "title": "question title",
+                "description": "question description",
+                "author": test_tender_below_author,
+            }
+        },
     )
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.content_type, "application/json")
     question = response.json["data"]
-    self.assertEqual(question["author"]["name"], test_organization["name"])
     self.assertIn("id", question)
     self.assertIn(question["id"], response.headers["Location"])
 
-    self.set_status("active.tendering")
-
+    self.set_enquiry_period_end()
     response = self.app.post_json(
         "/tenders/{}/questions".format(self.tender_id),
-        {"data": {"title": "question title", "description": "question description", "author": test_author}},
+        {
+            "data": {
+                "title": "question title",
+                "description": "question description",
+                "author": test_tender_below_author,
+            }
+        },
+        status=403,
+    )
+    self.assertEqual(response.status, "403 Forbidden")
+    self.assertEqual(response.content_type, "application/json")
+    self.assertEqual(response.json["errors"][0]["description"], "Can add question only in enquiryPeriod")
+
+    self.set_status(self.forbidden_question_add_actions_status)
+    response = self.app.post_json(
+        "/tenders/{}/questions".format(self.tender_id),
+        {
+            "data": {
+                "title": "question title",
+                "description": "question description",
+                "author": test_tender_below_author,
+            }
+        },
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
@@ -246,9 +297,10 @@ def create_tender_question(self):
 
 
 def patch_tender_question(self):
+    author = getattr(self, "author_data", test_tender_below_author)
     response = self.app.post_json(
         "/tenders/{}/questions".format(self.tender_id),
-        {"data": {"title": "question title", "description": "question description", "author": test_author}},
+        {"data": {"title": "question title", "description": "question description", "author": author}},
     )
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.content_type, "application/json")
@@ -269,17 +321,13 @@ def patch_tender_question(self):
     self.assertEqual(response.status, "404 Not Found")
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"question_id"}]
-    )
+    self.assertEqual(response.json["errors"], [{"description": "Not Found", "location": "url", "name": "question_id"}])
 
     response = self.app.patch_json("/tenders/some_id/questions/some_id", {"data": {"answer": "answer"}}, status=404)
     self.assertEqual(response.status, "404 Not Found")
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"tender_id"}]
-    )
+    self.assertEqual(response.json["errors"], [{"description": "Not Found", "location": "url", "name": "tender_id"}])
 
     response = self.app.get("/tenders/{}/questions/{}".format(self.tender_id, question["id"]))
     self.assertEqual(response.status, "200 OK")
@@ -287,27 +335,51 @@ def patch_tender_question(self):
     self.assertEqual(response.json["data"]["answer"], "answer")
     self.assertIn("dateAnswered", response.json["data"])
 
-    self.set_status(self.forbidden_question_modification_actions_status)
+    if self.forbidden_question_add_actions_status != self.forbidden_question_update_actions_status:
+        response = self.app.post_json(
+            "/tenders/{}/questions".format(self.tender_id),
+            {"data": {"title": "question title", "description": "question description", "author": author}},
+        )
+        self.assertEqual(response.status, "201 Created")
+        self.assertEqual(response.content_type, "application/json")
+        question = response.json["data"]
+
+        self.set_status(self.forbidden_question_add_actions_status)
+
+        response = self.app.patch_json(
+            "/tenders/{}/questions/{}?acc_token={}".format(self.tender_id, question["id"], self.tender_token),
+            {"data": {"answer": "answer"}},
+        )
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(response.content_type, "application/json")
+        self.assertEqual(response.json["data"]["answer"], "answer")
+        self.assertIn("dateAnswered", response.json["data"])
+
+    self.set_status(self.forbidden_question_update_actions_status)
 
     response = self.app.patch_json(
         "/tenders/{}/questions/{}?acc_token={}".format(self.tender_id, question["id"], self.tender_token),
-        {"data": {"answer": "answer"}},
+        {"data": {"answer": "another answer"}},
         status=403,
     )
     self.assertEqual(response.status, "403 Forbidden")
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(
         response.json["errors"][0]["description"],
-        "Can't update question in current ({}) tender status".format(
-            self.forbidden_question_modification_actions_status
-        ),
+        "Can't update question in current ({}) tender status".format(self.forbidden_question_update_actions_status),
     )
 
 
 def get_tender_question(self):
     response = self.app.post_json(
         "/tenders/{}/questions".format(self.tender_id),
-        {"data": {"title": "question title", "description": "question description", "author": test_author}},
+        {
+            "data": {
+                "title": "question title",
+                "description": "question description",
+                "author": test_tender_below_author,
+            }
+        },
     )
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.content_type, "application/json")
@@ -316,7 +388,8 @@ def get_tender_question(self):
     response = self.app.get("/tenders/{}/questions/{}".format(self.tender_id, question["id"]))
     self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(set(response.json["data"]), set([u"id", u"date", u"title", u"description", u"questionOf"]))
+    self.assertEqual(set(response.json["data"]), {"id", "date", "title", "description", "questionOf", "author"})
+    self.assertEqual(set(response.json["data"]["author"]), {"hash"})
 
     self.set_status("active.qualification")
 
@@ -329,23 +402,25 @@ def get_tender_question(self):
     self.assertEqual(response.status, "404 Not Found")
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"question_id"}]
-    )
+    self.assertEqual(response.json["errors"], [{"description": "Not Found", "location": "url", "name": "question_id"}])
 
     response = self.app.get("/tenders/some_id/questions/some_id", status=404)
     self.assertEqual(response.status, "404 Not Found")
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"tender_id"}]
-    )
+    self.assertEqual(response.json["errors"], [{"description": "Not Found", "location": "url", "name": "tender_id"}])
 
 
 def get_tender_questions(self):
     response = self.app.post_json(
         "/tenders/{}/questions".format(self.tender_id),
-        {"data": {"title": "question title", "description": "question description", "author": test_author}},
+        {
+            "data": {
+                "title": "question title",
+                "description": "question description",
+                "author": test_tender_below_author,
+            }
+        },
     )
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.content_type, "application/json")
@@ -354,7 +429,8 @@ def get_tender_questions(self):
     response = self.app.get("/tenders/{}/questions".format(self.tender_id))
     self.assertEqual(response.status, "200 OK")
     self.assertEqual(response.content_type, "application/json")
-    self.assertEqual(set(response.json["data"][0]), set([u"id", u"date", u"title", u"description", u"questionOf"]))
+    self.assertEqual(set(response.json["data"][0]), {"id", "date", "title", "description", "questionOf", "author"})
+    self.assertEqual(set(response.json["data"][0]["author"]), {"hash"})
 
     self.set_status("active.qualification")
 
@@ -367,9 +443,7 @@ def get_tender_questions(self):
     self.assertEqual(response.status, "404 Not Found")
     self.assertEqual(response.content_type, "application/json")
     self.assertEqual(response.json["status"], "error")
-    self.assertEqual(
-        response.json["errors"], [{u"description": u"Not Found", u"location": u"url", u"name": u"tender_id"}]
-    )
+    self.assertEqual(response.json["errors"], [{"description": "Not Found", "location": "url", "name": "tender_id"}])
 
 
 # TenderLotQuestionResourceTest
@@ -384,12 +458,14 @@ def lot_create_tender_question(self):
         # For procedures: openua, openuadefense, openeu, negotiation, negotiation.quick, esco, copetitivedialogue, cfaua
         # validation after RELEASE_2020_04_19 is useless, because enquiryPeriod ended before complaintPeriod
 
-        cancellation = dict(**test_cancellation)
-        cancellation.update({
-            "status": "active",
-            "cancellationOf": "lot",
-            "relatedLot": self.initial_lots[0]["id"],
-        })
+        cancellation = deepcopy(test_tender_below_cancellation)
+        cancellation.update(
+            {
+                "status": "active",
+                "cancellationOf": "lot",
+                "relatedLot": self.initial_lots[0]["id"],
+            }
+        )
         response = self.app.post_json(
             "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),
             {"data": cancellation},
@@ -416,7 +492,10 @@ def lot_create_tender_question(self):
         )
         self.assertEqual(response.status, "403 Forbidden")
         self.assertEqual(response.content_type, "application/json")
-        self.assertEqual(response.json["errors"][0]["description"], "Can add question only in active lot status")
+        self.assertEqual(
+            response.json["errors"][0]["description"],
+            "Can add/update question only in active lot status",
+        )
 
     response = self.app.post_json(
         "/tenders/{}/questions".format(self.tender_id, self.tender_token),
@@ -433,9 +512,44 @@ def lot_create_tender_question(self):
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.content_type, "application/json")
     question = response.json["data"]
-    self.assertEqual(question["author"]["name"], self.author_data["name"])
     self.assertIn("id", question)
     self.assertIn(question["id"], response.headers["Location"])
+
+    self.set_enquiry_period_end()
+    response = self.app.post_json(
+        "/tenders/{}/questions".format(self.tender_id, self.tender_token),
+        {
+            "data": {
+                "title": "question title",
+                "description": "question description",
+                "questionOf": "lot",
+                "relatedItem": self.initial_lots[1]["id"],
+                "author": self.author_data,
+            }
+        },
+        status=403,
+    )
+    self.assertEqual(response.status, "403 Forbidden")
+    self.assertEqual(response.content_type, "application/json")
+    self.assertEqual(response.json["errors"][0]["description"], "Can add question only in enquiryPeriod")
+
+    self.set_status(self.forbidden_question_add_actions_status)
+    response = self.app.post_json(
+        "/tenders/{}/questions".format(self.tender_id, self.tender_token),
+        {
+            "data": {
+                "title": "question title",
+                "description": "question description",
+                "questionOf": "lot",
+                "relatedItem": self.initial_lots[1]["id"],
+                "author": self.author_data,
+            }
+        },
+        status=403,
+    )
+    self.assertEqual(response.status, "403 Forbidden")
+    self.assertEqual(response.content_type, "application/json")
+    self.assertEqual(response.json["errors"][0]["description"], "Can add question only in enquiryPeriod")
 
 
 def lot_patch_tender_question(self):
@@ -463,12 +577,14 @@ def lot_patch_tender_question(self):
         # For procedures: openua, openuadefense, openeu, negotiation, negotiation.quick, esco, copetitivedialogue, cfaua
         # validation after RELEASE_2020_04_19 is useless, because enquiryPeriod ended before complaintPeriod
 
-        cancellation = dict(**test_cancellation)
-        cancellation.update({
-            "status": "active",
-            "cancellationOf": "lot",
-            "relatedLot": self.initial_lots[0]["id"],
-        })
+        cancellation = deepcopy(test_tender_below_cancellation)
+        cancellation.update(
+            {
+                "status": "active",
+                "cancellationOf": "lot",
+                "relatedLot": self.initial_lots[0]["id"],
+            }
+        )
         response = self.app.post_json(
             "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),
             {"data": cancellation},
@@ -486,7 +602,10 @@ def lot_patch_tender_question(self):
         )
         self.assertEqual(response.status, "403 Forbidden")
         self.assertEqual(response.content_type, "application/json")
-        self.assertEqual(response.json["errors"][0]["description"], "Can update question only in active lot status")
+        self.assertEqual(
+            response.json["errors"][0]["description"],
+            "Can add/update question only in active lot status",
+        )
 
     response = self.app.post_json(
         "/tenders/{}/questions".format(self.tender_id, self.tender_token),
@@ -521,8 +640,54 @@ def lot_patch_tender_question(self):
     self.assertEqual(response.json["data"]["answer"], "answer")
     self.assertIn("dateAnswered", response.json["data"])
 
+    if self.forbidden_question_add_actions_status != self.forbidden_question_update_actions_status:
+        response = self.app.post_json(
+            "/tenders/{}/questions".format(self.tender_id, self.tender_token),
+            {
+                "data": {
+                    "title": "question title",
+                    "description": "question description",
+                    "questionOf": "lot",
+                    "relatedItem": self.initial_lots[1]["id"],
+                    "author": self.author_data,
+                }
+            },
+        )
+        self.assertEqual(response.status, "201 Created")
+        self.assertEqual(response.content_type, "application/json")
+        question = response.json["data"]
+
+        self.set_status(self.forbidden_question_add_actions_status)
+
+        response = self.app.patch_json(
+            "/tenders/{}/questions/{}?acc_token={}".format(self.tender_id, question["id"], self.tender_token),
+            {"data": {"answer": "answer"}},
+        )
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(response.content_type, "application/json")
+        self.assertEqual(response.json["data"]["answer"], "answer")
+        self.assertIn("dateAnswered", response.json["data"])
+
+    self.set_status(self.forbidden_question_update_actions_status)
+
+    response = self.app.patch_json(
+        "/tenders/{}/questions/{}?acc_token={}".format(self.tender_id, question["id"], self.tender_token),
+        {"data": {"answer": "changed answer"}},
+        status=403,
+    )
+    self.assertEqual(response.status, "403 Forbidden")
+    self.assertEqual(response.content_type, "application/json")
+    self.assertEqual(
+        response.json["errors"][0]["description"],
+        "Can't update question in current ({}) tender status".format(self.forbidden_question_update_actions_status),
+    )
+
 
 def lot_patch_tender_question_lots_none(self):
+    response = self.app.get("/tenders/{}".format(self.tender_id))
+    lots = response.json["data"]["lots"]
+    lots[0]["id"] = "1" * 32
+
     response = self.app.post_json(
         "/tenders/{}/questions".format(self.tender_id, self.tender_token),
         {
@@ -538,19 +703,23 @@ def lot_patch_tender_question_lots_none(self):
     self.assertEqual(response.status, "201 Created")
     self.assertEqual(response.content_type, "application/json")
 
+    for l in lots:
+        l.pop("auctionPeriod", None)
+
     response = self.app.patch_json(
-        "/tenders/{}?acc_token={}".format(self.tender_id, self.tender_token), {"data": {"lots": [None]}}, status=422
+        "/tenders/{}?acc_token={}".format(self.tender_id, self.tender_token), {"data": {"lots": lots}}, status=422
     )
     self.assertEqual(response.status, "422 Unprocessable Entity")
     self.assertEqual(response.content_type, "application/json")
 
     errors = {error["name"]: error["description"] for error in response.json["errors"]}
-    self.assertEqual(errors["lots"][0], ["This field is required."])
     self.assertEqual(errors["questions"][0], {"relatedItem": ["relatedItem should be one of lots"]})
 
 
 def lot_patch_tender_question_items_none(self):
     response = self.app.get("/tenders/{}".format(self.tender_id))
+    items = response.json["data"]["items"]
+    items[0]["id"] = "1"
 
     response = self.app.post_json(
         "/tenders/{}/questions".format(self.tender_id, self.tender_token),
@@ -568,7 +737,7 @@ def lot_patch_tender_question_items_none(self):
     self.assertEqual(response.content_type, "application/json")
 
     response = self.app.patch_json(
-        "/tenders/{}?acc_token={}".format(self.tender_id, self.tender_token), {"data": {"items": [None]}}, status=422
+        "/tenders/{}?acc_token={}".format(self.tender_id, self.tender_token), {"data": {"items": items}}, status=422
     )
     self.assertEqual(response.status, "422 Unprocessable Entity")
     self.assertEqual(response.content_type, "application/json")

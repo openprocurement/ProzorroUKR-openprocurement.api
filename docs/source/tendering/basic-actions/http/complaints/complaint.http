@@ -1,0 +1,95 @@
+GET /api/2.5/tenders/2a71069de9654c5ca67c8db208720fe2/complaints/379051e428734c148aea805b08e76ff1 HTTP/1.0
+Host: public-api-sandbox.prozorro.gov.ua
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "id": "379051e428734c148aea805b08e76ff1",
+    "complaintID": "UA-2023-10-10-000001-a.4",
+    "date": "2023-10-10T01:00:00+03:00",
+    "status": "resolved",
+    "documents": [
+      {
+        "confidentiality": "public",
+        "id": "37e5b868adb34094805ddfe95cc6d89c",
+        "datePublished": "2023-10-10T01:00:00+03:00",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "ComplaintResolution.pdf",
+        "format": "application/pdf",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/e54de546b85a4d67b8d541c624ab6c36?Signature=y2nY0tzn8KyDwg9YuaulyZnCDfozZ7TRTStPKv8qORYijdkzr3rmXQjcF%2FJAzVO06VtH7e%2ByWVWFI1SODaOkAA%3D%3D&KeyID=a8968c46",
+        "documentOf": "tender",
+        "dateModified": "2023-10-10T01:00:00+03:00",
+        "author": "aboveThresholdReviewers",
+        "language": "uk"
+      }
+    ],
+    "type": "complaint",
+    "author": {
+      "name": "ДКП «Школяр»",
+      "address": {
+        "streetAddress": "вул. Островського, 33",
+        "locality": "м. Вінниця",
+        "region": "Вінницька область",
+        "postalCode": "21100",
+        "countryName": "Україна"
+      },
+      "contactPoint": {
+        "name": "Сергій Олексюк",
+        "email": "soleksuk@gmail.com",
+        "telephone": "+380432216930"
+      },
+      "identifier": {
+        "scheme": "UA-EDR",
+        "uri": "http://www.sc.gov.ua/",
+        "id": "00137256",
+        "legalName": "ДКП «Школяр»"
+      }
+    },
+    "title": "Недостатньо інформації",
+    "description": "Умови виставлені замовником не містять достатньо інформації, щоб заявка мала сенс.",
+    "dateSubmitted": "2023-10-10T01:00:00+03:00",
+    "objections": [
+      {
+        "id": "bbc9a2e9f8b145e0ba0bd568c6ee5c84",
+        "title": "My objection",
+        "description": "Test objection",
+        "relatesTo": "tender",
+        "relatedItem": "2a71069de9654c5ca67c8db208720fe2",
+        "classification": {
+          "scheme": "violation_amcu",
+          "id": "corruptionDescription",
+          "description": "test classification"
+        },
+        "requestedRemedies": [
+          {
+            "id": "bbf3d1dfeca94befa9cc09877cf20a75",
+            "type": "setAsideAward",
+            "description": "test"
+          }
+        ],
+        "arguments": [
+          {
+            "id": "a7666d06c3754e34ad45018606002e84",
+            "description": "test argument"
+          }
+        ],
+        "sequenceNumber": 1
+      }
+    ],
+    "tendererAction": "Умови виправлено",
+    "dateDecision": "2023-10-10T01:00:00+03:00",
+    "acceptance": true,
+    "dateAccepted": "2023-10-10T01:00:00+03:00",
+    "reviewDate": "2023-10-10T01:00:00+03:00",
+    "reviewPlace": "Place of review",
+    "value": {
+      "amount": 2000.0,
+      "currency": "UAH"
+    },
+    "tendererActionDate": "2023-10-10T01:00:00+03:00"
+  }
+}
+

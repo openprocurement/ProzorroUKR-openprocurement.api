@@ -1,7 +1,13 @@
-from openprocurement.tender.core.tests.qualification_milestone import TenderQualificationMilestoneALPMixin
-from openprocurement.tender.cfaua.tests.base import BaseTenderContentWebTest, test_bids, test_lots
+from openprocurement.tender.cfaua.tests.base import (
+    BaseTenderContentWebTest,
+    test_tender_cfaua_bids,
+    test_tender_cfaua_lots,
+)
+from openprocurement.tender.core.tests.qualification_milestone import (
+    TenderAwardMilestoneALPMixin,
+)
 
 
-class TenderAwardMilestoneALPTestCase(TenderQualificationMilestoneALPMixin, BaseTenderContentWebTest):
-    initial_bids = test_bids
-    initial_lots = test_lots
+class TenderAwardMilestoneALPTestCase(TenderAwardMilestoneALPMixin, BaseTenderContentWebTest):
+    initial_bids = test_tender_cfaua_bids
+    initial_lots = test_tender_cfaua_lots

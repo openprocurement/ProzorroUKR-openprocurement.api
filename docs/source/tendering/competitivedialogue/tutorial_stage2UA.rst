@@ -1,17 +1,26 @@
 .. _tutorial_stage2UA:
 
+Configuration
+-------------
 
-If on first stage you set ``procurementMethodType`` to ``CompetitiveDialogueUA``
-then on second stage you have tender witch similar to Open UA procedure
+The set of possible configuration values:
+
+.. csv-table::
+   :file: csv/config-ua-stage2.csv
+   :header-rows: 1
+
+You can look for more details in :ref:`config` section.
 
 Modifying tender
 ----------------
 
+If on first stage you set ``procurementMethodType`` to ``CompetitiveDialogueUA``
+then on second stage you have tender witch similar to Open UA procedure
 
 You can modify only ``tenderPeriod.endDate`` and ``deliveryDate`` for ``items``. Another changes will not be saved.
 Let's update tender by supplementing it with all other essential properties:
 
-.. include:: tutorial/stage2/UA/patch-tender-periods.http
+.. http:example:: tutorial/stage2/UA/patch-tender-periods.http
    :code:
 
 .. XXX body is empty for some reason (printf fails)
@@ -20,18 +29,18 @@ We see the added properies have merged with existing tender data. Additionally, 
 
 Checking the listing again reflects the new modification date:
 
-.. include:: tutorial/stage2/UA/tender-listing-after-patch.http
+.. http:example:: tutorial/stage2/UA/tender-listing-after-patch.http
    :code:
 
 
 Procuring entity can not change tender if there are less than 7 days before tenderPeriod ends. Changes will not be accepted by API.
 
-.. include:: tutorial/stage2/UA/update-tender-after-enqiery.http
+.. http:example:: tutorial/stage2/UA/update-tender-after-enqiery.http
    :code:
 
 That is why tenderPeriod has to be extended by 7 days.
 
-.. include:: tutorial/stage2/UA/update-tender-after-enqiery-with-update-periods.http
+.. http:example:: tutorial/stage2/UA/update-tender-after-enqiery-with-update-periods.http
    :code:
 
 
@@ -43,34 +52,34 @@ Uploading documentation
 Procuring entity can upload PDF files into the created tender. Uploading should
 follow the :ref:`upload` rules.
 
-.. include:: tutorial/stage2/UA/upload-tender-notice.http
+.. http:example:: tutorial/stage2/UA/upload-tender-notice.http
    :code:
 
 `201 Created` response code and `Location` header confirm document creation.
 We can additionally query the `documents` collection API endpoint to confirm the
 action:
 
-.. include:: tutorial/stage2/UA/tender-documents.http
+.. http:example:: tutorial/stage2/UA/tender-documents.http
    :code:
 
 The single array element describes the uploaded document. We can upload more documents:
 
-.. include:: tutorial/stage2/UA/upload-award-criteria.http
+.. http:example:: tutorial/stage2/UA/upload-award-criteria.http
    :code:
 
 And again we can confirm that there are two documents uploaded.
 
-.. include:: tutorial/stage2/UA/tender-documents-2.http
+.. http:example:: tutorial/stage2/UA/tender-documents-2.http
    :code:
 
 In case we made an error, we can reupload the document over the older version:
 
-.. include:: tutorial/stage2/UA/update-award-criteria.http
+.. http:example:: tutorial/stage2/UA/update-award-criteria.http
    :code:
 
 And we can see that it is overriding the original version:
 
-.. include:: tutorial/stage2/UA/tender-documents-3.http
+.. http:example:: tutorial/stage2/UA/tender-documents-3.http
    :code:
 
 
@@ -82,32 +91,32 @@ Enquiries
 When tender has ``active.tendering`` status and ``Tender.enqueryPeriod.endDate``  hasn't come yet, interested parties can ask questions.
 Ask question can only participants which were approved on first stage, someone else try ask, he catch error:
 
-.. include:: tutorial/stage2/UA/ask-question-bad-participant.http
+.. http:example:: tutorial/stage2/UA/ask-question-bad-participant.http
    :code:
 
 
-.. include:: tutorial/stage2/UA/ask-question.http
+.. http:example:: tutorial/stage2/UA/ask-question.http
    :code:
 
 Procuring entity can answer them:
 
-.. include:: tutorial/stage2/UA/answer-question.http
+.. http:example:: tutorial/stage2/UA/answer-question.http
    :code:
 
 One can retrieve either questions list:
 
-.. include:: tutorial/stage2/UA/list-question.http
+.. http:example:: tutorial/stage2/UA/list-question.http
    :code:
 
 or individual answer:
 
-.. include:: tutorial/stage2/UA/get-answer.http
+.. http:example:: tutorial/stage2/UA/get-answer.http
    :code:
 
 
 Enquiries can be made only during ``Tender.enqueryPeriod``
 
-.. include:: tutorial/stage2/UA/ask-question-after-enquiry-period.http
+.. http:example:: tutorial/stage2/UA/ask-question-after-enquiry-period.http
    :code:
 
 
@@ -121,30 +130,43 @@ Tender status ``active.tendering`` allows registration of bids.
 Like with question only approved participants can register bid.
 First participant witch didn't was on first stage try create bid.
 
-.. include:: tutorial/stage2/UA/try-register-bidder.http
+.. http:example:: tutorial/stage2/UA/try-register-bidder.http
    :code:
 
 Bidder can register a bid with draft status:
 
-.. include:: tutorial/stage2/UA/register-bidder.http
+.. http:example:: tutorial/stage2/UA/register-bidder.http
    :code:
 
-And activate a bid:
+Then bidder should approve bid with pending status. If `tenderers.identifier.scheme = 'UA-EDR'` it is required to add sign document to bid.
+If there is no sign document during activation, we will see an error:
 
-.. include:: tutorial/stage2/UA/activate-bidder.http
+.. http:example:: tutorial/stage2/UA/activate-bidder-without-proposal.http
    :code:
 
-Proposal Uploading
-~~~~~~~~~~~~~~~~~~
+Sign document should have `documentType: proposal` and `title: *.p7s`. Let's add such document:
 
-Then bidder should upload proposal document(s):
+.. http:example:: tutorial/stage2/UA/upload-bid-proposal.http
+   :code:
 
-.. include:: tutorial/stage2/UA/upload-bid-proposal.http
+Let's try to activate bid one more time:
+
+.. http:example:: tutorial/stage2/UA/activate-bidder.http
    :code:
 
 It is possible to check the uploaded documents:
 
-.. include:: tutorial/stage2/UA/bidder-documents.http
+.. http:example:: tutorial/stage2/UA/bidder-documents.http
+   :code:
+
+If we patched some fields in pending bid, then bid becomes `invalid` and should be signed one more time:
+
+.. http:example:: tutorial/stage2/UA/patch-pending-bid.http
+   :code:
+
+If we try to activate bidder the new sign will be needed:
+
+.. http:example:: tutorial/stage2/UA/activate-bidder-without-sign.http
    :code:
 
 Bid invalidation
@@ -152,7 +174,7 @@ Bid invalidation
 
 If tender is modified, status of all bid proposals will be changed to ``invalid``. Bid proposal will look the following way after tender has been modified:
 
-.. include:: tutorial/stage2/UA/bidder-after-changing-tender.http
+.. http:example:: tutorial/stage2/UA/bidder-after-changing-tender.http
    :code:
 
 Bid confirmation
@@ -160,7 +182,7 @@ Bid confirmation
 
 Bidder should confirm bid proposal:
 
-.. include:: tutorial/stage2/UA/bidder-activate-after-changing-tender.http
+.. http:example:: tutorial/stage2/UA/bidder-activate-after-changing-tender.http
    :code:
 
 
@@ -171,7 +193,7 @@ Batch-mode bid registration
 
 Register one more bid with documents using single request (batch-mode):
 
-.. include:: tutorial/stage2/UA/register-2nd-bidder.http
+.. http:example:: tutorial/stage2/UA/register-2nd-bidder.http
    :code:
 
 
@@ -182,70 +204,150 @@ Auction
 
 After auction is scheduled anybody can visit it to watch. The auction can be reached at `Tender.auctionUrl`:
 
-.. include:: tutorial/stage2/UA/auction-url.http
+.. http:example:: tutorial/stage2/UA/auction-url.http
    :code:
 
 Bidders can find out their participation URLs via their bids:
 
-.. include:: tutorial/stage2/UA/bidder-participation-url.http
+.. http:example:: tutorial/stage2/UA/bidder-participation-url.http
    :code:
 
 See the `Bid.participationUrl` in the response. Similar, but different, URL can be retrieved for other participants:
 
-.. include:: tutorial/stage2/UA/bidder2-participation-url.http
+.. http:example:: tutorial/stage2/UA/bidder2-participation-url.http
    :code:
 
 Confirming qualification
 ------------------------
 
+Qualification comission can set award to `active` or `unsuccessful` status.
+
+There are validations before registering qualification decision:
+
+* `eligible: True` and `qualified: True` - for setting award from `pending` to `active`
+
+* `eligible: False` and `qualified: True` OR `eligible: True` and `qualified: False` OR `eligible: False` and `qualified: False` - for setting award from `pending` to `unsuccessful`
+
+Let's try to set `unsuccessful` status for `qualified` and `eligible` award and we will see an error:
+
+.. http:example:: tutorial/stage2/UA/unsuccessful-qualified-award.http
+   :code:
+
+Let's try to set `active` status for `non-qualified` or `non-eligible` award and we will see an error:
+
+.. http:example:: tutorial/stage2/UA/activate-non-qualified-award.http
+   :code:
+
+Before making decision it is required to add sign document to award.
+If there is no sign document during activation, we will see an error:
+
+.. http:example:: tutorial/stage2/UA/award-notice-document-required.http
+   :code:
+
+The same logic for `unsuccessful` status:
+
+.. http:example:: tutorial/stage2/UA/award-unsuccessful-notice-document-required.http
+   :code:
+
+Sign document should have `documentType: notice` and `title: *.p7s`. Let's add such document:
+
+.. http:example:: tutorial/stage2/UA/award-add-notice-document.http
+   :code:
+
 Qualification commission registers its decision via the following call:
 
-.. include:: tutorial/stage2/UA/confirm-qualification.http
+.. http:example:: tutorial/stage2/UA/confirm-qualification.http
    :code:
 
-Setting contract value
-----------------------
 
-By default contract value is set based on the award, but there is a possibility to set custom contract value.
+.. index:: Setting Contract
 
-If you want to **lower contract value**, you can insert new one into the `amount` field.
+Setting Contract
+----------------
 
-.. include:: tutorial/stage2/UA/tender-contract-set-contract-value.http
+In EContracting the contract is created directly in contracting system.
+
+.. note::
+    Some of data will be mirrored to tender until contract will be activated for backward compatibility.
+
+Read more about working with EContracting in contracting system in :ref:`econtracting_tutorial` section.
+
+
+Cancelling tender
+-----------------
+
+Tender creator can cancel tender anytime. The following steps should be applied:
+
+1. Prepare cancellation request.
+2. Fill it with the protocol describing the cancellation reasons.
+3. Passing complaint period(10 days)
+4. Cancel the tender with the prepared reasons.
+
+Only the request that has been activated (th step above) has power to
+cancel tender.  I.e.  you have to not only prepare cancellation request but
+to activate it as well.
+
+For cancelled cancellation you need to update cancellation status to `unsuccessful`
+from `draft` or `pending`.
+
+See :ref:`cancellation` data structure for details.
+
+Preparing the cancellation request
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Tender creator can cancel tender anytime (except when tender in status `active.auction` or in terminal status e.g. `unsuccessful`, `canceled`, `complete`).
+
+The following steps should be applied:
+
+There are four possible types of cancellation reason - tender was `noDemand`, `unFixable`, `forceMajeure` and `expensesCut`.
+
+`id` is autogenerated and passed in the `Location` header of response.
+
+.. http:example:: tutorial/stage2/EU/prepare-cancellation.http
    :code:
 
-`200 OK` response was returned. The value was modified successfully.
+You can change ``reasonType`` value to any of the above.
 
-Setting contract signature date
--------------------------------
-
-There is a possibility to set custom contract signature date. You can insert appropriate date into the `dateSigned` field.
-
-If this date is not set, it will be auto-generated on the date of contract registration.
-
-.. include:: tutorial/stage2/UA/tender-contract-sign-date.http
+.. http:example:: tutorial/stage2/UA/update-cancellation-reasonType.http
    :code:
 
-Setting contract validity period
---------------------------------
+Filling cancellation with protocol and supplementary documentation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Setting contract validity period is optional, but if it is needed, you can set appropriate `startDate` and `endDate`.
+This step is required. Without documents you can't update tender status.
 
-.. include:: tutorial/stage2/UA/tender-contract-period.http
+Upload the file contents
+
+.. http:example:: tutorial/stage2/UA/upload-cancellation-doc.http
    :code:
 
-Uploading contract documentation
---------------------------------
+Change the document description and other properties
 
-You can upload contract documents for the second stage Competitive Dialogue procedure.
 
-Let's upload contract document:
-
-.. include:: tutorial/stage2/UA/tender-contract-upload-document.http
+.. http:example:: tutorial/stage2/UA/patch-cancellation.http
    :code:
 
-`201 Created` response code and `Location` header confirm that this document was added.
+Upload new version of the document
 
-Let's view the uploaded contract document:
 
-.. include:: tutorial/stage2/UA/tender-contract-get.http
+.. http:example:: tutorial/stage2/UA/update-cancellation-doc.http
+   :code:
+
+Passing Complaint Period
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+For activate complaint period, you need to update cancellation from `draft` to `pending`.
+
+.. http:example:: tutorial/stage2/UA/pending-cancellation.http
+   :code:
+
+When cancellation in `pending` status the tender owner is prohibited from all actions on the tender.
+
+Activating the request and cancelling tender
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+if the complaint period(duration 10 days) is over and there were no complaints or
+all complaints are canceled, then cancellation will automatically update status to `active`.
+
+.. http:example:: tutorial/stage2/UA/active-cancellation.http
    :code:

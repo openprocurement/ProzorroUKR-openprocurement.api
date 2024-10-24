@@ -1,37 +1,40 @@
-from mock import patch
+from copy import deepcopy
+from unittest.mock import patch
 
 from openprocurement.api.tests.base import snitch
 from openprocurement.tender.belowthreshold.tests.base import (
-    test_organization,
-    test_draft_claim,
-    test_cancellation,
-    test_draft_complaint,
+    test_tender_below_cancellation,
+    test_tender_below_draft_complaint,
+    test_tender_below_organization,
 )
 from openprocurement.tender.limited.tests.base import (
     BaseTenderContentWebTest,
+    test_tender_negotiation_config,
     test_tender_negotiation_data,
+    test_tender_negotiation_quick_config,
     test_tender_negotiation_quick_data,
 )
-from openprocurement.tender.openua.tests.post import (
+from openprocurement.tender.open.tests.base import test_tender_open_complaint_objection
+from openprocurement.tender.open.tests.post import (
     TenderAwardComplaintPostResourceMixin,
     TenderCancellationComplaintPostResourceMixin,
     date_after_2020_04_19,
 )
-from openprocurement.tender.openua.tests.post_blanks import (
-    create_complaint_post_status_forbidden,
+from openprocurement.tender.open.tests.post_blanks import (
     create_complaint_post_complaint_owner,
+    create_complaint_post_status_forbidden,
     create_complaint_post_tender_owner,
     create_complaint_post_validate_recipient,
     create_complaint_post_validate_related_post,
-    patch_complaint_post,
+    create_tender_complaint_post_document_json,
     get_complaint_post,
     get_complaint_posts,
-    create_tender_complaint_post_document_json,
+    patch_complaint_post,
     put_tender_complaint_document_json,
 )
 
 
-class ComplaintPostResourceMixin(object):
+class ComplaintPostResourceMixin:
     test_create_complaint_post_status_forbidden = snitch(create_complaint_post_status_forbidden)
     test_create_complaint_post_complaint_owner = snitch(create_complaint_post_complaint_owner)
     test_create_complaint_post_tender_owner = snitch(create_complaint_post_tender_owner)
@@ -45,89 +48,94 @@ class ComplaintPostResourceMixin(object):
 
 
 class TenderNegotiationAwardComplaintPostResourceTest(
-    BaseTenderContentWebTest,
-    ComplaintPostResourceMixin,
-    TenderAwardComplaintPostResourceMixin
+    BaseTenderContentWebTest, ComplaintPostResourceMixin, TenderAwardComplaintPostResourceMixin
 ):
-    docservice = True
     initial_data = test_tender_negotiation_data
+    initial_config = test_tender_negotiation_config
 
     def setUp(self):
-        super(TenderNegotiationAwardComplaintPostResourceTest, self).setUp()
+        super().setUp()
         # Create award
         response = self.app.post_json(
             "/tenders/{}/awards?acc_token={}".format(self.tender_id, self.tender_token),
-            {"data": {
-                "suppliers": [test_organization],
-                "status": "pending",
-                "qualified": True,
-            }}
+            {
+                "data": {
+                    "suppliers": [test_tender_below_organization],
+                    "status": "pending",
+                    "qualified": True,
+                    "value": {"amount": 40, "currency": "UAH", "valueAddedTaxIncluded": False},
+                }
+            },
         )
 
         award = response.json["data"]
         self.award_id = award["id"]
 
+        self.add_sign_doc(self.tender_id, self.tender_token, docs_url=f"/awards/{self.award_id}/documents")
         self.app.patch_json(
             "/tenders/{}/awards/{}?acc_token={}".format(self.tender_id, self.award_id, self.tender_token),
-            {"data": {"status": "active"}}
+            {"data": {"status": "active", "qualified": True}},
         )
 
         # Create complaint for award
+        objection_data = deepcopy(test_tender_open_complaint_objection)
+        objection_data["relatesTo"] = "award"
+        objection_data["relatedItem"] = self.award_id
+        complaint_data = deepcopy(test_tender_below_draft_complaint)
+        complaint_data["objections"] = [objection_data]
         response = self.app.post_json(
-            "/tenders/{}/awards/{}/complaints".format(
-                self.tender_id, self.award_id
-            ),
-            {"data": test_draft_claim},
+            "/tenders/{}/awards/{}/complaints".format(self.tender_id, self.award_id),
+            {"data": complaint_data},
         )
         self.complaint_id = response.json["data"]["id"]
         self.complaint_owner_token = response.json["access"]["token"]
+        self.objection_id = response.json["data"]["objections"][0]["id"]
         self.assertEqual(response.status, "201 Created")
         self.assertEqual(response.content_type, "application/json")
 
 
 class TenderNegotiationQuickAwardComplaintPostResourceTest(TenderNegotiationAwardComplaintPostResourceTest):
-    docservice = True
     initial_data = test_tender_negotiation_quick_data
+    initial_config = test_tender_negotiation_quick_config
 
 
-@patch("openprocurement.tender.core.models.RELEASE_2020_04_19", date_after_2020_04_19)
-@patch("openprocurement.tender.core.validation.RELEASE_2020_04_19", date_after_2020_04_19)
-@patch("openprocurement.tender.core.views.cancellation.RELEASE_2020_04_19", date_after_2020_04_19)
+@patch("openprocurement.tender.core.procedure.validation.RELEASE_2020_04_19", date_after_2020_04_19)
 class TenderNegotiationCancellationComplaintPostResourceTest(
-    BaseTenderContentWebTest,
-    ComplaintPostResourceMixin,
-    TenderCancellationComplaintPostResourceMixin
+    BaseTenderContentWebTest, ComplaintPostResourceMixin, TenderCancellationComplaintPostResourceMixin
 ):
-    docservice = True
     initial_data = test_tender_negotiation_data
+    initial_config = test_tender_negotiation_config
 
-    @patch("openprocurement.tender.core.models.RELEASE_2020_04_19", date_after_2020_04_19)
-    @patch("openprocurement.tender.core.validation.RELEASE_2020_04_19", date_after_2020_04_19)
-    @patch("openprocurement.tender.core.views.cancellation.RELEASE_2020_04_19", date_after_2020_04_19)
+    @patch("openprocurement.tender.core.procedure.validation.RELEASE_2020_04_19", date_after_2020_04_19)
     def setUp(self):
-        super(TenderNegotiationCancellationComplaintPostResourceTest, self).setUp()
+        super().setUp()
         # Create award
 
         response = self.app.post_json(
             "/tenders/{}/awards?acc_token={}".format(self.tender_id, self.tender_token),
-            {"data": {"suppliers": [test_organization], "qualified": True, "status": "active"}}
+            {
+                "data": {
+                    "suppliers": [test_tender_below_organization],
+                    "qualified": True,
+                    "value": {"amount": 40, "currency": "UAH", "valueAddedTaxIncluded": False},
+                }
+            },
         )
         self.assertEqual(response.status, "201 Created")
         self.assertEqual(response.content_type, "application/json")
         award = response.json["data"]
         self.award_id = award["id"]
 
+        self.add_sign_doc(self.tender_id, self.tender_token, docs_url=f"/awards/{self.award_id}/documents")
         self.app.patch_json(
             "/tenders/{}/awards/{}?acc_token={}".format(self.tender_id, self.award_id, self.tender_token),
-            {"data": {"status": "active"}}
+            {"data": {"status": "active", "qualified": True}},
         )
         self.set_all_awards_complaint_period_end()
 
         # Create cancellation
-        cancellation = dict(**test_cancellation)
-        cancellation.update({
-            "reasonType": "noDemand"
-        })
+        cancellation = deepcopy(test_tender_below_cancellation)
+        cancellation.update({"reasonType": "noDemand"})
         response = self.app.post_json(
             "/tenders/{}/cancellations?acc_token={}".format(self.tender_id, self.tender_token),
             {"data": cancellation},
@@ -137,28 +145,36 @@ class TenderNegotiationCancellationComplaintPostResourceTest(
 
         # Add document and update cancellation status to pending
 
-        self.app.post(
+        self.app.post_json(
             "/tenders/{}/cancellations/{}/documents?acc_token={}".format(
                 self.tender_id, self.cancellation_id, self.tender_token
             ),
-            upload_files=[("file", "name.doc", "content")],
+            {
+                "data": {
+                    "title": "укр.doc",
+                    "url": self.generate_docservice_url(),
+                    "hash": "md5:" + "0" * 32,
+                    "format": "application/msword",
+                }
+            },
         )
         self.app.patch_json(
-            "/tenders/{}/cancellations/{}?acc_token={}".format(
-                self.tender_id, self.cancellation_id, self.tender_token
-            ),
+            "/tenders/{}/cancellations/{}?acc_token={}".format(self.tender_id, self.cancellation_id, self.tender_token),
             {"data": {"status": "pending"}},
         )
 
         # Create complaint for cancellation
-
+        objection_data = deepcopy(test_tender_open_complaint_objection)
+        objection_data["relatesTo"] = "cancellation"
+        objection_data["relatedItem"] = self.cancellation_id
+        complaint_data = deepcopy(test_tender_below_draft_complaint)
+        complaint_data["objections"] = [objection_data]
         response = self.app.post_json(
-            "/tenders/{}/cancellations/{}/complaints".format(
-                self.tender_id, self.cancellation_id
-            ),
-            {"data": test_draft_complaint},
+            "/tenders/{}/cancellations/{}/complaints".format(self.tender_id, self.cancellation_id),
+            {"data": complaint_data},
         )
         self.complaint_id = response.json["data"]["id"]
         self.complaint_owner_token = response.json["access"]["token"]
+        self.objection_id = response.json["data"]["objections"][0]["id"]
         self.assertEqual(response.status, "201 Created")
         self.assertEqual(response.content_type, "application/json")

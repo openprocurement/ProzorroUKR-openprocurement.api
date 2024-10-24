@@ -1,59 +1,100 @@
-# -*- coding: utf-8 -*-
 import os
-
-from datetime import timedelta
 from copy import deepcopy
-from openprocurement.api.constants import SANDBOX_MODE
+from datetime import timedelta
+
+from openprocurement.api.constants import RELEASE_ECRITERIA_ARTICLE_17, SANDBOX_MODE
 from openprocurement.api.tests.base import BaseWebTest
 from openprocurement.api.utils import get_now
 from openprocurement.tender.belowthreshold.tests.base import (
-    test_tender_data as test_tender_data_api,
-    test_features_tender_data,
     BaseTenderWebTest,
-    test_bids as base_test_bids,
+    test_tender_below_bids,
+    test_tender_below_data,
+    test_tender_below_features_data,
+    test_tender_below_organization,
 )
+from openprocurement.tender.belowthreshold.tests.utils import set_tender_multi_buyers
+from openprocurement.tender.openua.tests.periods import PERIODS
 
 now = get_now()
-test_tender_data = test_tender_ua_data = test_tender_data_api.copy()
-test_tender_data["procurementMethodType"] = "aboveThresholdUA"
-del test_tender_data["enquiryPeriod"]
-test_tender_data["tenderPeriod"] = {"endDate": (now + timedelta(days=16)).isoformat()}
-test_tender_data["items"] = [
+
+test_tender_openua_data = test_tender_below_data.copy()
+test_tender_openua_data["procurementMethodType"] = "aboveThresholdUA"
+del test_tender_openua_data["enquiryPeriod"]
+test_tender_openua_data["tenderPeriod"] = {"endDate": (now + timedelta(days=16)).isoformat()}
+test_tender_openua_data["items"] = [
     {
-        "description": u"футляри до державних нагород",
-        "description_en": u"Cases for state awards",
-        "classification": {"scheme": u"ДК021", "id": u"44617100-9", "description": u"Cartons"},
+        "description": "футляри до державних нагород",
+        "description_en": "Cases for state awards",
+        "classification": {"scheme": "ДК021", "id": "44617100-9", "description": "Cartons"},
         "additionalClassifications": [
-            {"scheme": u"ДКПП", "id": u"17.21.1", "description": u"папір і картон гофровані, паперова й картонна тара"}
+            {"scheme": "ДКПП", "id": "17.21.1", "description": "папір і картон гофровані, паперова й картонна тара"}
         ],
-        "unit": {"name": u"item", "code": u"44617100-9"},
+        "unit": {"name": "item", "code": "KGM", "value": {"amount": 6}},
         "quantity": 5,
         "deliveryDate": {
             "startDate": (now + timedelta(days=2)).isoformat(),
             "endDate": (now + timedelta(days=5)).isoformat(),
         },
         "deliveryAddress": {
-            "countryName": u"Україна",
+            "countryName": "Україна",
             "postalCode": "79000",
-            "region": u"м. Київ",
-            "locality": u"м. Київ",
-            "streetAddress": u"вул. Банкова 1",
+            "region": "м. Київ",
+            "locality": "м. Київ",
+            "streetAddress": "вул. Банкова 1",
         },
     }
 ]
 if SANDBOX_MODE:
-    test_tender_data["procurementMethodDetails"] = "quick, accelerator=1440"
+    test_tender_openua_data["procurementMethodDetails"] = "quick, accelerator=1440"
 
-test_bids = deepcopy(base_test_bids)
-for i in test_bids:
-    i.update({"selfEligible": True, "selfQualified": True})
+test_tender_openua_bids = deepcopy(test_tender_below_bids)
+for bid in test_tender_openua_bids:
+    bid["selfQualified"] = True
+    if get_now() < RELEASE_ECRITERIA_ARTICLE_17:
+        bid["selfEligible"] = True
 
-test_features_tender_ua_data = test_features_tender_data.copy()
-test_features_tender_ua_data["procurementMethodType"] = "aboveThresholdUA"
-del test_features_tender_ua_data["enquiryPeriod"]
-test_features_tender_ua_data["tenderPeriod"] = {"endDate": (now + timedelta(days=16)).isoformat()}
-test_features_tender_ua_data["items"][0]["deliveryDate"] = test_tender_data["items"][0]["deliveryDate"]
-test_features_tender_ua_data["items"][0]["deliveryAddress"] = test_tender_data["items"][0]["deliveryAddress"]
+test_tender_openua_three_bids = deepcopy(test_tender_openua_bids)
+test_tender_openua_three_bids.append(
+    {
+        "tenderers": [test_tender_below_organization],
+        "value": {"amount": 489.0, "currency": "UAH", "valueAddedTaxIncluded": True},
+        "selfQualified": True,
+    }
+)
+
+test_tender_openua_features_data = test_tender_below_features_data.copy()
+test_tender_openua_features_data["procurementMethodType"] = "aboveThresholdUA"
+del test_tender_openua_features_data["enquiryPeriod"]
+test_tender_openua_features_data["tenderPeriod"] = {"endDate": (now + timedelta(days=16)).isoformat()}
+test_tender_openua_features_data["items"][0]["deliveryDate"] = test_tender_openua_data["items"][0]["deliveryDate"]
+test_tender_openua_features_data["items"][0]["deliveryAddress"] = test_tender_openua_data["items"][0]["deliveryAddress"]
+
+
+test_tender_openua_multi_buyers_data = set_tender_multi_buyers(
+    test_tender_openua_data, test_tender_openua_data["items"][0], test_tender_below_organization
+)
+
+test_tender_openua_config = {
+    "hasAuction": True,
+    "hasAwardingOrder": True,
+    "hasValueRestriction": True,
+    "valueCurrencyEquality": True,
+    "hasPrequalification": False,
+    "minBidsNumber": 2,
+    "hasPreSelectionAgreement": False,
+    "hasTenderComplaints": True,
+    "hasAwardComplaints": True,
+    "hasCancellationComplaints": True,
+    "hasValueEstimation": True,
+    "hasQualificationComplaints": False,
+    "tenderComplainRegulation": 4,
+    "qualificationComplainDuration": 0,
+    "awardComplainDuration": 10,
+    "cancellationComplainDuration": 10,
+    "clarificationUntilDuration": 3,
+    "qualificationDuration": 0,
+    "restricted": False,
+}
 
 
 class BaseApiWebTest(BaseWebTest):
@@ -62,208 +103,59 @@ class BaseApiWebTest(BaseWebTest):
 
 class BaseTenderUAWebTest(BaseTenderWebTest):
     relative_to = os.path.dirname(__file__)
-    initial_data = test_tender_data
-    initial_status = None
+    initial_data = test_tender_openua_data
+    initial_config = test_tender_openua_config
+    initial_status = "active.tendering"
     initial_bids = None
     initial_lots = None
+    initial_criteria = None
+    min_bids_number = 2
     primary_tender_status = "active.tendering"  # status, to which tender should be switched from 'draft'
     question_claim_block_status = (
-        "active.auction"
-    )  # status, tender cannot be switched to while it has questions/complaints related to its lot
+        "active.auction"  # status, tender cannot be switched to while it has questions/complaints related to its lot
+    )
     forbidden_document_modification_actions_status = (
-        "active.auction"
-    )  # status, in which operations with tender documents (adding, updating) are forbidden
-    forbidden_question_modification_actions_status = (
-        "active.auction"
-    )  # status, in which adding/updating tender questions is forbidden
+        "active.auction"  # status, in which operations with tender documents (adding, updating) are forbidden
+    )
+    forbidden_question_add_actions_status = "active.auction"  # status, in which adding tender questions is forbidden
+    forbidden_question_update_actions_status = (
+        "active.auction"  # status, in which updating tender questions is forbidden
+    )
     forbidden_lot_actions_status = (
-        "active.auction"
-    )  # status, in which operations with tender lots (adding, updating, deleting) are forbidden
+        "active.auction"  # status, in which operations with tender lots (adding, updating, deleting) are forbidden
+    )
     forbidden_contract_document_modification_actions_status = (
-        "unsuccessful"
-    )  # status, in which operations with tender's contract documents (adding, updating) are forbidden
-    forbidden_auction_actions_status = (
-        "active.tendering"
-    )  # status, in which operations with tender auction (getting auction info, reporting auction results, updating auction urls) and adding tender documents are forbidden
+        "unsuccessful"  # status, in which operations with tender's contract documents (adding, updating) are forbidden
+    )
+    forbidden_auction_actions_status = "active.tendering"  # status, in which operations with tender auction (getting auction info, reporting auction results, updating auction urls) and adding tender documents are forbidden
     forbidden_auction_document_create_actions_status = (
-        "active.tendering"
-    )  # status, in which adding document to tender auction is forbidden
+        "active.tendering"  # status, in which adding document to tender auction is forbidden
+    )
+
+    periods = PERIODS
 
     def set_enquiry_period_end(self):
-        now = get_now()
-        self.set_status(
-            "active.tendering",
-            {
-                "enquiryPeriod": {
-                    "startDate": (now - timedelta(days=15)).isoformat(),
-                    "endDate": (now - (timedelta(minutes=1) if SANDBOX_MODE else timedelta(days=1))).isoformat(),
-                },
-                "tenderPeriod": {
-                    "startDate": (now - timedelta(days=15)).isoformat(),
-                    "endDate": (now + (timedelta(minutes=2) if SANDBOX_MODE else timedelta(days=2))).isoformat(),
-                },
-                "auctionPeriod": {"startDate": (now + timedelta(days=2)).isoformat()},
-            },
-        )
+        self.set_status("active.tendering", startend="enquiry_end")
 
     def set_complaint_period_end(self):
-        now = get_now()
-        self.set_status(
-            "active.tendering",
-            {
-                "enquiryPeriod": {
-                    "startDate": (now - timedelta(days=14)).isoformat(),
-                    "endDate": (now + (timedelta(minutes=1) if SANDBOX_MODE else timedelta(days=1))).isoformat(),
-                },
-                "tenderPeriod": {
-                    "startDate": (now - timedelta(days=14)).isoformat(),
-                    "endDate": (now + (timedelta(minutes=3) if SANDBOX_MODE else timedelta(days=3))).isoformat(),
-                },
-                "auctionPeriod": {"startDate": (now + timedelta(days=2)).isoformat()},
-            },
-        )
+        self.set_status("active.tendering", startend="complaint_end")
 
     def set_all_awards_complaint_period_end(self):
         now = get_now()
         startDate = (now - timedelta(days=2)).isoformat()
         endDate = (now - timedelta(days=1)).isoformat()
-        tender_document = self.db.get(self.tender_id)
+        tender_document = self.mongodb.tenders.get(self.tender_id)
         for award in tender_document["awards"]:
             award.update({"complaintPeriod": {"startDate": startDate, "endDate": endDate}})
-        self.db.save(tender_document)
-
-    def update_status(self, status, extra=None):
-        now = get_now()
-        data = {"status": status}
-        if status == "active.tendering":
-            data.update(
-                {
-                    "enquiryPeriod": {
-                        "startDate": (now).isoformat(),
-                        "endDate": (now + timedelta(days=13)).isoformat(),
-                    },
-                    "tenderPeriod": {"startDate": (now).isoformat(), "endDate": (now + timedelta(days=16)).isoformat()},
-                }
-            )
-        elif status == "active.auction":
-            data.update(
-                {
-                    "enquiryPeriod": {
-                        "startDate": (now - timedelta(days=16)).isoformat(),
-                        "endDate": (now - timedelta(days=3)).isoformat(),
-                    },
-                    "tenderPeriod": {"startDate": (now - timedelta(days=16)).isoformat(), "endDate": (now).isoformat()},
-                    "auctionPeriod": {"startDate": (now).isoformat()},
-                }
-            )
-            if self.initial_lots:
-                data.update({"lots": [{"auctionPeriod": {"startDate": (now).isoformat()}} for i in self.initial_lots]})
-        elif status == "active.qualification":
-            data.update(
-                {
-                    "enquiryPeriod": {
-                        "startDate": (now - timedelta(days=17)).isoformat(),
-                        "endDate": (now - timedelta(days=4)).isoformat(),
-                    },
-                    "tenderPeriod": {
-                        "startDate": (now - timedelta(days=17)).isoformat(),
-                        "endDate": (now - timedelta(days=1)).isoformat(),
-                    },
-                    "auctionPeriod": {"startDate": (now - timedelta(days=1)).isoformat(), "endDate": (now).isoformat()},
-                    "awardPeriod": {"startDate": (now).isoformat()},
-                }
-            )
-            if self.initial_lots:
-                data.update(
-                    {
-                        "lots": [
-                            {
-                                "auctionPeriod": {
-                                    "startDate": (now - timedelta(days=1)).isoformat(),
-                                    "endDate": (now).isoformat(),
-                                }
-                            }
-                            for i in self.initial_lots
-                        ]
-                    }
-                )
-        elif status == "active.awarded":
-            data.update(
-                {
-                    "enquiryPeriod": {
-                        "startDate": (now - timedelta(days=17)).isoformat(),
-                        "endDate": (now - timedelta(days=4)).isoformat(),
-                    },
-                    "tenderPeriod": {
-                        "startDate": (now - timedelta(days=17)).isoformat(),
-                        "endDate": (now - timedelta(days=1)).isoformat(),
-                    },
-                    "auctionPeriod": {"startDate": (now - timedelta(days=1)).isoformat(), "endDate": (now).isoformat()},
-                    "awardPeriod": {"startDate": (now).isoformat(), "endDate": (now).isoformat()},
-                }
-            )
-            if self.initial_lots:
-                data.update(
-                    {
-                        "lots": [
-                            {
-                                "auctionPeriod": {
-                                    "startDate": (now - timedelta(days=1)).isoformat(),
-                                    "endDate": (now).isoformat(),
-                                }
-                            }
-                            for i in self.initial_lots
-                        ]
-                    }
-                )
-        elif status == "complete":
-            data.update(
-                {
-                    "enquiryPeriod": {
-                        "startDate": (now - timedelta(days=25)).isoformat(),
-                        "endDate": (now - timedelta(days=11)).isoformat(),
-                    },
-                    "tenderPeriod": {
-                        "startDate": (now - timedelta(days=25)).isoformat(),
-                        "endDate": (now - timedelta(days=8)).isoformat(),
-                    },
-                    "auctionPeriod": {
-                        "startDate": (now - timedelta(days=8)).isoformat(),
-                        "endDate": (now - timedelta(days=7)).isoformat(),
-                    },
-                    "awardPeriod": {
-                        "startDate": (now - timedelta(days=7)).isoformat(),
-                        "endDate": (now - timedelta(days=7)).isoformat(),
-                    },
-                }
-            )
-            if self.initial_lots:
-                data.update(
-                    {
-                        "lots": [
-                            {
-                                "auctionPeriod": {
-                                    "startDate": (now - timedelta(days=8)).isoformat(),
-                                    "endDate": (now - timedelta(days=7)).isoformat(),
-                                }
-                            }
-                            for i in self.initial_lots
-                        ]
-                    }
-                )
-
-        self.tender_document_patch = data
-        if extra:
-            self.tender_document_patch.update(extra)
-        self.save_changes()
+        self.mongodb.tenders.save(tender_document)
 
 
 class BaseTenderUAContentWebTest(BaseTenderUAWebTest):
-    initial_data = test_tender_data
-    initial_status = None
+    initial_data = test_tender_openua_data
+    initial_status = "active.tendering"
     initial_bids = None
     initial_lots = None
 
     def setUp(self):
-        super(BaseTenderUAContentWebTest, self).setUp()
+        super().setUp()
         self.create_tender()

@@ -1,0 +1,76 @@
+PATCH /api/2.5/frameworks/93bcad4f0fe64036865492ecfe70f113?acc_token=067dc9c3de91454dbc0132327f0c1efa HTTP/1.0
+Authorization: Bearer broker
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "procuringEntity": {
+      "contactPoint": {
+        "telephone": "+0440000001"
+      }
+    },
+    "title": "updated in draft status"
+  }
+}
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "prettyID": "UA-F-2023-10-10-000001",
+    "title": "updated in draft status",
+    "description": "Назва предмета закупівлі",
+    "status": "draft",
+    "classification": {
+      "description": "Mustard seeds",
+      "scheme": "ДК021",
+      "id": "03111600-8"
+    },
+    "additionalClassifications": [
+      {
+        "scheme": "ДК003",
+        "id": "17.21.1",
+        "description": "папір і картон гофровані, паперова й картонна тара"
+      }
+    ],
+    "owner": "broker",
+    "date": "2023-10-10T01:00:00+03:00",
+    "dateCreated": "2023-10-10T01:00:00+03:00",
+    "dateModified": "2023-10-10T01:00:00+03:00",
+    "qualificationPeriod": {
+      "endDate": "2023-12-09T01:00:00+03:00"
+    },
+    "frameworkType": "electronicCatalogue",
+    "procuringEntity": {
+      "name": "Повна назва юридичної організації.",
+      "identifier": {
+        "scheme": "UA-EDR",
+        "id": "40996564",
+        "legalName": "Назва організації(ЦЗО)"
+      },
+      "address": {
+        "countryName": "Україна",
+        "streetAddress": "вул. Банкова, 11, корпус 1",
+        "locality": "м. Київ",
+        "region": "м. Київ",
+        "postalCode": "01220"
+      },
+      "contactPoint": {
+        "name": "Назва організації(ЦЗО)",
+        "telephone": "+0440000001",
+        "email": "aa@aa.com"
+      },
+      "kind": "central"
+    },
+    "id": "93bcad4f0fe64036865492ecfe70f113"
+  },
+  "config": {
+    "clarificationUntilDuration": 3,
+    "restrictedDerivatives": false,
+    "qualificationComplainDuration": 0
+  }
+}
+

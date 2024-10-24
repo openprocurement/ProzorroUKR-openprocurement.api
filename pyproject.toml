@@ -1,0 +1,235 @@
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -v"
+log_cli_level = "INFO"
+python_files = [
+    "tests/*.py"
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::UserWarning",
+]
+
+[tool.black]
+line-length = 120
+skip-string-normalization = true
+
+[tool.isort]
+profile = "black"
+
+[tool.autoflake]
+quiet = true
+imports = [
+    "requests",
+]
+
+[tool.pylint]
+[tool.pylint.main]
+jobs = 1
+load-plugins = [
+    "pylint_pytest",
+]
+disable = [
+    "anomalous-backslash-in-string",
+    "arguments-differ",
+    "arguments-out-of-order",
+    "arguments-renamed",
+    "assignment-from-no-return",
+    "attribute-defined-outside-init",
+    "bare-except",
+    "broad-exception-caught",
+    "consider-iterating-dictionary",
+    "consider-merging-isinstance",
+    "consider-merging-isinstance",
+    "consider-using-dict-items",
+    "consider-using-enumerate",
+    "consider-using-f-string",
+    "consider-using-in",
+    "dangerous-default-value",
+    "deprecated-method",
+    "duplicate-code",
+    "expression-not-assigned",
+    "fixme",
+    "function-redefined",
+    "global-statement",
+    "implicit-str-concat",
+    "inconsistent-return-statements",
+    "invalid-envvar-default",
+    "invalid-name",
+    "line-too-long",
+    "logging-format-interpolation",
+    "logging-fstring-interpolation",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "missing-module-docstring",
+    "missing-timeout",
+    "no-else-break",
+    "no-else-continue",
+    "no-else-raise",
+    "no-else-return",
+    "no-member",
+    "no-value-for-parameter",
+    "non-parent-init-called",
+    "not-an-iterable",
+    "not-callable",
+    "protected-access",
+    "raise-missing-from",
+    "raising-bad-type",
+    "redefined-argument-from-local",
+    "redefined-builtin",
+    "redefined-outer-name",
+    "super-init-not-called",
+    "superfluous-parens",
+    "too-few-public-methods",
+    "too-many-ancestors",
+    "too-many-arguments",
+    "too-many-boolean-expressions",
+    "too-many-branches",
+    "too-many-format-args",
+    "too-many-function-args",
+    "too-many-instance-attributes",
+    "too-many-lines",
+    "too-many-locals",
+    "too-many-nested-blocks",
+    "too-many-public-methods",
+    "too-many-return-statements",
+    "too-many-statements",
+    "trailing-newlines",
+    "undefined-loop-variable",
+    "undefined-variable",
+    "ungrouped-imports",
+    "unnecessary-dunder-call",
+    "unnecessary-lambda-assignment",
+    "unnecessary-pass",
+    "unspecified-encoding",
+    "unsubscriptable-object",
+    "unused-argument",
+    "unused-variable",
+    "unused-wildcard-import",
+    "use-a-generator",
+    "used-before-assignment",
+    "useless-parent-delegation",
+    "wildcard-import",
+]
+
+[tool.pylint.format]
+max-line-length = 120
+
+[tool.bandit]
+exclude_dirs = [
+    "**/tests/**",
+    "**/loadtesting/**",
+]
+skips = [
+
+    #>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+    #   Severity: Low   Confidence: High
+    #   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+    #   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b101_assert_used.html
+    "B101",
+
+    #>> Issue: [B113:request_without_timeout] Requests call without timeout
+    #   Severity: Medium   Confidence: Low
+    #   CWE: CWE-400 (https://cwe.mitre.org/data/definitions/400.html)
+    #   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b113_request_without_timeout.html
+    "B113",
+
+    #>> Issue: [B107:hardcoded_password_default] Possible hardcoded password
+    #   Severity: Low   Confidence: Medium
+    #   CWE: CWE-259 (https://cwe.mitre.org/data/definitions/259.html)
+    #   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b107_hardcoded_password_default.html
+    "B107",
+
+    #>> Issue: [B701:jinja2_autoescape_false] By default, jinja2 sets autoescape to False. Consider using autoescape=True or use the select_autoescape function to mitigate XSS vulnerabilities.
+    #   Severity: High   Confidence: High
+    #   CWE: CWE-94 (https://cwe.mitre.org/data/definitions/94.html)
+    #   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b701_jinja2_autoescape_false.html
+    "B701",
+
+    #>> Issue: [B324:hashlib] Use of insecure MD5 hash function.
+    #   Severity: Medium   Confidence: High
+    #   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
+    #   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b324_hashlib.html
+    "B324",
+]
+
+[tool.ruff]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+    "tests",
+    "migrations",
+]
+
+# Same as Black.
+line-length = 120
+indent-width = 4
+
+# Assume Python 3.11
+target-version = "py311"
+
+[tool.ruff.lint]
+# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
+# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
+# McCabe complexity (`C901`) by default.
+select = ["E4", "E7", "E9", "F"]
+ignore = []
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+# Enable auto-formatting of code examples in docstrings. Markdown,
+# reStructuredText code/literal blocks and doctests are all supported.
+#
+# This is currently disabled by default, but it is planned for this
+# to be opt-out in the future.
+docstring-code-format = false
+
+# Set the line length limit used when formatting code snippets in
+# docstrings.
+#
+# This only has an effect when the `docstring-code-format` setting is
+# enabled.
+docstring-code-line-length = "dynamic"

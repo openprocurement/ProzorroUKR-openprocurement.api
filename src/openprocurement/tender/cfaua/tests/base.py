@@ -1,24 +1,31 @@
-# -*- coding: utf-8 -*-
 import json
 import os
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import timedelta
 from uuid import uuid4
-from openprocurement.api.constants import SANDBOX_MODE
-from openprocurement.tender.belowthreshold.tests.base import set_tender_lots, set_bid_lotvalues, test_cancellation
-from openprocurement.tender.openua.tests.base import BaseTenderUAWebTest as BaseBaseTenderWebTest
-from openprocurement.tender.core.tests.cancellation import activate_cancellation_with_complaints_after_2020_04_19
-from openprocurement.api.utils import apply_data_patch, get_now
-from openprocurement.api.constants import RELEASE_2020_04_19
-from openprocurement.tender.cfaua.constants import (
-    TENDERING_DAYS,
-    TENDERING_DURATION,
-    QUESTIONS_STAND_STILL,
-    COMPLAINT_STAND_STILL,
-    QUALIFICATION_COMPLAINT_STAND_STILL,
-    MIN_BIDS_NUMBER,
-    TENDERING_EXTRA_PERIOD,
-    CLARIFICATIONS_UNTIL_PERIOD,
+
+from openprocurement.api.constants import (
+    RELEASE_2020_04_19,
+    RELEASE_ECRITERIA_ARTICLE_17,
+    SANDBOX_MODE,
+)
+from openprocurement.api.procedure.utils import apply_data_patch
+from openprocurement.api.utils import get_now
+from openprocurement.tender.belowthreshold.tests.base import (
+    test_tender_below_cancellation,
+)
+from openprocurement.tender.belowthreshold.tests.utils import (
+    set_bid_lotvalues,
+    set_tender_lots,
+)
+from openprocurement.tender.cfaua.constants import MIN_BIDS_NUMBER, TENDERING_DAYS
+from openprocurement.tender.cfaua.tests.periods import PERIODS
+from openprocurement.tender.core.tests.cancellation import (
+    activate_cancellation_with_complaints_after_2020_04_19,
+)
+from openprocurement.tender.core.utils import calculate_tender_full_date
+from openprocurement.tender.openua.tests.base import (
+    BaseTenderUAWebTest as BaseBaseTenderWebTest,
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -26,411 +33,80 @@ now = get_now()
 
 # Prepare test_bids_data
 with open(os.path.join(BASE_DIR, "data/test_bids.json")) as fd:
-    test_bids = json.load(fd)
-    test_bids = [deepcopy(test_bids[0]) for _ in range(MIN_BIDS_NUMBER)]
-    for num, test_bid in enumerate(test_bids):
+    test_tender_cfaua_bids = json.load(fd)
+    test_tender_cfaua_bids = [deepcopy(test_tender_cfaua_bids[0]) for _ in range(MIN_BIDS_NUMBER)]
+    for num, test_bid in enumerate(test_tender_cfaua_bids):
+        if get_now() > RELEASE_ECRITERIA_ARTICLE_17:
+            del test_bid["selfEligible"]
         test_bid["value"]["amount"] = test_bid["value"]["amount"] + num * 1
 
 # Prepare test_features_tender_data
 with open(os.path.join(BASE_DIR, "data/test_tender.json")) as fd:
-    test_tender_data = json.load(fd)
-    test_tender_data["tenderPeriod"]["endDate"] = (now + timedelta(days=TENDERING_DAYS + 1)).isoformat()
+    test_tender_cfaua_data = json.load(fd)
+    test_tender_cfaua_data["tenderPeriod"]["endDate"] = (now + timedelta(days=TENDERING_DAYS + 1)).isoformat()
 
 
 # Prepare features_tender
 with open(os.path.join(BASE_DIR, "data/test_features.json")) as fd:
-    test_features_tender_data = test_tender_data.copy()
-    test_features_item = test_features_tender_data["items"][0].copy()
-    test_features_item["id"] = "1"
-    test_features_tender_data["items"] = [test_features_item]
-    test_features_tender_data["features"] = json.load(fd)
-    test_features_bids = deepcopy(test_bids)
-    for x, bid in enumerate(test_features_bids):
-        bid["parameters"] = [{"code": i["code"], "value": 0.1} for i in test_features_tender_data["features"]]
+    test_tender_cfaua_features_data = test_tender_cfaua_data.copy()
+    test_tender_cfaua_features_item = test_tender_cfaua_features_data["items"][0].copy()
+    test_tender_cfaua_features_item["id"] = "1"
+    test_tender_cfaua_features_data["items"] = [test_tender_cfaua_features_item]
+    test_tender_cfaua_features_data["features"] = json.load(fd)
+    test_tender_cfaua_features_bids = deepcopy(test_tender_cfaua_bids)
+    for x, bid in enumerate(test_tender_cfaua_features_bids):
+        bid["parameters"] = [{"code": i["code"], "value": 0.1} for i in test_tender_cfaua_features_data["features"]]
 
-test_features_bids_same_amount = deepcopy(test_features_bids)
-for bid in test_features_bids_same_amount:
+test_tender_cfaua_features_bids_same_amount = deepcopy(test_tender_cfaua_features_bids)
+for bid in test_tender_cfaua_features_bids_same_amount:
     bid["value"]["amount"] = 469
 
 # Prepare features_tender
 with open(os.path.join(BASE_DIR, "data/test_lots.json")) as fd:
-    test_lots = json.load(fd)
+    test_tender_cfaua_lots = json.load(fd)
 
 
 # Prepare data for tender with lot
-test_tender_w_lot_data = deepcopy(test_tender_data)
-set_tender_lots(test_tender_w_lot_data, test_lots)
-test_lots_w_ids = deepcopy(test_tender_w_lot_data["lots"])
-test_bids_w_lot_data = deepcopy(test_bids)
-for bid in test_bids_w_lot_data:
-    set_bid_lotvalues(bid, test_lots_w_ids)
+test_tender_cfaua_with_lots_data = deepcopy(test_tender_cfaua_data)
+set_tender_lots(test_tender_cfaua_with_lots_data, test_tender_cfaua_lots)
+
+test_tender_cfaua_lots_with_ids = deepcopy(test_tender_cfaua_with_lots_data["lots"])
+test_tender_cfaua_bids_with_lotvalues = deepcopy(test_tender_cfaua_bids)
+for bid in test_tender_cfaua_bids_with_lotvalues:
+    set_bid_lotvalues(bid, test_tender_cfaua_lots_with_ids)
 
 
 start_date = get_now()
 
-agreement_period = {"startDate": start_date.isoformat(), "endDate": (start_date + timedelta(days=4 * 365)).isoformat()}
-
-
-PERIODS = {
-    "active.enquiries": {
-        "start": {
-            "enquiryPeriod": {"startDate": -timedelta(days=1), "endDate": TENDERING_DURATION - QUESTIONS_STAND_STILL},
-            "tenderPeriod": {"startDate": -timedelta(days=1), "endDate": TENDERING_DURATION},
-        },
-        "end": {
-            "enquiryPeriod": {
-                "startDate": (-TENDERING_DURATION + TENDERING_EXTRA_PERIOD - timedelta(days=1)),
-                "endDate": timedelta(),
-            },
-            "tenderPeriod": {
-                "startDate": (-TENDERING_DURATION + TENDERING_EXTRA_PERIOD - timedelta(days=1)),
-                "endDate": TENDERING_EXTRA_PERIOD,
-            },
-        },
-    },
-    "active.tendering": {
-        "start": {
-            "enquiryPeriod": {"startDate": -timedelta(days=1), "endDate": TENDERING_DURATION - QUESTIONS_STAND_STILL},
-            "tenderPeriod": {"startDate": -timedelta(days=1), "endDate": TENDERING_DURATION},
-        },
-        "end": {
-            "enquiryPeriod": {
-                "startDate": (-TENDERING_DURATION - timedelta(days=1)),
-                "endDate": (-QUESTIONS_STAND_STILL),
-            },
-            "tenderPeriod": {"startDate": (-TENDERING_DURATION - timedelta(days=1)), "endDate": timedelta()},
-        },
-    },
-    "active.pre-qualification": {
-        "start": {
-            "enquiryPeriod": {
-                "startDate": (-TENDERING_DURATION - timedelta(days=1)),
-                "endDate": (-QUESTIONS_STAND_STILL),
-            },
-            "tenderPeriod": {"startDate": (-TENDERING_DURATION - timedelta(days=1)), "endDate": timedelta()},
-            "qualificationPeriod": {"startDate": timedelta()},
-        },
-        "end": {
-            "enquiryPeriod": {
-                "startDate": (-TENDERING_DURATION - timedelta(days=1)),
-                "endDate": (-QUESTIONS_STAND_STILL),
-            },
-            "tenderPeriod": {"startDate": (-TENDERING_DURATION - timedelta(days=1)), "endDate": timedelta()},
-            "qualificationPeriod": {"startDate": timedelta()},
-        },
-    },
-    "active.pre-qualification.stand-still": {
-        "start": {
-            "enquiryPeriod": {
-                "startDate": (-TENDERING_DURATION - timedelta(days=1)),
-                "endDate": (-QUESTIONS_STAND_STILL),
-            },
-            "tenderPeriod": {"startDate": (-TENDERING_DURATION - timedelta(days=1)), "endDate": timedelta()},
-            "qualificationPeriod": {"startDate": timedelta()},
-            "auctionPeriod": {"startDate": (+COMPLAINT_STAND_STILL)},
-        },
-        "end": {
-            "enquiryPeriod": {
-                "startDate": (-TENDERING_DURATION - COMPLAINT_STAND_STILL - timedelta(days=1)),
-                "endDate": (-COMPLAINT_STAND_STILL - TENDERING_DURATION + QUESTIONS_STAND_STILL),
-            },
-            "tenderPeriod": {
-                "startDate": (-TENDERING_DURATION - COMPLAINT_STAND_STILL - timedelta(days=1)),
-                "endDate": (-COMPLAINT_STAND_STILL),
-            },
-            "qualificationPeriod": {"startDate": (-COMPLAINT_STAND_STILL), "endDate": timedelta()},
-            "auctionPeriod": {"startDate": timedelta()},
-        },
-    },
-    "active.auction": {
-        "start": {
-            "enquiryPeriod": {
-                "startDate": (-TENDERING_DURATION - COMPLAINT_STAND_STILL - timedelta(days=1)),
-                "endDate": (-COMPLAINT_STAND_STILL - TENDERING_DURATION + QUESTIONS_STAND_STILL),
-            },
-            "tenderPeriod": {
-                "startDate": (-TENDERING_DURATION - COMPLAINT_STAND_STILL - timedelta(days=1)),
-                "endDate": (-COMPLAINT_STAND_STILL),
-            },
-            "qualificationPeriod": {"startDate": (-COMPLAINT_STAND_STILL), "endDate": timedelta()},
-            "auctionPeriod": {"startDate": timedelta()},
-        },
-        "end": {
-            "enquiryPeriod": {
-                "startDate": (-TENDERING_DURATION - COMPLAINT_STAND_STILL - timedelta(days=2)),
-                "endDate": (-QUESTIONS_STAND_STILL - COMPLAINT_STAND_STILL - timedelta(days=1)),
-            },
-            "tenderPeriod": {
-                "startDate": (-TENDERING_DURATION - COMPLAINT_STAND_STILL - timedelta(days=2)),
-                "endDate": (-COMPLAINT_STAND_STILL - timedelta(days=1)),
-            },
-            "qualificationPeriod": {
-                "startDate": (-COMPLAINT_STAND_STILL - timedelta(days=1)),
-                "endDate": (-timedelta(days=1)),
-            },
-            "auctionPeriod": {"startDate": -timedelta(days=1), "endDate": timedelta()},
-        },
-    },
-    "active.qualification": {
-        "start": {
-            "enquiryPeriod": {
-                "startDate": (-TENDERING_DURATION - COMPLAINT_STAND_STILL - timedelta(days=2)),
-                "endDate": (-QUESTIONS_STAND_STILL - COMPLAINT_STAND_STILL - timedelta(days=1)),
-            },
-            "tenderPeriod": {
-                "startDate": (-TENDERING_DURATION - COMPLAINT_STAND_STILL - timedelta(days=2)),
-                "endDate": (-COMPLAINT_STAND_STILL - timedelta(days=1)),
-            },
-            "qualificationPeriod": {
-                "startDate": (-COMPLAINT_STAND_STILL - timedelta(days=1)),
-                "endDate": (-timedelta(days=1)),
-            },
-            "auctionPeriod": {"startDate": -timedelta(days=1), "endDate": timedelta()},
-            "awardPeriod": {"startDate": timedelta()},
-        },
-        "end": {
-            "enquiryPeriod": {
-                "startDate": (-TENDERING_DURATION - COMPLAINT_STAND_STILL - timedelta(days=2)),
-                "endDate": (-QUESTIONS_STAND_STILL - COMPLAINT_STAND_STILL - timedelta(days=1)),
-            },
-            "tenderPeriod": {
-                "startDate": (-TENDERING_DURATION - COMPLAINT_STAND_STILL - timedelta(days=2)),
-                "endDate": (-COMPLAINT_STAND_STILL - timedelta(days=1)),
-            },
-            "qualificationPeriod": {
-                "startDate": (-COMPLAINT_STAND_STILL - timedelta(days=1)),
-                "endDate": (-timedelta(days=1)),
-            },
-            "auctionPeriod": {"startDate": -timedelta(days=1), "endDate": timedelta()},
-            "awardPeriod": {"startDate": timedelta()},
-        },
-    },
-    "active.qualification.stand-still": {
-        "start": {
-            "enquiryPeriod": {
-                "startDate": (-TENDERING_DURATION - COMPLAINT_STAND_STILL - timedelta(days=2)),
-                "endDate": (-QUESTIONS_STAND_STILL - COMPLAINT_STAND_STILL - timedelta(days=1)),
-            },
-            "tenderPeriod": {
-                "startDate": (-TENDERING_DURATION - COMPLAINT_STAND_STILL - timedelta(days=2)),
-                "endDate": (-COMPLAINT_STAND_STILL - timedelta(days=1)),
-            },
-            "qualificationPeriod": {
-                "startDate": (-COMPLAINT_STAND_STILL - timedelta(days=1)),
-                "endDate": (-timedelta(days=1)),
-            },
-            "auctionPeriod": {"startDate": -timedelta(days=1), "endDate": timedelta()},
-            "awardPeriod": {"startDate": timedelta(), "endDate": QUALIFICATION_COMPLAINT_STAND_STILL},
-        },
-        "end": {
-            "enquiryPeriod": {
-                "startDate": (
-                    -TENDERING_DURATION
-                    - COMPLAINT_STAND_STILL
-                    - QUALIFICATION_COMPLAINT_STAND_STILL
-                    - timedelta(days=2)
-                ),
-                "endDate": (
-                    -QUESTIONS_STAND_STILL
-                    - COMPLAINT_STAND_STILL
-                    - QUALIFICATION_COMPLAINT_STAND_STILL
-                    - timedelta(days=1)
-                ),
-            },
-            "tenderPeriod": {
-                "startDate": (
-                    -TENDERING_DURATION
-                    - COMPLAINT_STAND_STILL
-                    - QUALIFICATION_COMPLAINT_STAND_STILL
-                    - timedelta(days=2)
-                ),
-                "endDate": (-COMPLAINT_STAND_STILL - QUALIFICATION_COMPLAINT_STAND_STILL - timedelta(days=1)),
-            },
-            "qualificationPeriod": {
-                "startDate": (-COMPLAINT_STAND_STILL - QUALIFICATION_COMPLAINT_STAND_STILL - timedelta(days=1)),
-                "endDate": (-QUALIFICATION_COMPLAINT_STAND_STILL - timedelta(days=1)),
-            },
-            "auctionPeriod": {
-                "startDate": (-QUALIFICATION_COMPLAINT_STAND_STILL - timedelta(days=1)),
-                "endDate": (-QUALIFICATION_COMPLAINT_STAND_STILL),
-            },
-            "awardPeriod": {"startDate": (-QUALIFICATION_COMPLAINT_STAND_STILL), "endDate": timedelta()},
-        },
-    },
-    "active.awarded": {
-        "start": {
-            "enquiryPeriod": {
-                "startDate": (
-                    -TENDERING_DURATION
-                    - COMPLAINT_STAND_STILL
-                    - QUALIFICATION_COMPLAINT_STAND_STILL
-                    - timedelta(days=2)
-                ),
-                "endDate": (
-                    -QUESTIONS_STAND_STILL
-                    - COMPLAINT_STAND_STILL
-                    - QUALIFICATION_COMPLAINT_STAND_STILL
-                    - timedelta(days=1)
-                ),
-            },
-            "tenderPeriod": {
-                "startDate": (
-                    -TENDERING_DURATION
-                    - COMPLAINT_STAND_STILL
-                    - QUALIFICATION_COMPLAINT_STAND_STILL
-                    - timedelta(days=2)
-                ),
-                "endDate": (-COMPLAINT_STAND_STILL - QUALIFICATION_COMPLAINT_STAND_STILL - timedelta(days=1)),
-            },
-            "qualificationPeriod": {
-                "startDate": (-COMPLAINT_STAND_STILL - QUALIFICATION_COMPLAINT_STAND_STILL - timedelta(days=1)),
-                "endDate": (-QUALIFICATION_COMPLAINT_STAND_STILL - timedelta(days=1)),
-            },
-            "auctionPeriod": {
-                "startDate": (-QUALIFICATION_COMPLAINT_STAND_STILL - timedelta(days=1)),
-                "endDate": (-QUALIFICATION_COMPLAINT_STAND_STILL),
-            },
-            "awardPeriod": {"startDate": (-QUALIFICATION_COMPLAINT_STAND_STILL), "endDate": timedelta()},
-            "contractPeriod": {"startDate": timedelta(), "clarificationsUntil": CLARIFICATIONS_UNTIL_PERIOD},
-        },
-        "end": {
-            "enquiryPeriod": {
-                "startDate": -TENDERING_DURATION
-                - COMPLAINT_STAND_STILL
-                - QUALIFICATION_COMPLAINT_STAND_STILL
-                - CLARIFICATIONS_UNTIL_PERIOD
-                - timedelta(days=3),
-                "endDate": -QUESTIONS_STAND_STILL
-                - COMPLAINT_STAND_STILL
-                - QUALIFICATION_COMPLAINT_STAND_STILL
-                - CLARIFICATIONS_UNTIL_PERIOD
-                - timedelta(days=2),
-            },
-            "tenderPeriod": {
-                "startDate": -TENDERING_DURATION
-                - COMPLAINT_STAND_STILL
-                - QUALIFICATION_COMPLAINT_STAND_STILL
-                - CLARIFICATIONS_UNTIL_PERIOD
-                - timedelta(days=3),
-                "endDate": -COMPLAINT_STAND_STILL
-                - QUALIFICATION_COMPLAINT_STAND_STILL
-                - CLARIFICATIONS_UNTIL_PERIOD
-                - timedelta(days=2),
-            },
-            "qualificationPeriod": {
-                "startDate": -COMPLAINT_STAND_STILL
-                - QUALIFICATION_COMPLAINT_STAND_STILL
-                - CLARIFICATIONS_UNTIL_PERIOD
-                - timedelta(days=2),
-                "endDate": -QUALIFICATION_COMPLAINT_STAND_STILL - CLARIFICATIONS_UNTIL_PERIOD - timedelta(days=2),
-            },
-            "auctionPeriod": {
-                "startDate": -QUALIFICATION_COMPLAINT_STAND_STILL - CLARIFICATIONS_UNTIL_PERIOD - timedelta(days=2),
-                "endDate": -QUALIFICATION_COMPLAINT_STAND_STILL - CLARIFICATIONS_UNTIL_PERIOD - timedelta(days=1),
-            },
-            "awardPeriod": {
-                "startDate": -QUALIFICATION_COMPLAINT_STAND_STILL - CLARIFICATIONS_UNTIL_PERIOD - timedelta(days=1),
-                "endDate": -CLARIFICATIONS_UNTIL_PERIOD - timedelta(days=1),
-            },
-            "contractPeriod": {
-                "startDate": -CLARIFICATIONS_UNTIL_PERIOD - timedelta(days=1),
-                "clarificationsUntil": -timedelta(days=1),
-            },
-        },
-    },
-    "complete": {
-        "start": {
-            "enquiryPeriod": {
-                "startDate": (
-                    -TENDERING_DURATION
-                    - COMPLAINT_STAND_STILL
-                    - QUALIFICATION_COMPLAINT_STAND_STILL
-                    - timedelta(days=2)
-                    - (CLARIFICATIONS_UNTIL_PERIOD + timedelta(days=1))
-                ),
-                "endDate": (
-                    -QUESTIONS_STAND_STILL
-                    - COMPLAINT_STAND_STILL
-                    - QUALIFICATION_COMPLAINT_STAND_STILL
-                    - timedelta(days=1)
-                    - (CLARIFICATIONS_UNTIL_PERIOD + timedelta(days=1))
-                ),
-            },
-            "tenderPeriod": {
-                "startDate": (
-                    -TENDERING_DURATION
-                    - COMPLAINT_STAND_STILL
-                    - QUALIFICATION_COMPLAINT_STAND_STILL
-                    - timedelta(days=2)
-                    - (CLARIFICATIONS_UNTIL_PERIOD + timedelta(days=1))
-                ),
-                "endDate": (
-                    -COMPLAINT_STAND_STILL
-                    - QUALIFICATION_COMPLAINT_STAND_STILL
-                    - timedelta(days=1)
-                    - (CLARIFICATIONS_UNTIL_PERIOD + timedelta(days=1))
-                ),
-            },
-            "qualificationPeriod": {
-                "startDate": (
-                    -COMPLAINT_STAND_STILL
-                    - QUALIFICATION_COMPLAINT_STAND_STILL
-                    - timedelta(days=1)
-                    - (CLARIFICATIONS_UNTIL_PERIOD + timedelta(days=1))
-                ),
-                "endDate": (
-                    -QUALIFICATION_COMPLAINT_STAND_STILL
-                    - timedelta(days=1)
-                    - (CLARIFICATIONS_UNTIL_PERIOD + timedelta(days=1))
-                ),
-            },
-            "auctionPeriod": {
-                "startDate": (
-                    -QUALIFICATION_COMPLAINT_STAND_STILL
-                    - timedelta(days=1)
-                    - (CLARIFICATIONS_UNTIL_PERIOD + timedelta(days=1))
-                ),
-                "endDate": (-QUALIFICATION_COMPLAINT_STAND_STILL - (CLARIFICATIONS_UNTIL_PERIOD + timedelta(days=1))),
-            },
-            "awardPeriod": {
-                "startDate": (-QUALIFICATION_COMPLAINT_STAND_STILL - (CLARIFICATIONS_UNTIL_PERIOD + timedelta(days=1))),
-                "endDate": (-(CLARIFICATIONS_UNTIL_PERIOD + timedelta(days=1))),
-            },
-            "contractPeriod": {
-                "startDate": (-(CLARIFICATIONS_UNTIL_PERIOD + timedelta(days=1))),
-                "clarificationsUntil": (-timedelta(days=1)),
-                "endDate": timedelta(),
-            },
-        }
-    },
+test_tender_cfaua_agreement_period = {
+    "startDate": start_date.isoformat(),
+    "endDate": (start_date + timedelta(days=4 * 365)).isoformat(),
 }
 
-
 if SANDBOX_MODE:
-    test_tender_data["procurementMethodDetails"] = "quick, accelerator=1440"
-    PERIODS.update(
-        {
-            "active.enquiries": {
-                "start": {
-                    "enquiryPeriod": {
-                        "startDate": -timedelta(minutes=1),
-                        "endDate": (TENDERING_DURATION - QUESTIONS_STAND_STILL) / 1440,
-                    },
-                    "tenderPeriod": {"startDate": -timedelta(minutes=1), "endDate": TENDERING_DURATION / 1440},
-                },
-                "end": {
-                    "enquiryPeriod": {
-                        "startDate": (-TENDERING_DURATION + TENDERING_EXTRA_PERIOD - timedelta(days=1)) / 1440,
-                        "endDate": timedelta(),
-                    },
-                    "tenderPeriod": {
-                        "startDate": (-TENDERING_DURATION + TENDERING_EXTRA_PERIOD - timedelta(days=1)) / 1440,
-                        "endDate": TENDERING_EXTRA_PERIOD / 1440,
-                    },
-                },
-            }
-        }
-    )
+    test_tender_cfaua_data["procurementMethodDetails"] = "quick, accelerator=1440"
+
+test_tender_cfaua_config = {
+    "hasAuction": True,
+    "hasAwardingOrder": True,
+    "hasValueRestriction": True,
+    "valueCurrencyEquality": True,
+    "hasPrequalification": True,
+    "minBidsNumber": 3,
+    "hasPreSelectionAgreement": False,
+    "hasTenderComplaints": True,
+    "hasAwardComplaints": True,
+    "hasCancellationComplaints": True,
+    "hasValueEstimation": True,
+    "hasQualificationComplaints": True,
+    "tenderComplainRegulation": 4,
+    "qualificationComplainDuration": 5,
+    "awardComplainDuration": 10,
+    "cancellationComplainDuration": 10,
+    "clarificationUntilDuration": 3,
+    "qualificationDuration": 20,
+    "restricted": False,
+}
 
 
 class BaseTenderWebTest(BaseBaseTenderWebTest):
@@ -445,32 +121,33 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
         "meta_initial_lots",
     ]
     min_bids_number = MIN_BIDS_NUMBER
-    initial_data = deepcopy(test_tender_data)
-    initial_status = None
+    initial_data = deepcopy(test_tender_cfaua_data)
+    initial_config = test_tender_cfaua_config
+    initial_status = "active.tendering"
     initial_bids = None
     initial_lots = None
     initial_auth = None
 
-    meta_initial_bids = deepcopy(test_bids)
-    meta_initial_lots = deepcopy(test_lots)
+    meta_initial_bids = deepcopy(test_tender_cfaua_bids)
+    meta_initial_lots = deepcopy(test_tender_cfaua_lots)
 
     periods = PERIODS
+
     forbidden_agreement_document_modification_actions_status = (
-        "unsuccessful"
-    )  # status, in which operations with tender's contract documents (adding, updating) are forbidden
-    forbidden_question_modification_actions_status = (
-        "active.pre-qualification"
-    )  # status, in which adding/updating tender questions is forbidden
-    question_claim_block_status = (
-        "active.pre-qualification"
-    )  # status, tender cannot be switched to while it has questions/complaints related to its lot
+        "unsuccessful"  # status, in which operations with tender's contract documents (adding, updating) are forbidden
+    )
+    forbidden_question_add_actions_status = (
+        "active.pre-qualification"  # status, in which adding tender questions is forbidden
+    )
+    forbidden_question_update_actions_status = (
+        "active.pre-qualification"  # status, in which updating tender questions is forbidden
+    )
+    question_claim_block_status = "active.pre-qualification"  # status, tender cannot be switched to while it has questions/complaints related to its lot
     # auction role actions
-    forbidden_auction_actions_status = (
-        "active.pre-qualification.stand-still"
-    )  # status, in which operations with tender auction (getting auction info, reporting auction results, updating auction urls) and adding tender documents are forbidden
+    forbidden_auction_actions_status = "active.pre-qualification.stand-still"  # status, in which operations with tender auction (getting auction info, reporting auction results, updating auction urls) and adding tender documents are forbidden
     forbidden_auction_document_create_actions_status = (
-        "active.pre-qualification.stand-still"
-    )  # status, in which adding document to tender auction is forbidden
+        "active.pre-qualification.stand-still"  # status, in which adding document to tender auction is forbidden
+    )
 
     @classmethod
     def setUpClass(cls):
@@ -491,139 +168,18 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
             set_bid_lotvalues(bid, lots)
 
     def set_enquiry_period_end(self):
-        self.now = get_now()
-        self.tender_document = self.db.get(self.tender_id)
-        self.tender_document_patch = {}
-        self.update_periods("active.enquiries", "end")
+        self.set_status("active.tendering", startend="enquiry_end")
 
     def set_complaint_period_end(self):
-        self.now = get_now()
-        self.tender_document = self.db.get(self.tender_id)
-        self.tender_document_patch = {}
-        self.update_periods("active.tendering", "end")
+        self.set_status("active.tendering", startend="end")
 
     def setUp(self):
         super(BaseBaseTenderWebTest, self).setUp()
         self.app.authorization = self.initial_auth or ("Basic", ("broker", ""))
 
     def tearDown(self):
-        super(BaseTenderWebTest, self).tearDown()
+        super().tearDown()
         self.restore_pure_data()
-
-    def time_shift(self, status, extra=None):
-        now = get_now()
-        tender = self.db.get(self.tender_id)
-        self.tender_document = tender
-        data = {}
-        if status == "enquiryPeriod_ends":
-            data.update(
-                {
-                    "enquiryPeriod": {
-                        "startDate": (now - timedelta(days=28)).isoformat(),
-                        "endDate": (now - timedelta(days=1)).isoformat(),
-                    },
-                    "tenderPeriod": {
-                        "startDate": (now - timedelta(days=28)).isoformat(),
-                        "endDate": (now + timedelta(days=2)).isoformat(),
-                    },
-                }
-            )
-        if status == "active.pre-qualification":
-            data.update(
-                {
-                    "enquiryPeriod": {
-                        "startDate": (now - TENDERING_DURATION).isoformat(),
-                        "endDate": (now - QUESTIONS_STAND_STILL).isoformat(),
-                    },
-                    "tenderPeriod": {"startDate": (now - TENDERING_DURATION).isoformat(), "endDate": (now).isoformat()},
-                }
-            )
-        elif status == "active.pre-qualification.stand-still":
-            data.update(
-                {
-                    "enquiryPeriod": {
-                        "startDate": (now - TENDERING_DURATION).isoformat(),
-                        "endDate": (now - QUESTIONS_STAND_STILL).isoformat(),
-                    },
-                    "tenderPeriod": {"startDate": (now - TENDERING_DURATION).isoformat(), "endDate": (now).isoformat()},
-                    "qualificationPeriod": {"startDate": (now).isoformat()},
-                }
-            )
-            if "lots" in tender and tender["lots"]:
-                data["lots"] = []
-                for index, lot in enumerate(tender["lots"]):
-                    lot_data = {"id": lot["id"]}
-                    if lot["status"] is "active":
-                        lot_data["auctionPeriod"] = {"startDate": (now + COMPLAINT_STAND_STILL).isoformat()}
-                    data["lots"].append(lot_data)
-            else:
-                data.update({"auctionPeriod": {"startDate": (now + COMPLAINT_STAND_STILL).isoformat()}})
-        elif status == "active.auction":
-            data.update(
-                {
-                    "enquiryPeriod": {
-                        "startDate": (now - TENDERING_DURATION - COMPLAINT_STAND_STILL).isoformat(),
-                        "endDate": (
-                            now - COMPLAINT_STAND_STILL - TENDERING_DURATION + QUESTIONS_STAND_STILL
-                        ).isoformat(),
-                    },
-                    "tenderPeriod": {
-                        "startDate": (now - TENDERING_DURATION - COMPLAINT_STAND_STILL).isoformat(),
-                        "endDate": (now - COMPLAINT_STAND_STILL).isoformat(),
-                    },
-                    "qualificationPeriod": {
-                        "startDate": (now - COMPLAINT_STAND_STILL).isoformat(),
-                        "endDate": (now).isoformat(),
-                    },
-                }
-            )
-            if "lots" in tender and tender["lots"]:
-                data["lots"] = []
-                for index, lot in enumerate(tender["lots"]):
-                    lot_data = {"id": lot["id"]}
-                    if lot["status"] == "active":
-                        lot_data["auctionPeriod"] = {"startDate": (now).isoformat()}
-                    data["lots"].append(lot_data)
-            else:
-                data.update({"auctionPeriod": {"startDate": now.isoformat()}})
-        elif status == "complete":
-            data.update(
-                {
-                    "enquiryPeriod": {
-                        "startDate": (now - TENDERING_DURATION - COMPLAINT_STAND_STILL - timedelta(days=3)).isoformat(),
-                        "endDate": (
-                            now - QUESTIONS_STAND_STILL - COMPLAINT_STAND_STILL - timedelta(days=3)
-                        ).isoformat(),
-                    },
-                    "tenderPeriod": {
-                        "startDate": (now - TENDERING_DURATION - COMPLAINT_STAND_STILL - timedelta(days=3)).isoformat(),
-                        "endDate": (now - COMPLAINT_STAND_STILL - timedelta(days=3)).isoformat(),
-                    },
-                    "auctionPeriod": {
-                        "startDate": (now - timedelta(days=3)).isoformat(),
-                        "endDate": (now - timedelta(days=2)).isoformat(),
-                    },
-                    "awardPeriod": {"startDate": (now - timedelta(days=1)).isoformat(), "endDate": (now).isoformat()},
-                }
-            )
-            if self.initial_lots:
-                data.update(
-                    {
-                        "lots": [
-                            {
-                                "auctionPeriod": {
-                                    "startDate": (now - timedelta(days=3)).isoformat(),
-                                    "endDate": (now - timedelta(days=2)).isoformat(),
-                                }
-                            }
-                            for i in self.initial_lots
-                        ]
-                    }
-                )
-        if extra:
-            data.update(extra)
-        self.tender_document_patch = data
-        self.save_changes()
 
     def generate_bids(self, status, startend):
         tenderPeriod_startDate = self.now + self.periods[status][startend]["tenderPeriod"]["startDate"]
@@ -638,7 +194,15 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
                 bid = deepcopy(meta_bid)
                 if lots:
                     value = bid.pop("value")
-                    bid["lotValues"] = [{"status": "pending", "value": value, "relatedLot": l["id"]} for l in lots]
+                    bid["lotValues"] = [
+                        {
+                            "status": "pending",
+                            "value": value,
+                            "relatedLot": l["id"],
+                            "date": (tenderPeriod_startDate + timedelta(seconds=(position + 1))).isoformat(),
+                        }
+                        for l in lots
+                    ]
                 bid.update(
                     {
                         "id": uuid4().hex,
@@ -657,15 +221,18 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
         qualificationPeriod_startDate = self.now + self.periods[status][startend]["qualificationPeriod"]["startDate"]
         qualifications = self.tender_document.get("qualifications", [])
         active_lots = [lot["id"] for lot in lots if lot["status"] == "active"]
-        active_bids = any([bid["status"] not in ["invalid", "deleted"] for bid in bids])
+        active_bids = any(bid["status"] not in ["invalid", "deleted"] for bid in bids)
         if not qualifications:
             if active_bids:
                 self.tender_document_patch["qualifications"] = []
                 for bid in bids:
-                    if bid["status"] not in ["invalid", "deleted"]:
+                    if bid.get("status") not in ["invalid", "deleted"]:
                         if lots:
                             for lotValue in bid["lotValues"]:
-                                if lotValue["status"] == "pending" and lotValue["relatedLot"] in active_lots:
+                                if (
+                                    lotValue.get("status", "pending") == "pending"
+                                    and lotValue["relatedLot"] in active_lots
+                                ):
                                     self.tender_document_patch["qualifications"].append(
                                         {
                                             "id": uuid4().hex,
@@ -699,6 +266,14 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
             for index, qualification in enumerate(qualifications):
                 if qualification["status"] == "pending":
                     qualification.update({"status": "active", "qualified": True, "eligible": True})
+                    qualification["complaintPeriod"] = {
+                        "startDate": get_now().isoformat(),
+                        "endDate": calculate_tender_full_date(
+                            get_now(),
+                            timedelta(days=self.tender_document["config"]["qualificationComplainDuration"]),
+                            tender=self.tender_document,
+                        ).isoformat(),
+                    }
                     for bid in self.tender_document_patch["bids"]:
                         if bid["id"] == qualification["bidID"]:
                             if lots:
@@ -735,7 +310,6 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
                 active_lots = {lot["id"]: 0 for lot in lots if lot["status"] == "active"}
                 self.tender_document_patch["awards"] = []
                 for bid in bids:
-
                     for lot_value in bid["lotValues"]:
                         if lot_value["relatedLot"] in active_lots:
                             if active_lots[lot_value["relatedLot"]] == maxAwards:
@@ -776,30 +350,6 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
             self.tender_document_patch.update({"awards": awards})
             self.save_changes()
 
-    def update_periods(self, status, startend):
-        LOT_PERIODS = ("auctionPeriod",)
-        lots = self.tender_document.get("lots", [])
-
-        for period in self.periods[status][startend]:
-            self.tender_document_patch.update({period: {}})
-            for date in self.periods[status][startend][period]:
-                self.tender_document_patch[period][date] = (
-                    self.now + self.periods[status][startend][period][date]
-                ).isoformat()
-
-        if lots:
-            for period in self.periods[status][startend]:
-                if period in LOT_PERIODS:
-                    for lot in lots:
-                        if lot.get("status", None) == "active":
-                            lot.update({period: {}})
-                            for date in self.periods[status][startend][period]:
-                                lot[period][date] = (
-                                    self.now + self.periods[status][startend][period][date]
-                                ).isoformat()
-            self.tender_document_patch.update({"lots": lots})
-        self.save_changes()
-
     def update_awards_complaint_periods(self, status, startend):
         AWARDS_COMPLAINTS_STATUSES = ("active.qualification.stand-still", "active.awarded", "complete")
         awards = self.tender_document.get("awards", [])
@@ -815,9 +365,11 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
     def generate_agreement_data(self, lot=None):
         data = {
             "id": uuid4().hex,
-            "items": self.tender_document["items"]
-            if not lot
-            else [i for i in self.tender_document["items"] if i["relatedLot"] == lot["id"]],
+            "items": (
+                self.tender_document["items"]
+                if not lot
+                else [i for i in self.tender_document["items"] if i["relatedLot"] == lot["id"]]
+            ),
             "agreementID": "{}-{}{}".format(
                 self.tender_document["tenderID"], uuid4().hex, len(self.tender_document_patch["agreements"]) + 1
             ),
@@ -880,12 +432,13 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
 
     def save_changes(self):
         if self.tender_document_patch:
-            self.tender_document.update(apply_data_patch(self.tender_document, self.tender_document_patch))
-            self.db.save(self.tender_document)
-            self.tender_document = self.db.get(self.tender_id)
+            patch = apply_data_patch(self.tender_document, self.tender_document_patch)
+            self.tender_document.update(patch)
+            self.mongodb.tenders.save(self.tender_document)
+            self.tender_document = self.mongodb.tenders.get(self.tender_id)
             self.tender_document_patch = {}
 
-    def get_tender(self, role):
+    def get_tender(self, role="token"):
         authorization = self.app.authorization
         self.app.authorization = ("Basic", (role, ""))
         response = self.app.get("/tenders/{}".format(self.tender_id))
@@ -896,16 +449,19 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
 
     def set_status(self, status, startend="start", extra=None):
         self.now = get_now()
-        self.tender_document = self.db.get(self.tender_id)
+        self.tender_document = self.mongodb.tenders.get(self.tender_id)
         self.tender_document_patch = {"status": status}
+        self.save_changes()
         if status == "active.tendering":
             self.update_periods(status, startend)
+
         elif status == "active.pre-qualification":
             self.update_periods(status, startend)
             # generate bids
             self.generate_bids(status, startend)
             # generate qualifications
             self.generate_qualifications(status, startend)
+
         elif status == "active.pre-qualification.stand-still":
             self.update_periods(status, startend)
             # generate bids
@@ -915,6 +471,9 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
             # activate qualifications and bids
             self.activate_qualifications()
 
+            if startend == "end":
+                self.update_qualification_complaint_periods()
+
         elif status == "active.auction":
             self.update_periods(status, startend)
             # generate bids
@@ -923,6 +482,7 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
             self.generate_qualifications(status, startend)
             # activate qualifications and bids
             self.activate_qualifications()
+            self.update_qualification_complaint_periods()
 
         elif status == "active.qualification":
             self.update_periods(status, startend)
@@ -934,6 +494,7 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
             self.activate_qualifications()
             # generate awards
             self.generate_awards(status, startend)
+            self.update_qualification_complaint_periods()
 
         elif status == "active.qualification.stand-still":
             self.update_periods(status, startend)
@@ -947,6 +508,8 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
             self.generate_awards(status, startend)
             self.activate_awards()
             self.update_awards_complaint_periods(status, startend)
+            self.update_qualification_complaint_periods()
+
         elif status == "active.awarded":
             self.update_periods(status, startend)
             # generate bids
@@ -960,6 +523,8 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
             self.activate_awards()
             self.update_awards_complaint_periods(status, startend)
             self.generate_agreements(status, startend)
+            self.update_qualification_complaint_periods()
+
             # generate_agreements()
         elif status == "complete":
             self.update_periods(status, startend)
@@ -969,6 +534,7 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
             self.generate_qualifications(status, startend)
             # activate qualifications and bids
             self.activate_qualifications()
+            self.update_qualification_complaint_periods()
             # generate awards
             self.generate_awards(status, startend)
             self.activate_awards()
@@ -976,13 +542,13 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
             self.generate_agreements(status, startend)
             self.activate_agreements(status, startend)
 
+        self.save_changes()
         return self.get_tender("chronograph")
 
     def prepare_awards(self):
         # switch to active.pre-qualification
         self.set_status("active.pre-qualification", extra={"id": self.tender_id, "status": "active.tendering"})
-        self.app.authorization = ("Basic", ("chronograph", ""))
-        response = self.app.patch_json("/tenders/{}".format(self.tender_id), {"data": {"id": self.tender_id}})
+        response = self.check_chronograph()
         self.assertEqual(response.json["data"]["status"], "active.pre-qualification")
 
         # qualify bids
@@ -1008,13 +574,14 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
         self.set_status(
             "active.auction", extra={"id": self.tender_id, "status": "active.pre-qualification.stand-still"}
         )
-        self.app.authorization = ("Basic", ("chronograph", ""))
-        response = self.app.patch_json("/tenders/{}".format(self.tender_id), {"data": {"id": self.tender_id}})
+        response = self.check_chronograph()
         self.assertEqual(response.json["data"]["status"], "active.auction")
 
         self.app.authorization = ("Basic", ("auction", ""))
         response = self.app.get("/tenders/{}/auction".format(self.tender_id))
         auction_bids_data = response.json["data"]["bids"]
+        for b in auction_bids_data:
+            b.pop("status", None)
         if self.initial_lots:
             for lot_id in self.initial_lots:
                 response = self.app.post_json(
@@ -1034,10 +601,12 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
         :param lot_id: id of lot for cancellation
         :return: None
         """
-        cancellation = dict(**test_cancellation)
-        cancellation.update({
-            "status": "active",
-        })
+        cancellation = deepcopy(test_tender_below_cancellation)
+        cancellation.update(
+            {
+                "status": "active",
+            }
+        )
         if lot_id:
             cancellation.update({"cancellationOf": "lot", "relatedLot": lot_id})
         response = self.app.post_json(
@@ -1064,19 +633,23 @@ class BaseTenderWebTest(BaseBaseTenderWebTest):
 
 
 class BaseTenderContentWebTest(BaseTenderWebTest):
-    initial_data = deepcopy(test_tender_data)
-    initial_status = None
+    initial_data = deepcopy(test_tender_cfaua_data)
+    initial_status = "active.tendering"
     initial_bids = None
-    initial_lots = deepcopy(test_lots)
+    initial_lots = deepcopy(test_tender_cfaua_lots)
 
-    meta_initial_bids = deepcopy(test_bids)
-    meta_initial_lots = deepcopy(test_lots)
+    meta_initial_bids = deepcopy(test_tender_cfaua_bids)
+    meta_initial_lots = deepcopy(test_tender_cfaua_lots)
 
     def setUp(self):
-        super(BaseTenderContentWebTest, self).setUp()
+        super().setUp()
         self.create_tender()
 
+        self.check_chronograph()
+        # fixes tenders after inserting into fixture data
+        # for ex auctionPeriod.shouldStartAfter is added
 
-class BidsOverMaxAwardsMixin(object):
-    initial_bids = deepcopy(test_bids) + deepcopy(test_bids)  # double testbids
+
+class BidsOverMaxAwardsMixin:
+    initial_bids = deepcopy(test_tender_cfaua_bids) + deepcopy(test_tender_cfaua_bids)  # double testbids
     min_bids_number = MIN_BIDS_NUMBER * 2

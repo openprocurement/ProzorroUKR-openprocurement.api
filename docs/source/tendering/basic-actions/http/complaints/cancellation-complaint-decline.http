@@ -1,0 +1,86 @@
+PATCH /api/2.5/tenders/b3e50c95aba5434d9d21eb46e65d8f4d/cancellations/8b3cf6c0fad24bc1a5cf5fb05119836b/complaints/d65e9f2d911d4cfcb8aec6e3c37c42b9 HTTP/1.0
+Authorization: Bearer reviewer
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "status": "declined"
+  }
+}
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "id": "d65e9f2d911d4cfcb8aec6e3c37c42b9",
+    "complaintID": "UA-2023-10-10-000001-a.2",
+    "date": "2023-10-10T01:00:00+03:00",
+    "status": "declined",
+    "type": "complaint",
+    "author": {
+      "name": "ДКП «Школяр»",
+      "address": {
+        "streetAddress": "вул. Островського, 33",
+        "locality": "м. Вінниця",
+        "region": "Вінницька область",
+        "postalCode": "21100",
+        "countryName": "Україна"
+      },
+      "contactPoint": {
+        "name": "Сергій Олексюк",
+        "email": "soleksuk@gmail.com",
+        "telephone": "+380432216930"
+      },
+      "identifier": {
+        "scheme": "UA-EDR",
+        "uri": "http://www.sc.gov.ua/",
+        "id": "00137256",
+        "legalName": "ДКП «Школяр»"
+      }
+    },
+    "title": "Недостатньо інформації",
+    "description": "Умови виставлені замовником не містять достатньо інформації, щоб заявка мала сенс.",
+    "dateSubmitted": "2023-10-10T01:00:00+03:00",
+    "objections": [
+      {
+        "id": "590e24d50c0947adb2b2e870f88717ce",
+        "title": "My objection",
+        "description": "Test objection",
+        "relatesTo": "cancellation",
+        "relatedItem": "8b3cf6c0fad24bc1a5cf5fb05119836b",
+        "classification": {
+          "scheme": "violation_amcu",
+          "id": "corruptionDescription",
+          "description": "test classification"
+        },
+        "requestedRemedies": [
+          {
+            "id": "289b2b0a77d447bb894fbff236baf657",
+            "type": "setAsideAward",
+            "description": "test"
+          }
+        ],
+        "arguments": [
+          {
+            "id": "73187f29722b4456b423bb08184219ee",
+            "description": "test argument"
+          }
+        ],
+        "sequenceNumber": 1
+      }
+    ],
+    "acceptance": true,
+    "dateAccepted": "2023-10-10T01:00:00+03:00",
+    "reviewDate": "2023-10-10T01:00:00+03:00",
+    "reviewPlace": "some",
+    "value": {
+      "amount": 2000.0,
+      "currency": "UAH"
+    },
+    "dateDecision": "2023-10-10T01:00:00+03:00"
+  }
+}
+

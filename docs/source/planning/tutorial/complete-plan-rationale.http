@@ -1,0 +1,141 @@
+PATCH /api/2.5/plans/647ea8f38f72484ea0245b71b7cd4231?acc_token=499da8e897254fb7a478ae7555785628 HTTP/1.0
+Authorization: Bearer broker
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "rationale": {
+      "description": "Змістовне пояснення необхідності закупівлі"
+    }
+  }
+}
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "status": "complete",
+    "procuringEntity": {
+      "id": "59fd7716ba954f7c9ed44eff506106a5",
+      "name": "ДУС",
+      "identifier": {
+        "scheme": "UA-EDR",
+        "id": "111983",
+        "legalName": "ДП Державне Управління Справами"
+      },
+      "address": {
+        "streetAddress": "вул. Банкова, 11, корпус 1",
+        "locality": "м. Київ",
+        "region": "м. Київ",
+        "postalCode": "01220",
+        "countryName": "Україна"
+      },
+      "kind": "general"
+    },
+    "tender": {
+      "procurementMethod": "open",
+      "procurementMethodType": "belowThreshold",
+      "tenderPeriod": {
+        "startDate": "2023-10-17T00:00:00+02:00"
+      }
+    },
+    "budget": {
+      "id": "12303111000-2",
+      "description": "budget_description",
+      "amount": 10000.0,
+      "currency": "UAH",
+      "amountNet": 12222.0,
+      "project": {
+        "id": "123",
+        "name": "proj_name"
+      },
+      "period": {
+        "startDate": "2023-01-01T00:00:00+02:00",
+        "endDate": "2023-12-31T00:00:00+02:00"
+      },
+      "breakdown": [
+        {
+          "id": "88ef03e7027447a4b70444b262521dec",
+          "title": "other",
+          "description": "Breakdown other description.",
+          "value": {
+            "amount": 1500.0,
+            "currency": "UAH"
+          }
+        }
+      ]
+    },
+    "classification": {
+      "description": "Seeds",
+      "scheme": "ДК021",
+      "id": "03111000-2"
+    },
+    "additionalClassifications": [
+      {
+        "scheme": "КЕКВ",
+        "id": "1",
+        "description": "-"
+      }
+    ],
+    "tender_id": "7f5e6c2aa6f54cc3a2f6589002f0d6ce",
+    "planID": "UA-P-2023-10-10-000001-a",
+    "items": [
+      {
+        "id": "8265d940677245ab849e78e617bd6f22",
+        "classification": {
+          "description": "Vegetable seeds",
+          "scheme": "ДК021",
+          "id": "03111700-9"
+        },
+        "additionalClassifications": [
+          {
+            "scheme": "ДКПП",
+            "id": "01.13.6",
+            "description": "Насіння овочевих культур"
+          }
+        ],
+        "unit": {
+          "name": "кг",
+          "code": "KGM"
+        },
+        "quantity": 5000.0,
+        "deliveryDate": {
+          "endDate": "2016-06-01T23:06:30.023018+03:00"
+        },
+        "description": "Насіння овочевих культур"
+      }
+    ],
+    "buyers": [
+      {
+        "id": "e0cc0f5599f44b6cbf9acffd0a6c9dd0",
+        "name": "ДУС",
+        "identifier": {
+          "scheme": "UA-EDR",
+          "id": "111983",
+          "legalName": "ДП Державне Управління Справами"
+        },
+        "address": {
+          "streetAddress": "вул. Банкова, 11, корпус 1",
+          "locality": "м. Київ",
+          "region": "м. Київ",
+          "postalCode": "01220",
+          "countryName": "Україна"
+        },
+        "kind": "general"
+      }
+    ],
+    "rationale": {
+      "description": "Змістовне пояснення необхідності закупівлі",
+      "date": "2023-10-11T02:00:33+03:00"
+    },
+    "owner": "broker",
+    "dateCreated": "2023-10-10T01:00:00+03:00",
+    "dateModified": "2023-10-11T02:00:33+03:00",
+    "datePublished": "2023-10-10T01:00:00+03:00",
+    "id": "647ea8f38f72484ea0245b71b7cd4231"
+  }
+}
+

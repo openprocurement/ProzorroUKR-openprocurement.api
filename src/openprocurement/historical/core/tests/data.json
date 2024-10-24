@@ -17,7 +17,7 @@
        "contactPoint": {
            "url": "http://kpt.kiev.ua/",
            "email": "kpt-t@ukr.net",
-           "telephone": "0999826173",
+           "telephone": "+0999826173",
            "name": "ГУЛАЙ ОЛЕКСАНДР ВІКТОРОВИЧ",
            "faxNumber": "0442546580"
        },
@@ -541,7 +541,7 @@
                    "contactPoint": {
                        "url": "http://kpbl.org.ua",
                        "email": "kpbl@bigmir.net",
-                       "telephone": "044-563-99-42---------097-641-99-01",
+                       "telephone": "+044-563-99-42---------097-641-99-01",
                        "name": "Хильченко Інна Григорівна",
                        "faxNumber": "044-563-99-05"
                    },
@@ -619,7 +619,7 @@
                    "contactPoint": {
                        "url": "http://kpbl.org.ua",
                        "email": "kpbl@bigmir.net",
-                       "telephone": "044-563-99-42---------097-641-99-01",
+                       "telephone": "+044-563-99-42---------097-641-99-01",
                        "name": "Хильченко Інна Григорівна",
                        "faxNumber": "044-563-99-05"
                    },
@@ -666,7 +666,7 @@
                    "contactPoint": {
                        "url": "http://kpbl.org.ua",
                        "email": "kpbl@bigmir.net",
-                       "telephone": "044-563-99-42---------097-641-99-01",
+                       "telephone": "+044-563-99-42---------097-641-99-01",
                        "name": "Хильченко Інна Григорівна",
                        "faxNumber": "044-563-99-05"
                    },
@@ -719,7 +719,7 @@
                    "contactPoint": {
                        "url": "http://kpbl.org.ua",
                        "email": "kpbl@bigmir.net",
-                       "telephone": "044-563-99-42---------097-641-99-01",
+                       "telephone": "+044-563-99-42---------097-641-99-01",
                        "name": "Хильченко Інна Григорівна",
                        "faxNumber": "044-563-99-05"
                    },
@@ -825,7 +825,7 @@
                    "contactPoint": {
                        "url": "http://www.shevruo.kiev.ua/",
                        "email": "lkovalenko@meta.ua",
-                       "telephone": "489-02-47",
+                       "telephone": "+489-02-47",
                        "name": "Коваленко Леся Аркадіївна",
                        "faxNumber": "489-02-47"
                    },
@@ -846,7 +846,9 @@
                    }
                }
            ],
-           "id": "f2a856be5f7f4523aed4fa86581d7af3"
+           "id": "f2a856be5f7f4523aed4fa86581d7af3",
+           "owner": "broker",
+           "owner_token": "20b8c8aa386e49c1955a96f3699c4bde"
        },
        {
            "status": "active",
@@ -868,7 +870,7 @@
                    "contactPoint": {
                        "url": "http://kpbl.org.ua",
                        "email": "kpbl@bigmir.net",
-                       "telephone": "044-563-99-42---------097-641-99-01",
+                       "telephone": "+044-563-99-42---------097-641-99-01",
                        "name": "Хильченко Інна Григорівна",
                        "faxNumber": "044-563-99-05"
                    },
@@ -889,7 +891,9 @@
                    }
                }
            ],
-           "id": "760ba9b4731948a5a3094f7d37154942"
+           "id": "760ba9b4731948a5a3094f7d37154942",
+           "owner": "broker",
+           "owner_token": "19b8c8aa386e49c1955a96f3699c4bde"
        }
    ],
    "value": {

@@ -1,0 +1,147 @@
+PATCH /api/2.5/contracts/7d0469536315497ba366cce980e167af?acc_token=27066118c7f245328af63ebee6924f12 HTTP/1.0
+Authorization: Bearer broker
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "value": {
+      "amount": 200,
+      "amountNet": 190
+    }
+  }
+}
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "buyerID": "22222222222222222222222222222222",
+    "awardID": "e7818db48ced43fdb835d12196d87996",
+    "contractID": "UA-2023-10-10-000001-a-2",
+    "dateModified": "2023-10-10T01:00:01+03:00",
+    "dateCreated": "2023-10-10T01:00:00+03:00",
+    "tender_id": "d1c99512210a440d8816081d0616ce15",
+    "owner": "broker",
+    "status": "pending",
+    "buyer": {
+      "name": "Державне управління справами",
+      "identifier": {
+        "scheme": "UA-IPN",
+        "id": "00037254",
+        "legalName": "Державне управління справами",
+        "uri": "http://www.dus.gov.ua/"
+      }
+    },
+    "suppliers": [
+      {
+        "name": "Державне управління справами",
+        "identifier": {
+          "scheme": "UA-IPN",
+          "id": "00037256",
+          "legalName": "Державне управління справами",
+          "uri": "http://www.dus.gov.ua/"
+        },
+        "address": {
+          "streetAddress": "вул. Банкова, 11, корпус 1",
+          "locality": "м. Київ",
+          "region": "м. Київ",
+          "postalCode": "01220",
+          "countryName": "Україна"
+        },
+        "scale": "micro"
+      }
+    ],
+    "items": [
+      {
+        "id": "8bc6840649524204a2587e504710a015",
+        "description": "портфелі",
+        "quantity": 5.0,
+        "relatedBuyer": "22222222222222222222222222222222",
+        "classification": {
+          "description": "Cartons",
+          "scheme": "ДК021",
+          "id": "44617100-9"
+        },
+        "additionalClassifications": [
+          {
+            "scheme": "ДКПП",
+            "id": "17.21.1",
+            "description": "папір і картон гофровані, паперова й картонна тара"
+          }
+        ],
+        "deliveryAddress": {
+          "streetAddress": "вул. Банкова 1",
+          "locality": "м. Київ",
+          "region": "м. Київ",
+          "postalCode": "79000",
+          "countryName": "Україна"
+        },
+        "deliveryDate": {
+          "startDate": "2023-10-12T01:00:00+03:00",
+          "endDate": "2023-10-15T01:00:00+03:00"
+        },
+        "unit": {
+          "name": "кг",
+          "value": {
+            "amount": 6.0,
+            "currency": "UAH",
+            "valueAddedTaxIncluded": true
+          },
+          "code": "KGM"
+        }
+      },
+      {
+        "id": "7ce20f04e58e4e678aa1f591966d096c",
+        "description": "портфелі",
+        "quantity": 5.0,
+        "relatedBuyer": "22222222222222222222222222222222",
+        "classification": {
+          "description": "Cartons",
+          "scheme": "ДК021",
+          "id": "44617100-9"
+        },
+        "additionalClassifications": [
+          {
+            "scheme": "ДКПП",
+            "id": "17.21.1",
+            "description": "папір і картон гофровані, паперова й картонна тара"
+          }
+        ],
+        "deliveryAddress": {
+          "streetAddress": "вул. Банкова 1",
+          "locality": "м. Київ",
+          "region": "м. Київ",
+          "postalCode": "79000",
+          "countryName": "Україна"
+        },
+        "deliveryDate": {
+          "startDate": "2023-10-12T01:00:00+03:00",
+          "endDate": "2023-10-15T01:00:00+03:00"
+        },
+        "unit": {
+          "name": "кг",
+          "value": {
+            "amount": 6.0,
+            "currency": "UAH",
+            "valueAddedTaxIncluded": true
+          },
+          "code": "KGM"
+        }
+      }
+    ],
+    "value": {
+      "amount": 200.0,
+      "currency": "UAH",
+      "valueAddedTaxIncluded": true,
+      "amountNet": 190.0
+    },
+    "id": "7d0469536315497ba366cce980e167af"
+  },
+  "config": {
+    "restricted": false
+  }
+}
+

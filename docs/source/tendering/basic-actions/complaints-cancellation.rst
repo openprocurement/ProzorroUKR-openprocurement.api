@@ -8,12 +8,12 @@ Tender Cancellation Complaint Retrieval
 
 You can list all Tender Cancellation Complaints:'
 
-.. include:: ../http/complaints/cancellation-complaints-list.http
+.. http:example:: http/complaints/cancellation-complaints-list.http
    :code:
 
 And check individual complaint:
 
-.. include:: ../http/complaints/cancellation-complaint.http
+.. http:example:: http/complaints/cancellation-complaint.http
    :code:
 
 
@@ -29,17 +29,21 @@ Create complaint for cancellation can anyone if tender has satatus `active.aucti
 
 At first create a draft:
 
-.. include:: ../http/complaints/cancellation-complaint-submission.http
+.. http:example:: http/complaints/cancellation-complaint-submission.http
    :code:
+
+When creating a complaint, the User can add one or more Objections raised by the Complainant as part of the complaint.
+Objections can be added or edited while complaint is in the status `draft`.
+For more details, see :ref:`tender complaint objections <complaint-objections>`.
 
 Then upload necessary documents:
 
-.. include:: ../http/complaints/cancellation-complaint-submission-upload.http
+.. http:example:: http/complaints/cancellation-complaint-submission-upload.http
    :code:
 
 Submit tender cancellation complaint:
 
-.. include:: ../http/complaints/cancellation-complaint-complaint.http
+.. http:example:: http/complaints/cancellation-complaint-complaint.http
    :code:
 
 Tender Cancellation Complaint Submission (without documents)
@@ -47,7 +51,34 @@ Tender Cancellation Complaint Submission (without documents)
 
 You can submit complaint that does not need additional documents:
 
-.. include:: ../http/complaints/cancellation-complaint-submission-complaint.http
+.. http:example:: http-outdated/complaints/cancellation-complaint-submission-complaint.http
+   :code:
+
+Complaint Explanations
+======================
+
+An explanation of a complaint is a certain textual information and, if necessary, an attached file/files related to a certain complaint and can be used by the AMCU commission during its consideration.
+Explanations to the complaint are submitted by subjects on their own initiative, without a request from AMCU. AMCU will not respond to such explanations, but will only consider them.
+
+Once complaint is in `pending` or `accepted` status complaint owner or tender owner can submit a post to complaint as explanation.
+
+Explanations can be added no later than 3 working days before the date of review of the complaint (3 days before reviewDate)
+
+Each explanation must be related to one of the objections of the complaint  (`complaints:objections`).
+
+Complaint owner or tender owner can submit an explanation via `posts`:
+
+.. http:example:: http/complaints/cancellation-complaint-post-explanation.http
+   :code:
+
+The field `recipient` is forbidden for explanation post:
+
+.. http:example:: http/complaints/cancellation-complaint-post-explanation-invalid.http
+   :code:
+
+It is forbidden to answer an explanation can submit by setting explanation's post `id` as `relatedPost`:
+
+.. http:example:: http/complaints/cancellation-complaint-post-explanation-answer-forbidden.http
    :code:
 
 
@@ -57,14 +88,14 @@ Complaint Resolution
 Rejecting Tender Cancellation Complaint
 --------------------------------------------------
 
-.. include:: ../http/complaints/cancellation-complaint-reject.http
+.. http:example:: http/complaints/cancellation-complaint-reject.http
    :code:
 
 
 Accepting Tender Cancellation Complaint
 --------------------------------------------------
 
-.. include:: ../http/complaints/cancellation-complaint-accept.http
+.. http:example:: http/complaints/cancellation-complaint-accept.http
    :code:
 
 
@@ -73,17 +104,17 @@ Submitting Tender Cancellation Complaint Resolution
 
 The Complaint Review Body uploads the resolution document:
 
-.. include:: ../http/complaints/cancellation-complaint-resolution-upload.http
+.. http:example:: http/complaints/cancellation-complaint-resolution-upload.http
    :code:
 
 And either resolves complaint:
 
-.. include:: ../http/complaints/cancellation-complaint-resolve.http
+.. http:example:: http/complaints/cancellation-complaint-resolve.http
    :code:
 
 Or declines it:
 
-.. include:: ../http/complaints/cancellation-complaint-decline.http
+.. http:example:: http/complaints/cancellation-complaint-decline.http
    :code:
 
 Submitting Resolution Confirmation
@@ -91,7 +122,7 @@ Submitting Resolution Confirmation
 
 For submit resolution confirmation, cancellation must be in `unsuccessful` status.
 
-.. include:: ../http/complaints/cancellation-complaint-resolved.http
+.. http:example:: http/complaints/cancellation-complaint-resolved.http
    :code:
 
 When the status of cancellation changes to `resolved`, then all terms regarding the tender are recalculated according to the formula:
@@ -106,11 +137,11 @@ Cancelling Tender Cancellation Complaint
 Cancelling not accepted complaint
 ---------------------------------
 
-.. include:: ../http/complaints/cancellation-complaint-reject.http
+.. http:example:: http/complaints/cancellation-complaint-reject.http
    :code:
 
 Cancelling accepted complaint by Reviewer
 -----------------------------------------
 
-.. include:: ../http/complaints/cancellation-complaint-accepted-stopped.http
+.. http:example:: http/complaints/cancellation-complaint-accepted-stopped.http
    :code:

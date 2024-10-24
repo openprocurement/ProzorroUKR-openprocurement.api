@@ -1,0 +1,69 @@
+PATCH /api/2.5/tenders/fd45af80ad9f4574994f7f6254012693/awards/c220713cbd024586b6382ef97a852dc7?acc_token=3b095197e5f94f76a28bae3a3079c206 HTTP/1.0
+Authorization: Bearer broker
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "status": "cancelled"
+  }
+}
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/fd45af80ad9f4574994f7f6254012693/awards/d34b1b53a7dd43c3ac6bdc6a932ebe54
+
+{
+  "data": {
+    "id": "c220713cbd024586b6382ef97a852dc7",
+    "status": "cancelled",
+    "date": "2023-10-10T01:00:00+03:00",
+    "value": {
+      "amount": 500.0,
+      "currency": "UAH",
+      "valueAddedTaxIncluded": true
+    },
+    "suppliers": [
+      {
+        "name": "Державне управління справами",
+        "identifier": {
+          "scheme": "UA-IPN",
+          "id": "00037256",
+          "uri": "http://www.dus.gov.ua/"
+        },
+        "address": {
+          "streetAddress": "вул. Банкова, 11, корпус 1",
+          "locality": "м. Київ",
+          "region": "м. Київ",
+          "postalCode": "01220",
+          "countryName": "Україна"
+        },
+        "contactPoint": {
+          "name": "Державне управління справами",
+          "telephone": "+0440000000"
+        },
+        "scale": "micro"
+      }
+    ],
+    "bid_id": "6d919725d085458490f52e3e8d5606e3",
+    "documents": [
+      {
+        "confidentiality": "public",
+        "documentType": "notice",
+        "id": "9a93a788d7c54ac6aa165e8a8ec91fc2",
+        "datePublished": "2023-10-10T01:00:00+03:00",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "sign.p7s",
+        "format": "sign/pkcs7-signature",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/cd0e14c77fb448a0abd62eebf74ed286?Signature=1p3HCDXD%2F5nYxk%2FUvh0uKNZR9tC%2F1KdJpoL5Hd1ryuxOsLwbksy3yqModdkuLUBMSD01M1ctgw0U5gh2T1yhAg%3D%3D&KeyID=a8968c46",
+        "documentOf": "tender",
+        "dateModified": "2023-10-10T01:00:00+03:00",
+        "author": "tender_owner",
+        "language": "uk"
+      }
+    ],
+    "qualified": true
+  }
+}
+

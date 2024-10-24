@@ -17,7 +17,7 @@
             "suppliers": [{
                 "contactPoint": {
                     "name": "Державне управління справами",
-                    "telephone": "0440000000"
+                    "telephone": "+0440000000"
                 },
                 "identifier": {
                     "scheme": "UA-EDR",
@@ -51,7 +51,7 @@
             "suppliers": [{
                 "contactPoint": {
                     "name": "Державне управління справами",
-                    "telephone": "0440000000"
+                    "telephone": "+0440000000"
                 },
                 "identifier": {
                     "scheme": "UA-EDR",
@@ -86,7 +86,7 @@
             "suppliers": [{
                 "contactPoint": {
                     "name": "Державне управління справами 1",
-                    "telephone": "0440000000"
+                    "telephone": "+0440000000"
                 },
                 "identifier": {
                     "scheme": "UA-EDR",
@@ -121,7 +121,7 @@
             "suppliers": [{
                 "contactPoint": {
                     "name": "Державне управління справами",
-                    "telephone": "0440000000"
+                    "telephone": "+0440000000"
                 },
                 "identifier": {
                     "scheme": "UA-EDR",
@@ -170,7 +170,7 @@
         },
         "id": "1662b0e1d59f4e2f8e2c5bd48e03a7bc",
         "unit": {
-            "code": "44617100-9",
+            "code": "KGM",
             "name": "item"
         },
         "quantity": 5
@@ -178,7 +178,7 @@
     "title_en": "[TESTING] ",
     "period": {
         "startDate": "2018-09-11T11:23:20.418390+03:00",
-        "endDate": "2022-01-23T11:23:20.418436+03:00"
+        "endDate": "2222-01-23T11:23:20.418436+03:00"
     },
     "dateSigned": "2018-09-11T11:23:23.220310+03:00",
     "dateModified": "2018-09-17T16:26:31.372995+03:00",
@@ -195,7 +195,7 @@
         "contactPoint": {
             "name": "Ліповець Євген Іванович",
             "url": "http://www.shev.gov.ua/",
-            "telephone": "2341170",
+            "telephone": "+2341170",
             "faxNumber": "2343591",
             "name_en": "Gregory Gillespie",
             "email": "buh510@ukr.net",

@@ -1,0 +1,25 @@
+GET /api/2.5/contracts/479178eb904d41c5a40be7f83405f22d/changes HTTP/1.0
+Authorization: Bearer broker
+Host: public-api-sandbox.prozorro.gov.ua
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": [
+    {
+      "rationale": "Друга і третя поставка має бути розфасована",
+      "rationale_en": "Contract change cause",
+      "rationaleTypes": [
+        "volumeCuts",
+        "priceReduction"
+      ],
+      "dateSigned": "2023-10-10T01:00:00+03:00",
+      "id": "d578d3114cb24296894d4d4c604c01da",
+      "status": "active",
+      "date": "2023-10-10T01:00:00+03:00"
+    }
+  ]
+}
+

@@ -1,145 +1,151 @@
-POST /api/2.5/tenders/6ccc95c340c94e32bcf0b8c2183e62f7/bids HTTP/1.0
+POST /api/2.5/tenders/782a773bcc70490e923de940a94a5ada/bids HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 1702
 Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
+
 {
   "data": {
-    "documents": [
-      {
-        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/f4853348bbbc4a6faa08d0e2891ea2e8?KeyID=a8968c46&Signature=7oKZXvaJ1DSjHrye7Vper58fwy6SgxlPENkC8Dp%2BE%2FOdlns3tx9gSDonjNtipPzuXjfjbMkQzsQ1pK%2FkJp%2FgCg%3D%3D", 
-        "format": "application/pdf", 
-        "hash": "md5:00000000000000000000000000000000", 
-        "title": "Proposal_part1.pdf"
-      }, 
-      {
-        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/e8f2a6a130ba44bb8e93f4056a8dbab7?KeyID=a8968c46&Signature=vDgXtbdz7NMXj2A8EujrSzjYTDZsd3d9TbAgAkG66CBgJJAuJ3z9jwF6R3M2tFHG7Evit2visH%2FEzt%2FDqmmABw%3D%3D", 
-        "format": "application/pdf", 
-        "hash": "md5:00000000000000000000000000000000", 
-        "title": "Proposal_part2.pdf"
-      }
-    ], 
-    "lotValues": [
-      {
-        "relatedLot": "1b75c06ee58f4909a4201255b4ba5831", 
-        "value": {
-          "amount": 499
-        }
-      }
-    ], 
-    "parameters": [
-      {
-        "code": "OCDS-123454-AIR-INTAKE", 
-        "value": 0.1
-      }, 
-      {
-        "code": "OCDS-123454-YEARS", 
-        "value": 0.1
-      }
-    ], 
     "tenderers": [
       {
-        "contactPoint": {
-          "name": "Державне управління справами", 
-          "telephone": "0440000000"
-        }, 
-        "scale": "micro", 
-        "name": "Державне управління справами", 
+        "name": "Державне управління справами",
         "identifier": {
-          "scheme": "UA-EDR", 
-          "id": "00037257", 
+          "scheme": "UA-EDR",
+          "id": "00037257",
           "uri": "http://www.dus.gov.ua/"
-        }, 
+        },
+        "contactPoint": {
+          "name": "Державне управління справами",
+          "telephone": "+0440000000"
+        },
+        "scale": "micro",
         "address": {
-          "postalCode": "01220", 
-          "countryName": "Україна", 
-          "streetAddress": "вул. Банкова, 11, корпус 1", 
-          "region": "м. Київ", 
-          "locality": "м. Київ"
+          "streetAddress": "вул. Банкова, 11, корпус 1",
+          "locality": "м. Київ",
+          "region": "м. Київ",
+          "postalCode": "01220",
+          "countryName": "Україна"
         }
+      }
+    ],
+    "lotValues": [
+      {
+        "value": {
+          "amount": 499
+        },
+        "relatedLot": "50fc7d0cb4e3423491c35387a046af42"
+      }
+    ],
+    "documents": [
+      {
+        "title": "Proposal_part1.pdf",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/6f5d54d6f96e4f93bb84aaf2005ecd74?Signature=Mo04A31PiR8t5ZU5YIge%2B%2FKNq930zaj52Y%2BQgdtIdmq1y1E%2BB5O5O8rWiWpgAR0VXxDd1FCp7nVSJLsKg3RhCQ%3D%3D&KeyID=a8968c46",
+        "hash": "md5:00000000000000000000000000000000",
+        "format": "application/pdf"
+      },
+      {
+        "title": "Proposal_part2.pdf",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/f7c465d3486b487db509f0e8482bcafd?Signature=hMKg5q0zUd5uHXOeMKHBLUxB4hjVOc9ILgQz2ZSbyqNPqsb7QEVoTlMJDNL15wFmJrKNyZWBGFf5bFYE5HPnDg%3D%3D&KeyID=a8968c46",
+        "hash": "md5:00000000000000000000000000000000",
+        "format": "application/pdf"
+      }
+    ],
+    "parameters": [
+      {
+        "code": "OCDS-123454-AIR-INTAKE",
+        "value": 0.1
+      },
+      {
+        "code": "OCDS-123454-YEARS",
+        "value": 0.1
       }
     ]
   }
 }
 
-Response: 201 Created
-Content-Type: application/json; charset=UTF-8
-Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/6ccc95c340c94e32bcf0b8c2183e62f7/bids/d3401f691dc94a84ba7daa8eb8e0c4f0
+
+HTTP/1.0 201 Created
+Content-Type: application/json
+Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/782a773bcc70490e923de940a94a5ada/bids/5e3e02b6dd9849d98c48bf9d741a036e
+
 {
-  "access": {
-    "transfer": "9ae4e56edcfb4eb69c010689a3f89041", 
-    "token": "8c1be9249ea8445480b4c4e3ec6ee974"
-  }, 
   "data": {
-    "status": "active", 
-    "documents": [
-      {
-        "hash": "md5:00000000000000000000000000000000", 
-        "title": "Proposal_part1.pdf", 
-        "url": "http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/6ccc95c340c94e32bcf0b8c2183e62f7/bids/d3401f691dc94a84ba7daa8eb8e0c4f0/documents/c5f17f5d6bd94560afb4e4276f410310?download=f4853348bbbc4a6faa08d0e2891ea2e8", 
-        "format": "application/pdf", 
-        "documentOf": "tender", 
-        "datePublished": "2020-05-15T01:00:00+03:00", 
-        "id": "c5f17f5d6bd94560afb4e4276f410310", 
-        "dateModified": "2020-05-15T01:00:00+03:00"
-      }, 
-      {
-        "hash": "md5:00000000000000000000000000000000", 
-        "title": "Proposal_part2.pdf", 
-        "url": "http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/6ccc95c340c94e32bcf0b8c2183e62f7/bids/d3401f691dc94a84ba7daa8eb8e0c4f0/documents/39a5a8f376d04e31b0dff87300913f99?download=e8f2a6a130ba44bb8e93f4056a8dbab7", 
-        "format": "application/pdf", 
-        "documentOf": "tender", 
-        "datePublished": "2020-05-15T01:00:00+03:00", 
-        "id": "39a5a8f376d04e31b0dff87300913f99", 
-        "dateModified": "2020-05-15T01:00:00+03:00"
-      }
-    ], 
-    "parameters": [
-      {
-        "code": "OCDS-123454-AIR-INTAKE", 
-        "value": 0.1
-      }, 
-      {
-        "code": "OCDS-123454-YEARS", 
-        "value": 0.1
-      }
-    ], 
-    "lotValues": [
-      {
-        "relatedLot": "1b75c06ee58f4909a4201255b4ba5831", 
-        "date": "2020-05-15T01:00:00+03:00", 
-        "value": {
-          "currency": "UAH", 
-          "amount": 499.0, 
-          "valueAddedTaxIncluded": true
-        }
-      }
-    ], 
     "tenderers": [
       {
-        "contactPoint": {
-          "name": "Державне управління справами", 
-          "telephone": "0440000000"
-        }, 
-        "scale": "micro", 
-        "name": "Державне управління справами", 
+        "name": "Державне управління справами",
         "identifier": {
-          "scheme": "UA-EDR", 
-          "id": "00037257", 
+          "scheme": "UA-EDR",
+          "id": "00037257",
           "uri": "http://www.dus.gov.ua/"
-        }, 
+        },
         "address": {
-          "postalCode": "01220", 
-          "countryName": "Україна", 
-          "streetAddress": "вул. Банкова, 11, корпус 1", 
-          "region": "м. Київ", 
-          "locality": "м. Київ"
-        }
+          "streetAddress": "вул. Банкова, 11, корпус 1",
+          "locality": "м. Київ",
+          "region": "м. Київ",
+          "postalCode": "01220",
+          "countryName": "Україна"
+        },
+        "contactPoint": {
+          "name": "Державне управління справами",
+          "telephone": "+0440000000"
+        },
+        "scale": "micro"
       }
-    ], 
-    "date": "2020-05-15T01:00:00+03:00", 
-    "id": "d3401f691dc94a84ba7daa8eb8e0c4f0"
+    ],
+    "status": "draft",
+    "documents": [
+      {
+        "confidentiality": "public",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "Proposal_part1.pdf",
+        "format": "application/pdf",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/6f5d54d6f96e4f93bb84aaf2005ecd74?Signature=gWkknoOyOQh2cpnX6nZmhLZJrFxulp8qPlSiERXttONVOcfK8ZCL1ksm1AQp292iAQqY6uzphnL10nz8PEnlAA%3D%3D&KeyID=a8968c46",
+        "documentOf": "tender",
+        "language": "uk",
+        "id": "a203d9a0cbf14608b5c4b00138da513f",
+        "datePublished": "2023-10-10T01:01:00+03:00",
+        "dateModified": "2023-10-10T01:01:00+03:00"
+      },
+      {
+        "confidentiality": "public",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "Proposal_part2.pdf",
+        "format": "application/pdf",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/f7c465d3486b487db509f0e8482bcafd?Signature=Dt0bUdqRLCf5ENnzoOZDqA6XZdViV36%2BLgE4rzqjUtBbVG0krDrux7p3D7C45U3%2BZaqfHqB1ntI9LVS%2F6PoeCg%3D%3D&KeyID=a8968c46",
+        "documentOf": "tender",
+        "language": "uk",
+        "id": "fd4040a443574d50b13ffdd5c99ac6b2",
+        "datePublished": "2023-10-10T01:01:00+03:00",
+        "dateModified": "2023-10-10T01:01:00+03:00"
+      }
+    ],
+    "parameters": [
+      {
+        "code": "OCDS-123454-AIR-INTAKE",
+        "value": 0.1
+      },
+      {
+        "code": "OCDS-123454-YEARS",
+        "value": 0.1
+      }
+    ],
+    "lotValues": [
+      {
+        "status": "pending",
+        "value": {
+          "amount": 499.0,
+          "currency": "UAH",
+          "valueAddedTaxIncluded": true
+        },
+        "relatedLot": "50fc7d0cb4e3423491c35387a046af42",
+        "date": "2023-10-10T01:01:00+03:00"
+      }
+    ],
+    "id": "5e3e02b6dd9849d98c48bf9d741a036e",
+    "date": "2023-10-10T01:01:00+03:00"
+  },
+  "access": {
+    "token": "c690cc2a16bb4052bcba2502d07449d6",
+    "transfer": "447d880a006641f0aacbb5f0a8747828"
   }
 }
 

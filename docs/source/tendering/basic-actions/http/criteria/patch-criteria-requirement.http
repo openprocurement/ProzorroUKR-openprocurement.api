@@ -1,0 +1,41 @@
+PATCH /api/2.5/tenders/d62f91e236e14e5da1b00c2ff89b753b/criteria/947ff50dcf6549189085ee3723213288/requirement_groups/638322bdff484f88a17037ea543928bf/requirements/1a722896658842638f37cf86dc812082?acc_token=b1a7c4a35e744a1c91a58030c417f5a8 HTTP/1.0
+Authorization: Bearer broker
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "title": "Updated title",
+    "eligibleEvidences": [
+      {
+        "title": "Документальне підтвердження",
+        "description": "Довідка в довільній формі",
+        "type": "document"
+      }
+    ]
+  }
+}
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "id": "1a722896658842638f37cf86dc812082",
+    "title": "Updated title",
+    "dataType": "boolean",
+    "eligibleEvidences": [
+      {
+        "title": "Документальне підтвердження",
+        "description": "Довідка в довільній формі",
+        "type": "document",
+        "id": "47cf3ca634634786867050b1fef5b3b5"
+      }
+    ],
+    "expectedValue": true,
+    "datePublished": "2023-10-10T01:00:00+03:00",
+    "status": "active"
+  }
+}
+

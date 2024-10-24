@@ -81,13 +81,17 @@ Schema
     The goods and services awarded in this award, broken into line items wherever possible. Items should not be duplicated, but the quantity specified instead. 
     
 :documents:
-    List of :ref:`Document` objects
+    List of :ref:`ConfidentialDocument` objects
     
     |ocdsDescription|
     All documents and attachments related to the award, including any notices. 
     
 :complaints:
-    List of :ref:`Complaint` objects
+    |    List of :ref:`Complaint` and :ref:`Claim` objects.
+
+    |    List of :ref:`Claim` objects for  `belowThreshold`.
+    |    List of :ref:`Complaint` objects for  `negotiation` and `negotiation.quick`.
+
 
 :complaintPeriod:
     :ref:`period`
@@ -103,18 +107,18 @@ Schema
 
         Id of related :ref:`lot`. Only if `tender.procurementMethodType` is `negotiation` or `negotiation.quick`.
 
+:qualified:
+    bool
 
-Additionally in :ref:`defense`, :ref:`esco`, :ref:`openua` and :ref:`openeu`:
+    Confirms the absence of grounds for refusal to participate in accordance with Article 17 of the Law of Ukraine "On Public Procurement".
+
+
+Additionally in :ref:`defense`, :ref:`esco`, :ref:`competitivedialogue`, :ref:`cfaua`, :ref:`open`, :ref:`openua` and :ref:`openeu`:
 
 :eligible:
     bool
 
     Confirms compliance of eligibility criteria set by the procuring entity in the tendering documents.
-
-:qualified:
-    bool
-
-    Confirms the absence of grounds for refusal to participate in accordance with Article 17 of the Law of Ukraine "On Public Procurement".
 
 
 Additionally in :ref:`limited`:
@@ -124,11 +128,8 @@ Additionally in :ref:`limited`:
 
     The text field of any length that contains information about subcontractor.
 
-:qualified:
-    bool
-
-    Confirms that Procuring entity has no grounds to reject a participant in accordance with Article 17 of the Law of Ukraine "On Public Procurement".
-
+:requirementResponses:
+        List of :ref:`RequirementResponse` objects.
 
 Award workflow in :ref:`limited`:
 ---------------------------------

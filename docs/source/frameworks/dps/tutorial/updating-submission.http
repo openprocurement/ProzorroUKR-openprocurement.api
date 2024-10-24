@@ -1,0 +1,103 @@
+PATCH /api/2.5/submissions/ea3e92079bc345a58805f4c05340fd28?acc_token=c495172bd73f464e8d3b724b58bf84a8 HTTP/1.0
+Authorization: Bearer broker
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "tenderers": [
+      {
+        "address": {
+          "countryName": "Україна",
+          "locality": "м. Вінниця",
+          "postalCode": "21100",
+          "region": "Вінницька область",
+          "streetAddress": "вул. Островського, 33"
+        },
+        "contactPoint": {
+          "email": "soleksuk@gmail.com",
+          "name": "Сергій Олексюк",
+          "telephone": "+380432216930"
+        },
+        "identifier": {
+          "scheme": "UA-EDR",
+          "legalName": "Державне комунальне підприємство громадського харчування «Школяр»",
+          "id": "00137256",
+          "uri": "http://www.sc.gov.ua/"
+        },
+        "name": "НАЗВА",
+        "scale": "micro"
+      }
+    ]
+  }
+}
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "tenderers": [
+      {
+        "name": "НАЗВА",
+        "scale": "micro",
+        "identifier": {
+          "scheme": "UA-EDR",
+          "id": "00137256",
+          "uri": "http://www.sc.gov.ua/",
+          "legalName": "Державне комунальне підприємство громадського харчування «Школяр»"
+        },
+        "address": {
+          "countryName": "Україна",
+          "streetAddress": "вул. Островського, 33",
+          "locality": "м. Вінниця",
+          "region": "Вінницька область",
+          "postalCode": "21100"
+        },
+        "contactPoint": {
+          "name": "Сергій Олексюк",
+          "telephone": "+380432216930",
+          "email": "soleksuk@gmail.com"
+        }
+      }
+    ],
+    "documents": [
+      {
+        "id": "d28f60dc1865488d9277bd56070b0733",
+        "datePublished": "2023-10-26T01:00:00+03:00",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "submission_docs.doc",
+        "format": "application/msword",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/46a9cf8cd1034d57b7e550b1c7bb0339?Signature=CV6toqmVNh7aYzT8Sn0JjsdtsYR66FqDDLdqXszr49BvU7fkKFV59qITAmgwNxHwaNZ3mGH6rZH5LtzNFshCAQ%3D%3D&KeyID=a8968c46",
+        "dateModified": "2023-10-26T01:00:00+03:00",
+        "language": "uk",
+        "confidentiality": "public"
+      },
+      {
+        "documentType": "technicalSpecifications",
+        "id": "13fa49055fe748d0894f252eaa5dd280",
+        "datePublished": "2023-10-26T01:00:00+03:00",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "specs.doc",
+        "format": "application/msword",
+        "url": "http://lb-api-sandbox.prozorro.gov.ua/api/2.5/submissions/ea3e92079bc345a58805f4c05340fd28/documents/13fa49055fe748d0894f252eaa5dd280?download=abddfc43e82f4085a26ecce77f495ef7",
+        "dateModified": "2023-10-26T01:00:00+03:00",
+        "language": "uk",
+        "confidentiality": "buyerOnly",
+        "confidentialityRationale": "Дуже конфіденційний файл, треба приховати"
+      }
+    ],
+    "frameworkID": "a00a3b5bdaa0437490c883e4482795b2",
+    "status": "draft",
+    "dateModified": "2023-10-26T01:00:00+03:00",
+    "date": "2023-10-26T01:00:00+03:00",
+    "owner": "broker",
+    "submissionType": "dynamicPurchasingSystem",
+    "id": "ea3e92079bc345a58805f4c05340fd28"
+  },
+  "config": {
+    "restricted": false
+  }
+}
+

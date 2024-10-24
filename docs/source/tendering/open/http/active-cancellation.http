@@ -1,0 +1,51 @@
+GET /api/2.5/tenders/de38bea4a6534e13939a382dfeef92f2/cancellations/803744e02d6349b9a6f2299eef8806a8?acc_token=f63fd82030a24dfc961d6995dc3f33d1 HTTP/1.0
+Authorization: Bearer broker
+Host: public-api-sandbox.prozorro.gov.ua
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "id": "803744e02d6349b9a6f2299eef8806a8",
+    "status": "active",
+    "date": "2023-10-21T01:09:00+03:00",
+    "reasonType": "forceMajeure",
+    "reason": "cancellation reason",
+    "cancellationOf": "tender",
+    "documents": [
+      {
+        "confidentiality": "public",
+        "description": "Changed description",
+        "id": "6502739144d5438898f2c5d3ac85b7fe",
+        "datePublished": "2023-10-10T01:06:00+03:00",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "Notice.pdf",
+        "format": "application/pdf",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/dc6cce7e75b44d2cb3d18880fbe458b7?Signature=UGG%2B0o%2BMiwWJ6yn2fSjv0zh%2B4yTGFr5A1qWbN9Vpeboqk9g5sML9Cmf4aEclnKxyPlVehF5TUkXrXLayjronCQ%3D%3D&KeyID=a8968c46",
+        "documentOf": "tender",
+        "dateModified": "2023-10-10T01:06:00+03:00",
+        "language": "uk"
+      },
+      {
+        "confidentiality": "public",
+        "description": "Changed description",
+        "id": "6502739144d5438898f2c5d3ac85b7fe",
+        "datePublished": "2023-10-10T01:06:00+03:00",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "Notice.pdf",
+        "format": "application/pdf",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/5d169ce23cec4af7bf917411b6f8d92e?Signature=LeqFakBbyoXFKn%2B0J2loXxLnNNmua3vIhxKIboSgi4TrpAYC5NxZosfktZvAtKTnoHI8%2BUf%2FYKCgK6frO1OjCQ%3D%3D&KeyID=a8968c46",
+        "documentOf": "tender",
+        "dateModified": "2023-10-10T01:06:00+03:00",
+        "language": "uk"
+      }
+    ],
+    "complaintPeriod": {
+      "startDate": "2023-10-10T01:06:00+03:00",
+      "endDate": "2023-10-21T00:00:00+03:00"
+    }
+  }
+}
+

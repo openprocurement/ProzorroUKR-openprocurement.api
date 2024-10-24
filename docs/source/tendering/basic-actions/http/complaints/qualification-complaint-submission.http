@@ -1,0 +1,136 @@
+POST /api/2.5/tenders/d816e417c06e4dc4a33d89a4478b102f/qualifications/cc89ff18122c432eb4f5331a15969dec/complaints?acc_token=d4010d06fac74fa1ae5e6e15ced7eed2 HTTP/1.0
+Authorization: Bearer broker
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "description": "Умови виставлені замовником не містять достатньо інформації, щоб заявка мала сенс.",
+    "title": "Недостатньо інформації",
+    "status": "draft",
+    "type": "complaint",
+    "author": {
+      "address": {
+        "countryName": "Україна",
+        "locality": "м. Вінниця",
+        "postalCode": "21100",
+        "region": "Вінницька область",
+        "streetAddress": "вул. Островського, 33"
+      },
+      "contactPoint": {
+        "email": "soleksuk@gmail.com",
+        "name": "Сергій Олексюк",
+        "telephone": "+380432216930"
+      },
+      "identifier": {
+        "scheme": "UA-EDR",
+        "legalName": "ДКП «Школяр»",
+        "id": "00137256",
+        "uri": "http://www.sc.gov.ua/"
+      },
+      "name": "ДКП «Школяр»"
+    },
+    "objections": [
+      {
+        "title": "My objection",
+        "description": "Test objection",
+        "relatesTo": "qualification",
+        "relatedItem": "cc89ff18122c432eb4f5331a15969dec",
+        "classification": {
+          "scheme": "violation_amcu",
+          "id": "corruptionDescription",
+          "description": "test classification"
+        },
+        "requestedRemedies": [
+          {
+            "description": "test",
+            "type": "setAsideAward"
+          }
+        ],
+        "arguments": [
+          {
+            "description": "test argument"
+          }
+        ],
+        "sequenceNumber": 1
+      }
+    ]
+  }
+}
+
+
+HTTP/1.0 201 Created
+Content-Type: application/json
+Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/d816e417c06e4dc4a33d89a4478b102f/qualifications/cc89ff18122c432eb4f5331a15969dec/complaints/cebe355f90434f498ed10306128fc635
+
+{
+  "data": {
+    "author": {
+      "name": "ДКП «Школяр»",
+      "address": {
+        "streetAddress": "вул. Островського, 33",
+        "locality": "м. Вінниця",
+        "region": "Вінницька область",
+        "postalCode": "21100",
+        "countryName": "Україна"
+      },
+      "contactPoint": {
+        "name": "Сергій Олексюк",
+        "email": "soleksuk@gmail.com",
+        "telephone": "+380432216930"
+      },
+      "identifier": {
+        "scheme": "UA-EDR",
+        "uri": "http://www.sc.gov.ua/",
+        "id": "00137256",
+        "legalName": "ДКП «Школяр»"
+      }
+    },
+    "title": "Недостатньо інформації",
+    "description": "Умови виставлені замовником не містять достатньо інформації, щоб заявка мала сенс.",
+    "status": "draft",
+    "type": "complaint",
+    "objections": [
+      {
+        "id": "3c441dbba9af4ede99647d1949d2d9b0",
+        "title": "My objection",
+        "description": "Test objection",
+        "relatedItem": "cc89ff18122c432eb4f5331a15969dec",
+        "classification": {
+          "scheme": "violation_amcu",
+          "id": "corruptionDescription",
+          "description": "test classification"
+        },
+        "requestedRemedies": [
+          {
+            "id": "7b6c79ad149442809c88ce6f59500fff",
+            "type": "setAsideAward",
+            "description": "test"
+          }
+        ],
+        "arguments": [
+          {
+            "id": "de77e8c9f14745069bb33a7dbc80cad3",
+            "description": "test argument"
+          }
+        ],
+        "sequenceNumber": 1,
+        "relatesTo": "qualification"
+      }
+    ],
+    "id": "cebe355f90434f498ed10306128fc635",
+    "date": "2023-10-10T01:00:01+03:00",
+    "bid_id": "86755359857c4eea9ea8f8e088f71e3b",
+    "complaintID": "UA-2023-10-10-000001-a.1",
+    "relatedLot": "9fa780b5476240129cdd58b49c4d6ddf",
+    "value": {
+      "amount": 3000,
+      "currency": "UAH"
+    }
+  },
+  "access": {
+    "token": "07e45f1b5ab04827a48bccc642b00de4",
+    "transfer": "ac5f76a03ac9414eaacf7f8dc6d6bbf1"
+  }
+}
+

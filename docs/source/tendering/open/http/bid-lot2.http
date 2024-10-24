@@ -1,0 +1,116 @@
+POST /api/2.5/tenders/de38bea4a6534e13939a382dfeef92f2/bids HTTP/1.0
+Authorization: Bearer broker
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "selfQualified": true,
+    "status": "draft",
+    "tenderers": [
+      {
+        "address": {
+          "countryName": "Україна",
+          "locality": "м. Львів",
+          "postalCode": "79013",
+          "region": "Львівська область",
+          "streetAddress": "вул. Островського, 34"
+        },
+        "contactPoint": {
+          "email": "aagt@gmail.com",
+          "name": "Андрій Олексюк",
+          "telephone": "+380322916930"
+        },
+        "identifier": {
+          "scheme": "UA-EDR",
+          "legalName": "Державне комунальне підприємство громадського харчування «Школяр 2»",
+          "id": "00137226",
+          "uri": "http://www.sc.gov.ua/"
+        },
+        "name": "ДКП «Книга»",
+        "scale": "sme"
+      }
+    ],
+    "lotValues": [
+      {
+        "value": {
+          "amount": 500
+        },
+        "relatedLot": "f56fc2b8fdd44587baa8726a382e3e41"
+      },
+      {
+        "subcontractingDetails": "ДКП «Укр Прінт», Україна",
+        "value": {
+          "amount": 500
+        },
+        "relatedLot": "6babb5c45e6043fe95ee9952851c712f"
+      }
+    ]
+  }
+}
+
+
+HTTP/1.0 201 Created
+Content-Type: application/json
+Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/de38bea4a6534e13939a382dfeef92f2/bids/6301b71c37644207b496dd2cc689a465
+
+{
+  "data": {
+    "tenderers": [
+      {
+        "name": "ДКП «Книга»",
+        "identifier": {
+          "scheme": "UA-EDR",
+          "id": "00137226",
+          "legalName": "Державне комунальне підприємство громадського харчування «Школяр 2»",
+          "uri": "http://www.sc.gov.ua/"
+        },
+        "address": {
+          "streetAddress": "вул. Островського, 34",
+          "locality": "м. Львів",
+          "region": "Львівська область",
+          "postalCode": "79013",
+          "countryName": "Україна"
+        },
+        "contactPoint": {
+          "name": "Андрій Олексюк",
+          "email": "aagt@gmail.com",
+          "telephone": "+380322916930"
+        },
+        "scale": "sme"
+      }
+    ],
+    "status": "draft",
+    "selfQualified": true,
+    "lotValues": [
+      {
+        "status": "pending",
+        "value": {
+          "amount": 500.0,
+          "currency": "UAH",
+          "valueAddedTaxIncluded": true
+        },
+        "relatedLot": "f56fc2b8fdd44587baa8726a382e3e41",
+        "date": "2023-10-10T01:01:00+03:00"
+      },
+      {
+        "status": "pending",
+        "value": {
+          "amount": 500.0,
+          "currency": "UAH",
+          "valueAddedTaxIncluded": true
+        },
+        "relatedLot": "6babb5c45e6043fe95ee9952851c712f",
+        "subcontractingDetails": "ДКП «Укр Прінт», Україна",
+        "date": "2023-10-10T01:01:00+03:00"
+      }
+    ],
+    "id": "6301b71c37644207b496dd2cc689a465",
+    "date": "2023-10-10T01:01:00+03:00"
+  },
+  "access": {
+    "token": "32948dc8902d42c4814b1080ff785662",
+    "transfer": "030f013e2607496da57fadb41e567dbb"
+  }
+}
+

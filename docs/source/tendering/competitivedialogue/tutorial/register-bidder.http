@@ -1,79 +1,92 @@
-POST /api/2.5/tenders/35f93e8dd5484abb8b90687952c82010/bids HTTP/1.0
+POST /api/2.5/tenders/e01d495b72a74a27ae9a485bbdccc84a/bids HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 975
 Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
+
 {
   "data": {
-    "status": "draft", 
-    "selfEligible": true, 
-    "subcontractingDetails": "ДКП «Орфей», Україна", 
-    "selfQualified": true, 
     "tenderers": [
       {
-        "contactPoint": {
-          "email": "soleksuk@gmail.com", 
-          "name": "Сергій Олексюк", 
-          "telephone": "+380 (432) 21-69-30"
-        }, 
-        "scale": "micro", 
-        "name": "ДКП «Школяр»", 
-        "identifier": {
-          "scheme": "UA-EDR", 
-          "id": "00137256", 
-          "uri": "http://www.sc.gov.ua/"
-        }, 
         "address": {
-          "countryName": "Україна", 
-          "postalCode": "21100", 
-          "region": "Вінницька область", 
-          "streetAddress": "вул. Островського, 33", 
-          "locality": "м. Вінниця"
-        }
+          "countryName": "Україна",
+          "locality": "м. Вінниця",
+          "postalCode": "21100",
+          "region": "Вінницька область",
+          "streetAddress": "вул. Островського, 33"
+        },
+        "contactPoint": {
+          "email": "soleksuk@gmail.com",
+          "name": "Сергій Олексюк",
+          "telephone": "+380432216930"
+        },
+        "identifier": {
+          "scheme": "UA-EDR",
+          "legalName": "Державне комунальне підприємство громадського харчування «Школяр»",
+          "id": "00137256",
+          "uri": "http://www.sc.gov.ua/"
+        },
+        "name": "ДКП «Школяр»",
+        "scale": "micro"
+      }
+    ],
+    "status": "draft",
+    "subcontractingDetails": "ДКП «Орфей», Україна",
+    "selfQualified": true,
+    "lotValues": [
+      {
+        "relatedLot": "5f416c4b1629461194116a3c41e574a8"
       }
     ]
   }
 }
 
-Response: 201 Created
-Content-Type: application/json; charset=UTF-8
-Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/35f93e8dd5484abb8b90687952c82010/bids/9161500fb17744ce90346052ddf8479c
+
+HTTP/1.0 201 Created
+Content-Type: application/json
+Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/e01d495b72a74a27ae9a485bbdccc84a/bids/bef46d74750b4f74b30d46b87c69df0c
+
 {
-  "access": {
-    "transfer": "cbe8219212264f088149330cce760248", 
-    "token": "3779418188014a5197c514e6dd1908a2"
-  }, 
   "data": {
-    "status": "draft", 
-    "selfEligible": true, 
-    "subcontractingDetails": "ДКП «Орфей», Україна", 
-    "selfQualified": true, 
     "tenderers": [
       {
-        "contactPoint": {
-          "email": "soleksuk@gmail.com", 
-          "telephone": "+380 (432) 21-69-30", 
-          "name": "Сергій Олексюк"
-        }, 
-        "scale": "micro", 
-        "name": "ДКП «Школяр»", 
+        "name": "ДКП «Школяр»",
         "identifier": {
-          "scheme": "UA-EDR", 
-          "id": "00137256", 
+          "scheme": "UA-EDR",
+          "id": "00137256",
+          "legalName": "Державне комунальне підприємство громадського харчування «Школяр»",
           "uri": "http://www.sc.gov.ua/"
-        }, 
+        },
         "address": {
-          "postalCode": "21100", 
-          "countryName": "Україна", 
-          "streetAddress": "вул. Островського, 33", 
-          "region": "Вінницька область", 
-          "locality": "м. Вінниця"
-        }
+          "streetAddress": "вул. Островського, 33",
+          "locality": "м. Вінниця",
+          "region": "Вінницька область",
+          "postalCode": "21100",
+          "countryName": "Україна"
+        },
+        "contactPoint": {
+          "name": "Сергій Олексюк",
+          "email": "soleksuk@gmail.com",
+          "telephone": "+380432216930"
+        },
+        "scale": "micro"
       }
-    ], 
-    "date": "2020-05-15T01:00:00+03:00", 
-    "id": "9161500fb17744ce90346052ddf8479c"
+    ],
+    "subcontractingDetails": "ДКП «Орфей», Україна",
+    "lotValues": [
+      {
+        "relatedLot": "5f416c4b1629461194116a3c41e574a8",
+        "status": "pending",
+        "date": "2023-10-10T01:00:00+03:00"
+      }
+    ],
+    "selfQualified": true,
+    "status": "draft",
+    "id": "bef46d74750b4f74b30d46b87c69df0c",
+    "date": "2023-10-10T01:00:00+03:00"
+  },
+  "access": {
+    "token": "f845f0ce950540b480b48d5f4ef3f1c6",
+    "transfer": "2b3cdd125bfa4bedb8e46a9aef49a478"
   }
 }
 

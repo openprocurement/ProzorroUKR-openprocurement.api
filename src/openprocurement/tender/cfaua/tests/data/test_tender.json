@@ -13,7 +13,7 @@
         },
         "name_en": "State administration",
         "identifier": {
-            "scheme": "UA-EDR",
+            "scheme": "UA-IPN",
             "legalName_en": "dus.gov.ua",
             "id": "00037256",
             "uri": "http://www.dus.gov.ua/"
@@ -21,19 +21,19 @@
         "contactPoint": {
             "name_en": "State administration",
             "name": "Державне управління справами",
-            "telephone": "0440000000"
+            "telephone": "+0440000000"
         }
     },
     "title": "футляри до державних нагород",
     "minimalStep": {
         "currency": "UAH",
-        "amount": 35,
+        "amount": 5,
         "valueAddedTaxIncluded": true
     },
     "items": [
         {
             "unit": {
-                "code": "44617100-9",
+                "code": "KGM",
                 "name": "item"
             },
             "additionalClassifications": [
@@ -82,7 +82,7 @@
             "code": "prepayment",
             "type": "financing",
             "duration": {"days": 2, "type": "banking"},
-            "sequenceNumber": 0,
+            "sequenceNumber": 1,
             "percentage": 100
         }
     ]

@@ -1,0 +1,456 @@
+POST /api/2.5/tenders?opt_pretty=1 HTTP/1.0
+Authorization: Bearer broker
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "title": "Комп’ютерне обладнання",
+    "mainProcurementCategory": "goods",
+    "procuringEntity": {
+      "name": "Державне управління справами",
+      "identifier": {
+        "scheme": "UA-IPN",
+        "id": "00037256",
+        "uri": "http://www.dus.gov.ua/"
+      },
+      "address": {
+        "countryName": "Україна",
+        "postalCode": "01220",
+        "region": "м. Київ",
+        "locality": "м. Київ",
+        "streetAddress": "вул. Банкова, 11, корпус 1"
+      },
+      "contactPoint": {
+        "name": "Державне управління справами",
+        "telephone": "+0440000000"
+      },
+      "kind": "general"
+    },
+    "value": {
+      "amount": 22000,
+      "currency": "UAH"
+    },
+    "tenderPeriod": {
+      "endDate": "2023-10-24T01:00:00+03:00"
+    },
+    "procurementMethodType": "priceQuotation",
+    "procurementMethod": "selective",
+    "items": [
+      {
+        "description": "Комп’ютерне обладнання",
+        "category": "655360-30230000-889652",
+        "profile": "655360-30230000-889652-40000777",
+        "quantity": 5,
+        "deliveryDate": {
+          "startDate": "2023-10-12T01:00:00+03:00",
+          "endDate": "2023-10-15T01:00:00+03:00"
+        },
+        "unit": {
+          "name": "кг",
+          "code": "KGM",
+          "value": {
+            "amount": 6
+          }
+        },
+        "deliveryAddress": {
+          "countryName": "Україна",
+          "postalCode": "79000",
+          "region": "м. Київ",
+          "locality": "м. Київ",
+          "streetAddress": "вул. Банкова 1"
+        },
+        "classification": {
+          "scheme": "ДК021",
+          "id": "44617100-9",
+          "description": "Cartons"
+        },
+        "additionalClassifications": [
+          {
+            "scheme": "INN",
+            "id": "17.21.1",
+            "description": "папір і картон гофровані, паперова й картонна тара"
+          }
+        ]
+      }
+    ],
+    "agreement": {
+      "id": "2e14a78a2074952d5a2d256c3c004dda"
+    },
+    "criteria": [
+      {
+        "description": "Форма випуску",
+        "source": "tenderer",
+        "classification": {
+          "scheme": " espd211",
+          "id": "CRITERION.OTHER.SUBJECT_OF_PROCUREMENT.TECHNICAL_FEATURES1"
+        },
+        "legislation": [
+          {
+            "version": "2020-04-19",
+            "identifier": {
+              "id": "922-VIII",
+              "legalName": "Закон України \"Про публічні закупівлі\"",
+              "uri": "https://zakon.rada.gov.ua/laws/show/922-19"
+            },
+            "type": "NATIONAL_LEGISLATION"
+          }
+        ],
+        "requirementGroups": [
+          {
+            "description": "Форма випуску",
+            "requirements": [
+              {
+                "dataType": "string",
+                "expectedValue": "Розчин для інфузій",
+                "title": "Форма випуску"
+              }
+            ]
+          }
+        ],
+        "title": "Форма випуску"
+      },
+      {
+        "description": "Доза діючої речовини",
+        "source": "tenderer",
+        "classification": {
+          "scheme": " espd211",
+          "id": "CRITERION.OTHER.SUBJECT_OF_PROCUREMENT.TECHNICAL_FEATURES2"
+        },
+        "legislation": [
+          {
+            "version": "2020-04-19",
+            "identifier": {
+              "id": "922-VIII",
+              "legalName": "Закон України \"Про публічні закупівлі\"",
+              "uri": "https://zakon.rada.gov.ua/laws/show/922-19"
+            },
+            "type": "NATIONAL_LEGISLATION"
+          }
+        ],
+        "requirementGroups": [
+          {
+            "description": "Доза діючої речовини",
+            "requirements": [
+              {
+                "dataType": "integer",
+                "minValue": 5,
+                "title": "Доза діючої речовини",
+                "unit": {
+                  "code": "KGM",
+                  "name": "кілограми"
+                }
+              }
+            ]
+          }
+        ],
+        "title": "Доза діючої речовини"
+      },
+      {
+        "description": "Форма випуску",
+        "source": "tenderer",
+        "classification": {
+          "scheme": " espd211",
+          "id": "CRITERION.OTHER.SUBJECT_OF_PROCUREMENT.TECHNICAL_FEATURES3"
+        },
+        "legislation": [
+          {
+            "version": "2020-04-19",
+            "identifier": {
+              "id": "922-VIII",
+              "legalName": "Закон України \"Про публічні закупівлі\"",
+              "uri": "https://zakon.rada.gov.ua/laws/show/922-19"
+            },
+            "type": "NATIONAL_LEGISLATION"
+          }
+        ],
+        "requirementGroups": [
+          {
+            "description": "Форма випуску",
+            "requirements": [
+              {
+                "dataType": "string",
+                "expectedValues": [
+                  "Відповідь1",
+                  "Відповідь2",
+                  "Відповідь3",
+                  "Відповідь4"
+                ],
+                "expectedMinItems": 2,
+                "expectedMaxItems": 3,
+                "title": "Форма випуску"
+              }
+            ]
+          }
+        ],
+        "title": "Форма випуску"
+      }
+    ]
+  },
+  "config": {
+    "hasAuction": false,
+    "hasAwardingOrder": true,
+    "hasValueRestriction": true,
+    "valueCurrencyEquality": true,
+    "hasPrequalification": false,
+    "minBidsNumber": 1,
+    "hasPreSelectionAgreement": true,
+    "hasTenderComplaints": false,
+    "hasAwardComplaints": false,
+    "hasCancellationComplaints": false,
+    "hasValueEstimation": true,
+    "hasQualificationComplaints": false,
+    "tenderComplainRegulation": 0,
+    "qualificationComplainDuration": 0,
+    "awardComplainDuration": 0,
+    "cancellationComplainDuration": 0,
+    "clarificationUntilDuration": 0,
+    "qualificationDuration": 0,
+    "restricted": false
+  }
+}
+
+
+HTTP/1.0 201 Created
+Content-Type: application/json
+Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/3f38940af1314712ac29867b3e4eced4
+
+{
+  "data": {
+    "mainProcurementCategory": "goods",
+    "procurementMethod": "selective",
+    "title": "Комп’ютерне обладнання",
+    "procurementMethodType": "priceQuotation",
+    "awardCriteria": "lowestCost",
+    "status": "draft",
+    "agreement": {
+      "id": "2e14a78a2074952d5a2d256c3c004dda"
+    },
+    "value": {
+      "amount": 22000.0,
+      "currency": "UAH",
+      "valueAddedTaxIncluded": true
+    },
+    "tenderPeriod": {
+      "endDate": "2023-10-24T01:00:00+03:00",
+      "startDate": "2023-10-10T01:00:00+03:00"
+    },
+    "procuringEntity": {
+      "name": "Державне управління справами",
+      "identifier": {
+        "scheme": "UA-IPN",
+        "id": "00037256",
+        "uri": "http://www.dus.gov.ua/"
+      },
+      "address": {
+        "streetAddress": "вул. Банкова, 11, корпус 1",
+        "locality": "м. Київ",
+        "region": "м. Київ",
+        "postalCode": "01220",
+        "countryName": "Україна"
+      },
+      "contactPoint": {
+        "name": "Державне управління справами",
+        "telephone": "+0440000000"
+      },
+      "kind": "general"
+    },
+    "items": [
+      {
+        "category": "655360-30230000-889652",
+        "id": "e0171c9b08d34c71948f18a5f3504f5a",
+        "description": "Комп’ютерне обладнання",
+        "quantity": 5.0,
+        "classification": {
+          "description": "Cartons",
+          "scheme": "ДК021",
+          "id": "44617100-9"
+        },
+        "deliveryDate": {
+          "startDate": "2023-10-12T01:00:00+03:00",
+          "endDate": "2023-10-15T01:00:00+03:00"
+        },
+        "deliveryAddress": {
+          "streetAddress": "вул. Банкова 1",
+          "locality": "м. Київ",
+          "region": "м. Київ",
+          "postalCode": "79000",
+          "countryName": "Україна"
+        },
+        "additionalClassifications": [
+          {
+            "scheme": "INN",
+            "id": "17.21.1",
+            "description": "папір і картон гофровані, паперова й картонна тара"
+          }
+        ],
+        "unit": {
+          "name": "кг",
+          "value": {
+            "amount": 6.0,
+            "currency": "UAH",
+            "valueAddedTaxIncluded": true
+          },
+          "code": "KGM"
+        },
+        "profile": "655360-30230000-889652-40000777"
+      }
+    ],
+    "criteria": [
+      {
+        "id": "bdf27086b44e45f4bd53f2cc82506f8b",
+        "description": "Форма випуску",
+        "source": "tenderer",
+        "classification": {
+          "scheme": " espd211",
+          "id": "CRITERION.OTHER.SUBJECT_OF_PROCUREMENT.TECHNICAL_FEATURES1"
+        },
+        "title": "Форма випуску",
+        "legislation": [
+          {
+            "version": "2020-04-19",
+            "identifier": {
+              "id": "922-VIII",
+              "legalName": "Закон України \"Про публічні закупівлі\"",
+              "uri": "https://zakon.rada.gov.ua/laws/show/922-19"
+            },
+            "type": "NATIONAL_LEGISLATION"
+          }
+        ],
+        "requirementGroups": [
+          {
+            "id": "908040dfbe4e433f87b6eff3c324a3fa",
+            "description": "Форма випуску",
+            "requirements": [
+              {
+                "id": "cdc512a2b4bb40248d9acc3856293743",
+                "title": "Форма випуску",
+                "dataType": "string",
+                "status": "active",
+                "expectedValue": "Розчин для інфузій",
+                "datePublished": "2023-10-10T01:00:00+03:00"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "3ab4e18f94cb4f419b848c1da90019f8",
+        "description": "Доза діючої речовини",
+        "source": "tenderer",
+        "classification": {
+          "scheme": " espd211",
+          "id": "CRITERION.OTHER.SUBJECT_OF_PROCUREMENT.TECHNICAL_FEATURES2"
+        },
+        "title": "Доза діючої речовини",
+        "legislation": [
+          {
+            "version": "2020-04-19",
+            "identifier": {
+              "id": "922-VIII",
+              "legalName": "Закон України \"Про публічні закупівлі\"",
+              "uri": "https://zakon.rada.gov.ua/laws/show/922-19"
+            },
+            "type": "NATIONAL_LEGISLATION"
+          }
+        ],
+        "requirementGroups": [
+          {
+            "id": "2cceb52b85b1408182ad5a032d7c1049",
+            "description": "Доза діючої речовини",
+            "requirements": [
+              {
+                "id": "97d57858d27a4d25a2bfc93285fe6bbd",
+                "title": "Доза діючої речовини",
+                "dataType": "integer",
+                "status": "active",
+                "unit": {
+                  "code": "KGM",
+                  "name": "кілограми"
+                },
+                "minValue": 5,
+                "datePublished": "2023-10-10T01:00:00+03:00"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "eb5f83dbc4e14b96b58ec3652e72b2fe",
+        "description": "Форма випуску",
+        "source": "tenderer",
+        "classification": {
+          "scheme": " espd211",
+          "id": "CRITERION.OTHER.SUBJECT_OF_PROCUREMENT.TECHNICAL_FEATURES3"
+        },
+        "title": "Форма випуску",
+        "legislation": [
+          {
+            "version": "2020-04-19",
+            "identifier": {
+              "id": "922-VIII",
+              "legalName": "Закон України \"Про публічні закупівлі\"",
+              "uri": "https://zakon.rada.gov.ua/laws/show/922-19"
+            },
+            "type": "NATIONAL_LEGISLATION"
+          }
+        ],
+        "requirementGroups": [
+          {
+            "id": "3307ebf5c9a045f591077d680624f298",
+            "description": "Форма випуску",
+            "requirements": [
+              {
+                "id": "ce5f65d294914370b88867ea6ef13fe8",
+                "title": "Форма випуску",
+                "dataType": "string",
+                "status": "active",
+                "expectedValues": [
+                  "Відповідь1",
+                  "Відповідь2",
+                  "Відповідь3",
+                  "Відповідь4"
+                ],
+                "expectedMinItems": 2,
+                "expectedMaxItems": 3,
+                "datePublished": "2023-10-10T01:00:00+03:00"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "tenderID": "UA-2023-10-10-000001-a",
+    "owner": "broker",
+    "date": "2023-10-10T01:00:00+03:00",
+    "dateCreated": "2023-10-10T01:00:00+03:00",
+    "dateModified": "2023-10-10T01:00:00+03:00",
+    "id": "3f38940af1314712ac29867b3e4eced4"
+  },
+  "config": {
+    "hasAuction": false,
+    "hasAwardingOrder": true,
+    "hasValueRestriction": true,
+    "valueCurrencyEquality": true,
+    "hasPrequalification": false,
+    "minBidsNumber": 1,
+    "hasPreSelectionAgreement": true,
+    "hasTenderComplaints": false,
+    "hasAwardComplaints": false,
+    "hasCancellationComplaints": false,
+    "hasValueEstimation": true,
+    "hasQualificationComplaints": false,
+    "tenderComplainRegulation": 0,
+    "qualificationComplainDuration": 0,
+    "awardComplainDuration": 0,
+    "cancellationComplainDuration": 0,
+    "clarificationUntilDuration": 0,
+    "qualificationDuration": 0,
+    "restricted": false
+  },
+  "access": {
+    "token": "3f07ab10456e4f519a3cf51c24d19c80",
+    "transfer": "e92a5b619eb1406ba559e4ec7c1d9dfe"
+  }
+}
+

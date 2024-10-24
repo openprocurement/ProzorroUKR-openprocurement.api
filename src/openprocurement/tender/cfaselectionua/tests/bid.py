@@ -1,53 +1,64 @@
-# -*- coding: utf-8 -*-
 import unittest
 from copy import deepcopy
 
 from openprocurement.api.tests.base import snitch
 from openprocurement.tender.belowthreshold.tests.bid_blanks import (
-    # TenderBidResourceTest
-    patch_tender_with_bids_lots_none,
+    create_tender_bid_document_json_bulk,
 )
-
 from openprocurement.tender.cfaselectionua.tests.base import (
     TenderContentWebTest,
-    test_organization,
-    test_lots,
-    test_agreement_features,
-    test_bids,
+    test_tender_cfaselectionua_agreement_features,
+    test_tender_cfaselectionua_bids,
+    test_tender_cfaselectionua_lots,
+    test_tender_cfaselectionua_organization,
 )
 from openprocurement.tender.cfaselectionua.tests.bid_blanks import (
-    # TenderBidResourceTest
-    create_tender_bid_invalid,
-    create_tender_bid,
-    patch_tender_bid,
-    get_tender_bid,
-    delete_tender_bid,
-    get_tender_tenderers,
     bid_Administrator_change,
-    # TenderBidFeaturesResourceTest
+    create_tender_bid,
+    create_tender_bid_document_invalid_award_status,
+    create_tender_bid_document_json,
+    create_tender_bid_invalid,
+    create_tender_bid_with_document,
+    create_tender_bid_with_document_invalid,
+    create_tender_bid_with_documents,
+    delete_tender_bid,
     features_bid,
     features_bid_invalid,
-    patch_features_bid_invalid,
-    # TenderBidDocumentResourceTest
+    get_tender_bid,
+    get_tender_tenderers,
     not_found,
-    create_tender_bid_document,
-    put_tender_bid_document,
+    patch_features_bid_invalid,
+    patch_tender_bid,
     patch_tender_bid_document,
-    create_tender_bid_document_nopending,
-    # TenderBidDocumentWithDSResourceTest
-    create_tender_bid_document_json,
+    patch_tender_with_bids_lots_none,
     put_tender_bid_document_json,
-    # TenderBidBatchDocumentWithDSResourceTest
-    create_tender_bid_with_document_invalid,
-    create_tender_bid_with_document,
-    create_tender_bid_with_documents,
 )
+from openprocurement.tender.openua.tests.bid import (
+    TenderBidRequirementResponseEvidenceTestMixin,
+    TenderBidRequirementResponseTestMixin,
+)
+
+
+class CreateBidMixin:
+    base_bid_status = "draft"
+
+    def setUp(self):
+        super().setUp()
+        # Create bid
+        bid_data = {
+            "status": self.base_bid_status,
+            "tenderers": [test_tender_cfaselectionua_organization],
+            "lotValues": [{"value": {"amount": 500}, "relatedLot": self.initial_lots[0]["id"]}],
+        }
+        bid, bid_token = self.create_bid(self.tender_id, bid_data)
+        self.bid_id = bid["id"]
+        self.bid_token = bid_token
 
 
 class TenderBidResourceTest(TenderContentWebTest):
     initial_status = "active.tendering"
-    initial_lots = deepcopy(test_lots)
-    test_bids_data = deepcopy(test_bids)
+    initial_lots = deepcopy(test_tender_cfaselectionua_lots)
+    test_bids_data = deepcopy(test_tender_cfaselectionua_bids)
 
     test_create_tender_bid_invalid = snitch(create_tender_bid_invalid)
     test_create_tender_bid = snitch(create_tender_bid)
@@ -60,8 +71,8 @@ class TenderBidResourceTest(TenderContentWebTest):
 
 
 class TenderBidFeaturesResourceTest(TenderContentWebTest):
-    initial_agreement = deepcopy(test_agreement_features)
-    initial_lots = deepcopy(test_lots)
+    initial_agreement = deepcopy(test_tender_cfaselectionua_agreement_features)
+    initial_lots = deepcopy(test_tender_cfaselectionua_lots)
     initial_status = "active.tendering"
 
     test_features_bid = snitch(features_bid)
@@ -69,9 +80,9 @@ class TenderBidFeaturesResourceTest(TenderContentWebTest):
     test_patch_features_bid_invalid = snitch(patch_features_bid_invalid)
 
     def setUp(self):
-        super(TenderBidFeaturesResourceTest, self).setUp()
-        tender = self.db.get(self.tender_id)
-        agreement = test_agreement_features
+        super().setUp()
+        tender = self.mongodb.tenders.get(self.tender_id)
+        agreement = test_tender_cfaselectionua_agreement_features
         agreement["contracts"][0]["parameters"] = [
             {"code": "OCDS-123454-AIR-INTAKE", "value": 0.1},
             {"code": "OCDS-123454-YEARS", "value": 0.1},
@@ -82,21 +93,21 @@ class TenderBidFeaturesResourceTest(TenderContentWebTest):
         ]
         agreement["id"] = tender["agreements"][0]["id"]
         tender["agreements"] = [agreement]
-        self.db.save(tender)
+        self.mongodb.tenders.save(tender)
 
 
 class TenderBidDocumentResourceTest(TenderContentWebTest):
     initial_status = "active.tendering"
-    initial_lots = deepcopy(test_lots)
+    initial_lots = deepcopy(test_tender_cfaselectionua_lots)
 
     def setUp(self):
-        super(TenderBidDocumentResourceTest, self).setUp()
+        super().setUp()
         # Create bid
         response = self.app.post_json(
             "/tenders/{}/bids".format(self.tender_id),
             {
                 "data": {
-                    "tenderers": [test_organization],
+                    "tenderers": [test_tender_cfaselectionua_organization],
                     "lotValues": [{"value": {"amount": 500}, "relatedLot": self.initial_lots[0]["id"]}],
                 }
             },
@@ -106,36 +117,56 @@ class TenderBidDocumentResourceTest(TenderContentWebTest):
         self.bid_token = response.json["access"]["token"]
 
     test_not_found = snitch(not_found)
-    test_create_tender_bid_document = snitch(create_tender_bid_document)
-    test_put_tender_bid_document = snitch(put_tender_bid_document)
-    test_patch_tender_bid_document = snitch(patch_tender_bid_document)
-    test_create_tender_bid_document_nopending = snitch(create_tender_bid_document_nopending)
-
-
-class TenderBidDocumentWithDSResourceTest(TenderBidDocumentResourceTest):
-    docservice = True
-
     test_create_tender_bid_document_json = snitch(create_tender_bid_document_json)
+    test_create_tender_bid_document_json_bulk = snitch(create_tender_bid_document_json_bulk)
     test_put_tender_bid_document_json = snitch(put_tender_bid_document_json)
+    test_patch_tender_bid_document = snitch(patch_tender_bid_document)
+    test_create_tender_bid_document_invalid_award_status = snitch(create_tender_bid_document_invalid_award_status)
 
 
-class TenderBidBatchDocumentWithDSResourceTest(TenderContentWebTest):
-    docservice = True
-    initial_lots = deepcopy(test_lots)
+class TenderBidBatchDocumentResourceTest(TenderContentWebTest):
+    initial_lots = deepcopy(test_tender_cfaselectionua_lots)
     initial_status = "active.tendering"
-    bid_data_wo_docs = {"tenderers": [test_organization], "value": {"amount": 500}, "documents": []}
+    bid_data_wo_docs = {
+        "tenderers": [test_tender_cfaselectionua_organization],
+        "value": {"amount": 500},
+        "documents": [],
+    }
 
     test_create_tender_bid_with_document_invalid = snitch(create_tender_bid_with_document_invalid)
     test_create_tender_bid_with_document = snitch(create_tender_bid_with_document)
     test_create_tender_bid_with_documents = snitch(create_tender_bid_with_documents)
 
 
+class TenderBidRequirementResponseResourceTest(
+    TenderBidRequirementResponseTestMixin,
+    CreateBidMixin,
+    TenderContentWebTest,
+):
+    initial_lots = deepcopy(test_tender_cfaselectionua_lots)
+    test_bids_data = test_tender_cfaselectionua_bids
+    initial_status = "active.tendering"
+
+
+class TenderBidRequirementResponseEvidenceResourceTest(
+    TenderBidRequirementResponseEvidenceTestMixin,
+    CreateBidMixin,
+    TenderContentWebTest,
+):
+    initial_lots = deepcopy(test_tender_cfaselectionua_lots)
+    test_bids_data = test_tender_cfaselectionua_bids
+    initial_status = "active.tendering"
+    guarantee_criterion = False
+
+
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(TenderBidDocumentResourceTest))
-    suite.addTest(unittest.makeSuite(TenderBidDocumentWithDSResourceTest))
-    suite.addTest(unittest.makeSuite(TenderBidFeaturesResourceTest))
-    suite.addTest(unittest.makeSuite(TenderBidResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderBidDocumentResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderBidBatchDocumentResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderBidFeaturesResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderBidResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderBidRequirementResponseResourceTest))
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TenderBidRequirementResponseEvidenceResourceTest))
     return suite
 
 

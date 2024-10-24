@@ -1,0 +1,33 @@
+GET /api/2.5/history/plans/647ea8f38f72484ea0245b71b7cd4231?opt_fields=rationale HTTP/1.0
+Authorization: Bearer broker
+Host: public-api-sandbox.prozorro.gov.ua
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "changes": [
+      {
+        "date": "2023-10-10T01:00:00+03:00",
+        "data": {
+          "rationale": {
+            "description": "Недостатньо змістовне обгрунтування",
+            "date": "2023-10-10T01:00:00+03:00"
+          }
+        }
+      },
+      {
+        "date": "2023-10-11T02:00:33+03:00",
+        "data": {
+          "rationale": {
+            "description": "Змістовне пояснення необхідності закупівлі",
+            "date": "2023-10-11T02:00:33+03:00"
+          }
+        }
+      }
+    ]
+  }
+}
+

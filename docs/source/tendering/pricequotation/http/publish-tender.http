@@ -1,0 +1,194 @@
+PATCH /api/2.5/tenders/8fc54d118a544ade91d3c28d8c89affb?acc_token=5bc846d5687141fa9b6e6dda2122dd32 HTTP/1.0
+Authorization: Bearer broker
+Content-Type: application/json
+Host: lb-api-sandbox.prozorro.gov.ua
+
+{
+  "data": {
+    "status": "draft.publishing"
+  }
+}
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "date": "2023-09-20T01:00:00+03:00",
+    "dateModified": "2023-09-20T01:00:00+03:00",
+    "dateCreated": "2023-09-20T01:00:00+03:00",
+    "tenderID": "UA-2023-09-20-000001-a",
+    "owner": "broker",
+    "title": "Комп’ютерне обладнання",
+    "mainProcurementCategory": "goods",
+    "procurementMethod": "selective",
+    "procurementMethodType": "priceQuotation",
+    "awardCriteria": "lowestCost",
+    "status": "draft.publishing",
+    "agreement": {
+      "id": "2e14a78a2074952d5a2d256c3c004dda"
+    },
+    "value": {
+      "amount": 22000.0,
+      "currency": "UAH",
+      "valueAddedTaxIncluded": true
+    },
+    "tenderPeriod": {
+      "startDate": "2023-09-20T01:00:00+03:00",
+      "endDate": "2023-10-04T01:00:00+03:00"
+    },
+    "procuringEntity": {
+      "name": "Державне управління справами",
+      "identifier": {
+        "scheme": "UA-EDR",
+        "id": "00037256",
+        "uri": "http://www.dus.gov.ua/"
+      },
+      "address": {
+        "streetAddress": "вул. Банкова, 11, корпус 1",
+        "locality": "м. Київ",
+        "region": "м. Київ",
+        "postalCode": "01220",
+        "countryName": "Україна"
+      },
+      "contactPoint": {
+        "name": "Державне управління справами",
+        "telephone": "+0440000000"
+      },
+      "kind": "general"
+    },
+    "items": [
+      {
+        "id": "d53c5a78817b4eec8047b872c498f3f4",
+        "description": "Комп’ютерне обладнання",
+        "quantity": 5.0,
+        "classification": {
+          "description": "Cartons",
+          "scheme": "ДК021",
+          "id": "44617100-9"
+        },
+        "deliveryDate": {
+          "startDate": "2023-09-22T01:00:00+03:00",
+          "endDate": "2023-09-25T01:00:00+03:00"
+        },
+        "deliveryAddress": {
+          "streetAddress": "вул. Банкова 1",
+          "locality": "м. Київ",
+          "region": "м. Київ",
+          "postalCode": "79000",
+          "countryName": "Україна"
+        },
+        "additionalClassifications": [
+          {
+            "scheme": "INN",
+            "id": "17.21.1",
+            "description": "папір і картон гофровані, паперова й картонна тара"
+          }
+        ],
+        "unit": {
+          "name": "кг",
+          "value": {
+            "amount": 6.0,
+            "currency": "UAH",
+            "valueAddedTaxIncluded": true
+          },
+          "code": "KGM"
+        },
+        "profile": "655360-30230000-889652-40000777"
+      }
+    ],
+    "criteria": [
+      {
+        "id": "0fd8fe3ac5e54feaa5c06745409e51de",
+        "requirementGroups": [
+          {
+            "id": "f6fe4520f6ff4e29893ab28f0c17cc7b",
+            "description": "Форма випуску",
+            "requirements": [
+              {
+                "id": "02caab74423640f0a94a9af6650aac03",
+                "title": "Форма випуску",
+                "dataType": "string",
+                "status": "active",
+                "expectedValue": "Розчин для інфузій",
+                "datePublished": "2023-09-20T01:00:00+03:00"
+              }
+            ]
+          }
+        ],
+        "title": "Форма випуску",
+        "description": "Форма випуску"
+      },
+      {
+        "id": "97a3f8c96cc74e768bee16aff66e9370",
+        "requirementGroups": [
+          {
+            "id": "02e99658730d4e3eb284888785d470c4",
+            "description": "Доза діючої речовини",
+            "requirements": [
+              {
+                "id": "d7e840f22c984693a3184aafb358d083",
+                "title": "Доза діючої речовини",
+                "dataType": "integer",
+                "status": "active",
+                "unit": {
+                  "code": "KGM",
+                  "name": "кілограми"
+                },
+                "minValue": 5,
+                "datePublished": "2023-09-20T01:00:00+03:00"
+              }
+            ]
+          }
+        ],
+        "title": "Доза діючої речовини",
+        "description": "Доза діючої речовини"
+      },
+      {
+        "id": "b8cb4beee31b4884bebf4b68ad089cc5",
+        "requirementGroups": [
+          {
+            "id": "e75ca60c2bc4400f9feb15e4191a0dca",
+            "description": "Форма випуску",
+            "requirements": [
+              {
+                "id": "4926ebc3da25439e881462b5727de938",
+                "title": "Форма випуску",
+                "dataType": "string",
+                "status": "active",
+                "expectedValues": [
+                  "Відповідь1",
+                  "Відповідь2",
+                  "Відповідь3",
+                  "Відповідь4"
+                ],
+                "expectedMinItems": 2,
+                "expectedMaxItems": 3,
+                "datePublished": "2023-09-20T01:00:00+03:00"
+              }
+            ]
+          }
+        ],
+        "title": "Форма випуску",
+        "description": "Форма випуску"
+      }
+    ],
+    "noticePublicationDate": "2023-09-20T01:00:00+03:00",
+    "id": "8fc54d118a544ade91d3c28d8c89affb"
+  },
+  "config": {
+    "hasAuction": false,
+    "hasAwardingOrder": true,
+    "hasValueRestriction": true,
+    "valueCurrencyEquality": true,
+    "hasPrequalification": false,
+    "minBidsNumber": 1,
+    "hasPreSelectionAgreement": true,
+    "hasTenderComplaints": false,
+    "hasAwardComplaints": false,
+    "hasCancellationComplaints": false,
+    "restricted": false
+  }
+}
+

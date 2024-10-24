@@ -1,123 +1,371 @@
-# -*- coding: utf-8 -*-
-import argparse
 import os
-from pbkdf2 import PBKDF2
-from ConfigParser import ConfigParser
-from couchdb import Server as CouchdbServer, Session
-from couchdb.http import Unauthorized, extract_credentials
-from openprocurement.api.design import sync_design
+from contextlib import contextmanager
+from decimal import Decimal
 from logging import getLogger
+from uuid import uuid4
+
+from bson.codec_options import CodecOptions, TypeCodec, TypeRegistry
+from bson.decimal128 import Decimal128
+from pymongo import (
+    ASCENDING,
+    DESCENDING,
+    IndexModel,
+    MongoClient,
+    ReadPreference,
+    ReturnDocument,
+)
+from pymongo.read_concern import ReadConcern
+from pymongo.write_concern import WriteConcern
+
+from openprocurement.api.context import get_db_session, get_now, get_request
 
 LOGGER = getLogger("{}.init".format(__name__))
 
-SECURITY = {u"admins": {u"names": [], u"roles": ["_admin"]}, u"members": {u"names": [], u"roles": ["_admin"]}}
-VALIDATE_DOC_ID = "_design/_auth"
-VALIDATE_DOC_UPDATE = """function(newDoc, oldDoc, userCtx){
-    if(newDoc._deleted && newDoc.tenderID) {
-        throw({forbidden: 'Not authorized to delete this document'});
-    }
-    if(userCtx.roles.indexOf('_admin') !== -1 && newDoc._id.indexOf('_design/') === 0) {
-        return;
-    }
-    if(userCtx.name === '%s') {
-        return;
-    } else {
-        throw({forbidden: 'Only authorized user may edit the database'});
-    }
-}"""
+
+#  mongodb
+class MongodbResourceConflict(Exception):
+    """
+    On doc update we pass _id and _rev as filter
+    _rev can be changed by concurrent requests
+    then update_one(or replace_one) doesn't find any document to update and returns matched_count = 0
+    that causes MongodbResourceConflict that is shown to the User as 409 response code
+    that means they have to retry his request
+    """
 
 
-class Server(CouchdbServer):
-    _uuid = None
+class DecimalCodec(TypeCodec):
+    python_type = Decimal  # the Python type acted upon by this type codec
+    bson_type = Decimal128  # the BSON type acted upon by this type codec
 
-    @property
-    def uuid(self):
-        """The uuid of the server.
+    def transform_python(self, value):
+        """Function that transforms a custom type value into a type
+        that BSON can encode."""
+        return Decimal128(value)
 
-        :rtype: basestring
+    def transform_bson(self, value):
+        """Function that transforms a vanilla BSON type value into our
+        custom type."""
+        return value.to_decimal()
+
+
+type_registry = TypeRegistry(
+    [
+        DecimalCodec(),
+    ]
+)
+codec_options = CodecOptions(type_registry=type_registry)
+
+
+def get_public_modified():
+    public_modified = {"$divide": [{"$toLong": "$$NOW"}, 1000]}
+    return public_modified
+
+
+def get_public_ts():
+    return "$$CLUSTER_TIME"
+
+
+class MongodbStore:
+    def __init__(self, settings):
+        self.settings = settings
+
+        db_name = os.environ.get("DB_NAME", settings["mongodb.db_name"])
+        mongodb_uri = os.environ.get("MONGODB_URI", settings["mongodb.uri"])
+        max_pool_size = int(os.environ.get("MONGODB_MAX_POOL_SIZE", settings["mongodb.max_pool_size"]))
+        min_pool_size = int(os.environ.get("MONGODB_MIN_POOL_SIZE", settings["mongodb.min_pool_size"]))
+
+        # https://docs.mongodb.com/manual/core/causal-consistency-read-write-concerns/#causal-consistency-and-read-and-write-concerns
+        raw_read_preference = os.environ.get(
+            "READ_PREFERENCE",
+            settings.get("mongodb.read_preference", "SECONDARY_PREFERRED"),
+        )
+        raw_w_concert = os.environ.get("WRITE_CONCERN", settings.get("mongodb.write_concern", "majority"))
+        raw_r_concern = os.environ.get("READ_CONCERN", settings.get("mongodb.read_concern", "majority"))
+        self.connection = MongoClient(
+            mongodb_uri,
+            maxPoolSize=max_pool_size,
+            minPoolSize=min_pool_size,
+        )
+        self.database = self.connection.get_database(
+            db_name,
+            read_preference=getattr(ReadPreference, raw_read_preference),
+            write_concern=WriteConcern(w=int(raw_w_concert) if raw_w_concert.isnumeric() else raw_w_concert),
+            read_concern=ReadConcern(level=raw_r_concern),
+            codec_options=codec_options,
+        )
+
+    collections = {}
+
+    def __getattr__(self, name):
         """
-        if self._uuid is None:
-            _, _, data = self.resource.get_json()
-            self._uuid = data["uuid"]
-        return self._uuid
+        Used in code related to specific packages, like:
+        >>> store = MongodbStore(settings)
+        >>> store.add_collection("tenders", TenderCollection)
+        >>> store.add_collection("plans", PlanCollection)
+        >>> store.plans.get(uid)
+        >>> store.tenders.save(doc)
+        >>> store.tenders.count(filters)
 
+        :param name: collection name
+        :return: collection instance
+        """
+        if name in self.collections:
+            return self.collections[name]
+        raise AttributeError(f"MongodbStore has no attribute {name}")
 
-def set_api_security(settings):
-    # CouchDB connection
-    db_name = os.environ.get("DB_NAME", settings["couchdb.db_name"])
-    server = Server(settings.get("couchdb.url"), session=Session(retry_delays=range(10)))
-    if "couchdb.admin_url" not in settings and server.resource.credentials:
-        try:
-            server.version()
-        except Unauthorized:
-            server = Server(extract_credentials(settings.get("couchdb.url"))[0])
+    def add_collection(self, name, cls):
+        self.collections[name] = cls(self, self.settings)
 
-    if "couchdb.admin_url" in settings and server.resource.credentials:
-        aserver = Server(settings.get("couchdb.admin_url"), session=Session(retry_delays=range(10)))
-        users_db = aserver["_users"]
-        if SECURITY != users_db.security:
-            LOGGER.info("Updating users db security", extra={"MESSAGE_ID": "update_users_security"})
-            users_db.security = SECURITY
-        username, password = server.resource.credentials
-        user_doc = users_db.get("org.couchdb.user:{}".format(username), {"_id": "org.couchdb.user:{}".format(username)})
-        if not user_doc.get("derived_key", "") or PBKDF2(
-            password, user_doc.get("salt", ""), user_doc.get("iterations", 10)
-        ).hexread(int(len(user_doc.get("derived_key", "")) / 2)) != user_doc.get("derived_key", ""):
-            user_doc.update({"name": username, "roles": [], "type": "user", "password": password})
-            LOGGER.info("Updating api db main user", extra={"MESSAGE_ID": "update_api_main_user"})
-            users_db.save(user_doc)
-        security_users = [username]
-        if "couchdb.reader_username" in settings and "couchdb.reader_password" in settings:
-            reader_username = settings.get("couchdb.reader_username")
-            reader = users_db.get(
-                "org.couchdb.user:{}".format(reader_username), {"_id": "org.couchdb.user:{}".format(reader_username)}
+    def get_sequences_collection(self):
+        return self.database.sequences
+
+    def get_next_sequence_value(self, uid):
+        collection = self.get_sequences_collection()
+        result = collection.find_one_and_update(
+            {"_id": uid},
+            {"$inc": {"value": 1}},
+            return_document=ReturnDocument.AFTER,
+            upsert=True,
+            session=get_db_session(),
+        )
+        return result["value"]
+
+    def flush_sequences(self):
+        collection = self.get_sequences_collection()
+        self.flush(collection)
+
+    @staticmethod
+    def get_next_rev(current_rev=None):
+        """
+        This mimics couchdb _rev field
+        that prevents concurrent updates
+        :param current_rev:
+        :return:
+        """
+        if current_rev:
+            version, _ = current_rev.split("-")
+            version = int(version)
+        else:
+            version = 1
+        next_rev = f"{version + 1}-{uuid4().hex}"
+        return next_rev
+
+    @staticmethod
+    def get(collection, uid):
+        res = collection.find_one(
+            {"_id": uid},
+            projection={
+                "is_public": False,
+                "is_test": False,
+            },
+            session=get_db_session(),
+        )
+        return res
+
+    def list(
+        self,
+        collection,
+        fields,
+        offset_field="_id",
+        offset_value=None,
+        mode="all",
+        descending=False,
+        limit=0,
+        filters=None,
+    ):
+        filters = filters or {}
+        filters["is_public"] = True
+        if mode == "test":
+            filters["is_test"] = True
+        elif mode != "_all_":
+            filters["is_test"] = False
+        if offset_value:
+            filters[offset_field] = {"$lt" if descending else "$gt": offset_value}
+        results = list(
+            collection.find(
+                filter=filters,
+                projection={f: 1 for f in fields},
+                limit=limit,
+                sort=((offset_field, DESCENDING if descending else ASCENDING),),
+                session=get_db_session(),
             )
-            if not reader.get("derived_key", "") or PBKDF2(
-                settings.get("couchdb.reader_password"), reader.get("salt", ""), reader.get("iterations", 10)
-            ).hexread(int(len(reader.get("derived_key", "")) / 2)) != reader.get("derived_key", ""):
-                reader.update(
-                    {
-                        "name": reader_username,
-                        "roles": ["reader"],
-                        "type": "user",
-                        "password": settings.get("couchdb.reader_password"),
+        )
+        for e in results:
+            self.rename_id(e)
+        return results
+
+    def save_data(self, collection, data, insert=False, modified=True):
+        uid = data.pop("id" if "id" in data else "_id")
+        revision = data.pop("rev" if "rev" in data else "_rev", None)
+
+        data["_id"] = uid
+        data["_rev"] = self.get_next_rev(revision)
+        data["is_public"] = data.get("status") not in ("draft", "deleted")
+        data["is_test"] = data.get("mode") == "test"
+        if "is_masked" in data and data.get("is_masked") is not True:
+            data.pop("is_masked")
+
+        pipeline = [
+            {"$replaceWith": {"$literal": data}},
+        ]
+        if insert:
+            data["dateCreated"] = get_now().isoformat()
+        if modified:
+            data["dateModified"] = get_now().isoformat()
+            pipeline.append(
+                {
+                    "$set": {
+                        "public_modified": get_public_modified(),
+                        "public_ts": get_public_ts(),  # create items to migrate
                     }
-                )
-                LOGGER.info("Updating api db reader user", extra={"MESSAGE_ID": "update_api_reader_user"})
-                users_db.save(reader)
-            security_users.append(reader_username)
-        if db_name not in aserver:
-            aserver.create(db_name)
-        db = aserver[db_name]
-        SECURITY[u"members"][u"names"] = security_users
-        if SECURITY != db.security:
-            LOGGER.info("Updating api db security", extra={"MESSAGE_ID": "update_api_security"})
-            db.security = SECURITY
-        auth_doc = db.get(VALIDATE_DOC_ID, {"_id": VALIDATE_DOC_ID})
-        if auth_doc.get("validate_doc_update") != VALIDATE_DOC_UPDATE % username:
-            auth_doc["validate_doc_update"] = VALIDATE_DOC_UPDATE % username
-            LOGGER.info("Updating api db validate doc", extra={"MESSAGE_ID": "update_api_validate_doc"})
-            db.save(auth_doc)
-        # sync couchdb views
-        sync_design(db)
-        db = server[db_name]
-    else:
-        if db_name not in server:
-            server.create(db_name)
-        db = server[db_name]
-        # sync couchdb views
-        sync_design(db)
-        aserver = None
-    return aserver, server, db
+                }
+            )
+        result = collection.find_one_and_update(
+            {"_id": uid, "_rev": revision},
+            pipeline,
+            upsert=insert,
+            session=get_db_session(),
+        )
+        if not result:
+            if insert:
+                pass  # it's fine, when upsert=True works and document is created it's not returned by default
+            else:
+                raise MongodbResourceConflict("Conflict while updating document. Please, retry")
+        return data
+
+    def save_data_simple(self, collection, data, insert=False):
+        uid = data.pop("id" if "id" in data else "_id")
+        data["_id"] = uid
+        if insert:
+            collection.insert_one(data)
+        else:
+            result = collection.replace_one(
+                {"_id": uid},
+                data,
+                session=get_db_session(),
+            )
+            if result.matched_count == 0:
+                raise MongodbResourceConflict("Unable to find the object")
+        return data
+
+    @staticmethod
+    def flush(collection):
+        result = collection.delete_many({})
+        return result
+
+    @staticmethod
+    def delete(collection, uid):
+        result = collection.delete_one({"_id": uid}, session=get_db_session())
+        return result
+
+    @staticmethod
+    def rename_id(obj):
+        if obj:
+            obj["id"] = obj.pop("_id")
+        return obj
 
 
-def bootstrap_api_security():
-    parser = argparse.ArgumentParser(description="---- Bootstrap API Security ----")
-    parser.add_argument("section", type=str, help="Section in configuration file")
-    parser.add_argument("config", type=str, help="Path to configuration file")
-    params = parser.parse_args()
-    if os.path.isfile(params.config):
-        conf = ConfigParser()
-        conf.read(params.config)
-        settings = {k: v for k, v in conf.items(params.section)}
-        set_api_security(settings)
+class BaseCollection:
+    object_name = "dummy"
+
+    def __init__(self, store, settings):
+        self.store = store
+        collection_name = os.environ.get(
+            f"{self.object_name.upper()}_COLLECTION",
+            settings[f"mongodb.{self.object_name.lower()}_collection"],
+        )
+        self.collection = getattr(store.database, collection_name)
+        if isinstance(self.collection.read_preference, type(ReadPreference.PRIMARY)):
+            self.collection_primary = self.collection
+        else:
+            self.collection_primary = self.collection.with_options(read_preference=ReadPreference.PRIMARY)
+        self.create_indexes()
+
+    def get_indexes(self):
+        # Making multiple indexes with the same unique key is supposed to be impossible
+        # https://jira.mongodb.org/browse/SERVER-25023
+        # and https://docs.mongodb.com/manual/core/index-partial/#restrictions
+        # ``In MongoDB, you cannot create multiple versions of an index that differ only in the options.
+        #   As such, you cannot create multiple partial indexes that differ only by the filter expression.``
+        # Hold my 🍺
+        test_by_public_modified = IndexModel(
+            [("public_modified", ASCENDING), ("existing_key", ASCENDING)],
+            name="test_by_public_modified",
+            partialFilterExpression={
+                "is_test": True,
+                "is_public": True,
+            },
+        )
+        real_by_public_modified = IndexModel(
+            [("public_modified", ASCENDING)],
+            name="real_by_public_modified",
+            partialFilterExpression={
+                "is_test": False,
+                "is_public": True,
+            },
+        )
+        all_by_public_modified = IndexModel(
+            [
+                ("public_modified", ASCENDING),
+                ("surely_existing_key", ASCENDING),
+            ],  # makes key unique https://jira.mongodb.org/browse/SERVER-25023
+            name="all_by_public_modified",
+            partialFilterExpression={
+                "is_public": True,
+            },
+        )
+        return [
+            test_by_public_modified,
+            real_by_public_modified,
+            all_by_public_modified,
+        ]
+
+    def create_indexes(self):
+        indexes = self.get_indexes()
+        # self.collection.drop_indexes()
+        # index management probably shouldn't be a part of api initialization
+        # a command like `migrate_db` could be called once per release
+        # that can manage indexes and data migrations
+        # for now I leave it here
+        self.collection.create_indexes(indexes)
+
+    def save(self, o, insert=False, modified=True):
+        data = o.to_primitive()
+        updated = self.store.save_data(self.collection, data, insert=insert, modified=modified)
+        o.import_data(updated)
+
+    def get(self, uid):
+        # if a client doesn't use SESSION cookie
+        # reading from primary solves the issues
+        # when write operation is allowed because of a state object from a secondary replica
+        # This means more reads from Primary, but at the moment we can't force everybody to use the cookie
+        # ! There is also the case, that internal services (like chronograph or tasks)
+        # can read stale versions from secondaries !
+        collection = (
+            self.collection if getattr(get_request(), "method", None) in ("GET", "HEAD") else self.collection_primary
+        )
+        doc = self.store.get(collection, uid)
+        return doc
+
+    def list(self, **kwargs):
+        result = self.store.list(self.collection, **kwargs)
+        return result
+
+    def flush(self):
+        self.store.flush(self.collection)
+
+    def delete(self, uid):
+        result = self.store.delete(self.collection, uid)
+        return result
+
+
+@contextmanager
+def atomic_transaction():
+    s = get_db_session()
+    database = get_request().registry.mongodb.database
+    with s.start_transaction(
+        # read_preference=database.read_preference,
+        write_concern=database.write_concern,
+        read_concern=database.read_concern,
+    ):
+        yield s

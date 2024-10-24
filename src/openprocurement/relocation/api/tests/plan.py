@@ -1,11 +1,9 @@
-# -*- coding: utf-8 -*-
 import os
 from copy import deepcopy
 
 from openprocurement.api.tests.base import BaseWebTest
 from openprocurement.planning.api.tests.base import test_plan_data
-from openprocurement.tender.core.tests.base import change_auth
-
+from openprocurement.tender.core.tests.utils import change_auth
 
 
 class BasePlanOwnershipChangeTest(BaseWebTest):
@@ -15,7 +13,7 @@ class BasePlanOwnershipChangeTest(BaseWebTest):
     initial_auth = ("Basic", (first_owner, ""))
 
     def setUp(self):
-        super(BasePlanOwnershipChangeTest, self).setUp()
+        super().setUp()
         self.create_plan()
 
     def create_plan(self):
@@ -37,7 +35,7 @@ class PlanOwnershipChangeTest(BasePlanOwnershipChangeTest):
         self.assertEqual(response.status, "422 Unprocessable Entity")
         self.assertEqual(
             response.json["errors"],
-            [{u"description": u"This field is required.", u"location": u"body", u"name": u"transfer"}],
+            [{"description": "This field is required.", "location": "body", "name": "transfer"}],
         )
 
     def test_change_ownership(self):
@@ -87,14 +85,14 @@ class PlanOwnershipChangeTest(BasePlanOwnershipChangeTest):
         self.assertEqual(response.status, "403 Forbidden")
         self.assertEqual(
             response.json["errors"],
-            [{u"description": u"Transfer already used", u"location": u"body", u"name": u"transfer"}],
+            [{"description": "Transfer already used", "location": "body", "name": "transfer"}],
         )
         # simulate half-applied transfer activation process (i.e. transfer
         # is successfully applied to a plan and relation is saved in transfer,
         # but plan is not stored with new credentials)
-        transfer_doc = self.db.get(transfer["id"])
+        transfer_doc = self.mongodb.transfers.get(transfer["id"])
         transfer_doc["usedFor"] = "/plans/" + plan["id"]
-        self.db.save(transfer_doc)
+        self.mongodb.transfers.save(transfer_doc)
         response = self.app.post_json(
             "/plans/{}/ownership".format(plan["id"]),
             {"data": {"id": transfer["id"], "transfer": access["transfer"]}},
@@ -103,10 +101,12 @@ class PlanOwnershipChangeTest(BasePlanOwnershipChangeTest):
         self.assertEqual(self.second_owner, response.json["data"]["owner"])
 
         # broker2 can change the plan (first plan which created in test setup)
+        budget = deepcopy(self.plan["budget"])
+        budget["description"] = "broker2 now can change the plan"
         with change_auth(self.app, ("Basic", (self.second_owner, ""))):
             response = self.app.patch_json(
                 "/plans/{}?acc_token={}".format(self.plan_id, new_access_token),
-                {"data": {"budget": {"description": "broker2 now can change the plan"}}},
+                {"data": {"budget": budget}},
             )
         self.assertEqual(response.status, "200 OK")
         self.assertNotIn("transfer", response.json["data"])
@@ -116,9 +116,11 @@ class PlanOwnershipChangeTest(BasePlanOwnershipChangeTest):
         self.assertEqual(response.json["data"]["owner"], self.second_owner)
 
         # old owner now can`t change plan
+        budget = deepcopy(self.plan["budget"])
+        budget["description"] = "yummy donut"
         response = self.app.patch_json(
             "/plans/{}?acc_token={}".format(self.plan_id, new_access_token),
-            {"data": {"description": "yummy donut"}},
+            {"data": {"budget": budget}},
             status=403,
         )
         self.assertEqual(response.status, "403 Forbidden")
@@ -131,7 +133,7 @@ class PlanOwnershipChangeTest(BasePlanOwnershipChangeTest):
         )
         self.assertEqual(response.status, "403 Forbidden")
         self.assertEqual(
-            response.json["errors"], [{u"description": u"Invalid transfer", u"location": u"body", u"name": u"transfer"}]
+            response.json["errors"], [{"description": "Invalid transfer", "location": "body", "name": "transfer"}]
         )
 
         response = self.app.post_json(
@@ -141,7 +143,7 @@ class PlanOwnershipChangeTest(BasePlanOwnershipChangeTest):
         )
         self.assertEqual(response.status, "403 Forbidden")
         self.assertEqual(
-            response.json["errors"], [{u"description": u"Invalid transfer", u"location": u"body", u"name": u"transfer"}]
+            response.json["errors"], [{"description": "Invalid transfer", "location": "body", "name": "transfer"}]
         )
 
     def test_accreditation_level(self):
@@ -162,9 +164,9 @@ class PlanOwnershipChangeTest(BasePlanOwnershipChangeTest):
             response.json["errors"],
             [
                 {
-                    u"description": u"Broker Accreditation level does not permit ownership change",
-                    u"location": u"ownership",
-                    u"name": u"accreditation",
+                    "description": "Broker Accreditation level does not permit ownership change",
+                    "location": "url",
+                    "name": "accreditation",
                 }
             ],
         )
@@ -189,9 +191,9 @@ class PlanOwnershipChangeTest(BasePlanOwnershipChangeTest):
             response.json["errors"],
             [
                 {
-                    u"description": u"Broker Accreditation level does not permit ownership change",
-                    u"location": u"ownership",
-                    u"name": u"mode",
+                    "description": "Broker Accreditation level does not permit ownership change",
+                    "location": "url",
+                    "name": "mode",
                 }
             ],
         )
@@ -229,23 +231,22 @@ class PlanOwnershipChangeTest(BasePlanOwnershipChangeTest):
             response.json["errors"],
             [
                 {
-                    u"description": u"Broker Accreditation level does not permit ownership change",
-                    u"location": u"ownership",
-                    u"name": u"accreditation",
+                    "description": "Broker Accreditation level does not permit ownership change",
+                    "location": "url",
+                    "name": "accreditation",
                 }
             ],
         )
 
     def test_validate_status(self):
         self.app.patch_json(
-            "/plans/{}?acc_token={}".format(self.plan_id, self.plan_token),
-            {"data": {"status": "complete"}}
+            "/plans/{}?acc_token={}".format(self.plan_id, self.plan_token), {"data": {"status": "complete"}}
         )
 
         response = self.app.post_json(
             "/plans/{}/ownership".format(self.plan_id),
             {"data": {"id": "test_id", "transfer": "test_transfer"}},
-            status=403
+            status=403,
         )
 
         self.assertEqual(response.status, "403 Forbidden")
@@ -253,9 +254,9 @@ class PlanOwnershipChangeTest(BasePlanOwnershipChangeTest):
             response.json["errors"],
             [
                 {
-                    u"description": u"Can't update credentials in current (complete) plan status",
-                    u"location": u"body",
-                    u"name": u"data",
+                    "description": "Can't update credentials in current (complete) plan status",
+                    "location": "body",
+                    "name": "data",
                 }
             ],
         )
@@ -284,9 +285,9 @@ class PlanOwnerOwnershipChangeTest(BasePlanOwnershipChangeTest):
             response.json["errors"],
             [
                 {
-                    u"description": u"Owner Accreditation level does not permit ownership change",
-                    u"location": u"ownership",
-                    u"name": u"accreditation",
+                    "description": "Owner Accreditation level does not permit ownership change",
+                    "location": "url",
+                    "name": "accreditation",
                 }
             ],
         )
@@ -299,9 +300,9 @@ class PlanOwnerOwnershipChangeTest(BasePlanOwnershipChangeTest):
         transfer = response.json["data"]
         transfer_tokens = response.json["access"]
 
-        plan_doc = self.db.get(self.plan_id)
+        plan_doc = self.mongodb.plans.get(self.plan_id)
         plan_doc["owner"] = "deleted_broker"
-        self.db.save(plan_doc)
+        self.mongodb.save_data(self.mongodb.plans.collection, plan_doc)
 
         with change_auth(self.app, ("Basic", (self.second_owner, ""))):
             response = self.app.post_json(

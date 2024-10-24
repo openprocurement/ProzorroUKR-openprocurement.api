@@ -1,15 +1,14 @@
-# -*- coding: utf-8 -*-
-from paste.deploy.loadwsgi import loadapp
-from types import FunctionType
-from openprocurement.api.constants import VERSION
-from openprocurement.api.design import sync_design
-import webtest
-import unittest
-import pytest
 import os
+import unittest
+from contextlib import contextmanager
+from types import FunctionType
 
+import pytest
+import webtest
+from paste.deploy.loadwsgi import loadapp
 
-COUCHBD_NAME_SETTING = "couchdb.db_name"
+from openprocurement.api.constants import VERSION
+
 wsgiapp = None
 
 
@@ -23,48 +22,29 @@ def loadwsgiapp(uri, **kwargs):
 
 def snitch(func):
     """
-        This method is used to add test function to TestCase classes.
-        snitch method gets test function and returns a copy of this function
-        with 'test_' prefix at the beginning (to identify this function as
-        an executable test).
-        It provides a way to implement a storage (python module that
-        contains non-executable test functions) for tests and to include
-        different set of functions into different test cases.
+    This method is used to add test function to TestCase classes.
+    snitch method gets test function and returns a copy of this function
+    with 'test_' prefix at the beginning (to identify this function as
+    an executable test).
+    It provides a way to implement a storage (python module that
+    contains non-executable test functions) for tests and to include
+    different set of functions into different test cases.
     """
-    return FunctionType(func.func_code, func.func_globals, "test_" + func.func_name, closure=func.func_closure)
+    return FunctionType(func.__code__, func.__globals__, "test_" + func.__name__, closure=func.__closure__)
 
 
 class PrefixedTestRequest(webtest.app.TestRequest):
     @classmethod
     def blank(cls, path, *args, **kwargs):
-        path = "/api/%s%s" % (VERSION, path)
+        path = "/api/{}{}".format(VERSION, path)
         return webtest.app.TestRequest.blank(path, *args, **kwargs)
 
 
 class BaseTestApp(webtest.TestApp):
     RequestClass = PrefixedTestRequest
 
-    def __init__(self, *args, **kwargs):
-        super(BaseTestApp, self).__init__(*args, **kwargs)
 
-    def reset(self):
-        super(BaseTestApp, self).reset()
-        self.recreate_db()
-
-    def recreate_db(self):
-        self.drop_db()
-        return self.create_db()
-
-    def create_db(self):
-        db_name = os.environ.get("DB_NAME", self.app.registry.settings[COUCHBD_NAME_SETTING])
-        self.app.registry.db = self.app.registry.couchdb_server.create(db_name)
-        sync_design(self.app.registry.db)
-        return self.app.registry.db
-
-    def drop_db(self):
-        db_name = self.app.registry.db.name
-        if db_name and db_name in self.app.registry.couchdb_server:
-            self.app.registry.couchdb_server.delete(db_name)
+app_cache = {}
 
 
 class BaseWebTest(unittest.TestCase):
@@ -73,25 +53,39 @@ class BaseWebTest(unittest.TestCase):
     It setups the database before each test and delete it after.
     """
 
+    maxDiff = None
     AppClass = BaseTestApp
 
     relative_uri = "config:tests.ini"
     relative_to = os.path.dirname(__file__)
 
     initial_auth = None
+    mongodb = None
 
     @classmethod
     def setUpClass(cls):
-        cls.app = cls.AppClass(loadwsgiapp(cls.relative_uri, relative_to=cls.relative_to))
-        cls.couchdb_server = cls.app.app.registry.couchdb_server
-        cls.db = cls.app.app.registry.db
+        key = (cls.relative_uri, cls.relative_to)
+        if key not in app_cache:
+            app_cache[key] = cls.AppClass(loadwsgiapp(cls.relative_uri, relative_to=cls.relative_to))
+        cls.app = app_cache[key]
+        # cls.app = cls.AppClass(loadwsgiapp(cls.relative_uri, relative_to=cls.relative_to))
+
+        cls.mongodb = cls.app.app.registry.mongodb
+        cls.clean_mongodb()
 
     def setUp(self):
         self.app.authorization = self.initial_auth
-        self.db = self.app.recreate_db()
 
     def tearDown(self):
-        self.app.drop_db()
+        self.clean_mongodb()
+
+    @classmethod
+    def clean_mongodb(cls):
+        for collection in cls.mongodb.collections.keys():
+            collection = getattr(cls.mongodb, collection, None)
+            if collection:  # plugins are optional
+                collection.flush()
+        cls.mongodb.flush_sequences()
 
 
 @pytest.fixture(scope="session")
@@ -104,6 +98,19 @@ def singleton_app():
 @pytest.fixture(scope="function")
 def app(singleton_app):
     singleton_app.authorization = None
-    singleton_app.recreate_db()
     yield singleton_app
-    singleton_app.drop_db()
+    mongodb = singleton_app.app.registry.mongodb
+    if hasattr(mongodb, "tenders"):
+        mongodb.tenders.flush()
+    if hasattr(mongodb, "plans"):
+        mongodb.plans.flush()
+    if hasattr(mongodb, "contracts"):
+        mongodb.contracts.flush()
+
+
+@contextmanager
+def change_auth(app, auth):
+    authorization = app.authorization
+    app.authorization = auth
+    yield app
+    app.authorization = authorization

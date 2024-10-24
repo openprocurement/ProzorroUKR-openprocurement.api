@@ -1,31 +1,33 @@
-PUT /api/2.5/tenders/e5172ebc4c4c411f84f376ce6ede43b8/bids/410cb59a0945497eb61cc4461f661569/qualification_documents/911a8244866f4ffdbd2b2a202d34043c?acc_token=7ba8d77208c04422b161882dc2c4b5c2 HTTP/1.0
+PUT /api/2.5/tenders/30730028a07b4aee97ed094ebd250c58/bids/b5da67b11f7643f78cdf909b0d5c4595/qualification_documents/9840447256784072a827930d849b003e?acc_token=846eef8ae3ae4b00bba2d663a59ee0b5 HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 159
-Content-Type: multipart/form-data; boundary=---BOUNDARY
+Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
------BOUNDARY
-Content-Disposition: form-data; name="file"; filename="qualification_document2.pdf"
-Content-Type: application/pdf
 
-content
------BOUNDARY--
-
-
-Response: 200 OK
-Content-Type: application/json; charset=UTF-8
 {
   "data": {
-    "hash": "md5:00000000000000000000000000000000", 
-    "confidentiality": "public", 
-    "language": "uk", 
-    "title": "qualification_document2.pdf", 
-    "url": "http://lb-api-sandbox.prozorro.gov.ua/api/2.5/tenders/e5172ebc4c4c411f84f376ce6ede43b8/bids/410cb59a0945497eb61cc4461f661569/qualification_documents/911a8244866f4ffdbd2b2a202d34043c?download=03ec7a79367644d0b9d45ec78b8a35c2", 
-    "format": "application/pdf", 
-    "documentOf": "tender", 
-    "datePublished": "2020-05-15T01:00:00+03:00", 
-    "id": "911a8244866f4ffdbd2b2a202d34043c", 
-    "dateModified": "2020-05-15T01:00:00+03:00"
+    "title": "qualification_document.pdf",
+    "url": "http://public-docs-sandbox.prozorro.gov.ua/get/12445f37d5c44db0a6af92b7c6c3ff54?Signature=paOlBtTaSVOtQslSmlniwDV9Z5iMvE0UaASfSDlBPnVLFxgNsJGTvF4j6j7xkNFLEkjro1vCk9GIvOH%2BsKRfCg%3D%3D&KeyID=a8968c46",
+    "hash": "md5:00000000000000000000000000000000",
+    "format": "application/pdf"
+  }
+}
+
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
+{
+  "data": {
+    "confidentiality": "public",
+    "id": "9840447256784072a827930d849b003e",
+    "datePublished": "2023-10-10T01:00:00+03:00",
+    "hash": "md5:00000000000000000000000000000000",
+    "title": "qualification_document.pdf",
+    "format": "application/pdf",
+    "url": "http://public-docs-sandbox.prozorro.gov.ua/get/12445f37d5c44db0a6af92b7c6c3ff54?Signature=i61noFvn8kkkCzLtFL1JFLNDRNSVhMV1C%2Bg12ajqOJoq4fRs6TG%2FQPcpZ8LXWTjxpgErXx91Jr5HpzRnBb7rDg%3D%3D&KeyID=a8968c46",
+    "documentOf": "tender",
+    "dateModified": "2023-10-10T01:00:00+03:00",
+    "language": "uk"
   }
 }
 

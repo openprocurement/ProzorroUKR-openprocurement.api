@@ -1,14 +1,16 @@
-GET /api/2.5/transfers/cfd9e57ce9704ad2a954a79cbfe78d21 HTTP/1.0
+GET /api/2.5/transfers/845293b7f3c2411e9ecbc6ba4a0cf557 HTTP/1.0
 Authorization: Bearer broker1
-Host: lb-api-sandbox.prozorro.gov.ua
+Host: public-api-sandbox.prozorro.gov.ua
 
-Response: 200 OK
-Content-Type: application/json; charset=UTF-8
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
 {
   "data": {
-    "date": "2020-05-15T01:00:00+03:00", 
-    "id": "cfd9e57ce9704ad2a954a79cbfe78d21", 
-    "usedFor": "/plans/f0b2403cba3040acaaf3d6d45dc953be"
+    "date": "2023-10-10T01:00:00+03:00",
+    "usedFor": "/plans/7c7db9c9432746d19f41cd2b04bc65a5",
+    "id": "845293b7f3c2411e9ecbc6ba4a0cf557"
   }
 }
 

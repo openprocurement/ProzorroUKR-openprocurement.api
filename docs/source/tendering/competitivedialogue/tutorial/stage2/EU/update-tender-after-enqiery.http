@@ -1,30 +1,65 @@
-PATCH /api/2.5/tenders/50c82523038349969f53f3e238932c46?acc_token=90e5c1d7c0414b99a392234aee8cd1dc HTTP/1.0
+PATCH /api/2.5/tenders/1ee782bb9bb14b8e92d250a14317d067?acc_token=7c2c64030510420cac054902f901f0ea HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 81
 Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
+
 {
   "data": {
     "items": [
       {
+        "id": "a587338a060e4523bab5d009929740b0",
+        "description": "Послуги шкільних їдалень",
+        "quantity": 1.0,
+        "additionalClassifications": [
+          {
+            "scheme": "ДКПП",
+            "id": "17.21.1",
+            "description": "Послуги шкільних їдалень"
+          }
+        ],
+        "relatedLot": "48bd8a7458e346f1beeb61941fa097f0",
         "deliveryDate": {
-          "endDate": "2020-06-14T01:00:10+03:00"
+          "startDate": "2023-10-30T01:00:00+03:00",
+          "endDate": "2023-11-10T01:00:00+03:00"
+        },
+        "deliveryAddress": {
+          "streetAddress": "вул. Банкова 1",
+          "locality": "м. Київ",
+          "region": "м. Київ",
+          "postalCode": "79000",
+          "countryName": "Україна"
+        },
+        "description_en": "Services in school canteens",
+        "unit": {
+          "name": "кілограм",
+          "value": {
+            "amount": 6.0,
+            "currency": "UAH",
+            "valueAddedTaxIncluded": true
+          },
+          "code": "KGM"
+        },
+        "classification": {
+          "description": "Test",
+          "scheme": "ДК021",
+          "id": "37810000-9"
         }
       }
     ]
   }
 }
 
-Response: 403 Forbidden
-Content-Type: application/json; charset=UTF-8
+
+HTTP/1.0 403 Forbidden
+Content-Type: application/json
+
 {
-  "status": "error", 
+  "status": "error",
   "errors": [
     {
-      "description": "tenderPeriod should be extended by 7 days", 
-      "location": "body", 
-      "name": "data"
+      "location": "body",
+      "name": "data",
+      "description": "tenderPeriod should be extended by 7 days"
     }
   ]
 }

@@ -1,50 +1,68 @@
-POST /api/2.5/plans/77cf582ab7284fb1a0e748ea7fe9033f/milestones HTTP/1.0
+POST /api/2.5/plans/1be4169566db4d9d931b6056c5814240/milestones HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 1334
 Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
+
 {
   "data": {
-    "description": "Узагальнення та аналіз отриманної інформації щодо проведення закупівель товарів, послуг (крім поточного ремонту) в інтересах замовників", 
-    "title": "Підготовка до проведення процедури", 
-    "type": "approval", 
-    "dueDate": "2019-05-15T13:00:00.000000+02:00", 
+    "title": "Підготовка до проведення процедури",
+    "description": "Узагальнення та аналіз отриманної інформації щодо проведення закупівель товарів, послуг (крім поточного ремонту) в інтересах замовників",
+    "type": "approval",
     "author": {
       "identifier": {
-        "scheme": "UA-EDR", 
-        "id": "111111", 
+        "scheme": "UA-EDR",
+        "id": "111111",
         "legalName": "ДП Центральний закупівельний орган №1"
-      }, 
-      "name": "ЦЗО №1"
-    }
+      },
+      "name": "ЦЗО №1",
+      "address": {
+        "countryName": "Україна",
+        "postalCode": "01220",
+        "region": "м. Київ",
+        "locality": "м. Київ",
+        "streetAddress": "вул. Банкова, 1"
+      },
+      "kind": "central"
+    },
+    "dueDate": "2023-10-10T01:00:04+03:00"
   }
 }
 
-Response: 201 Created
-Content-Type: application/json; charset=UTF-8
-Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/plans/77cf582ab7284fb1a0e748ea7fe9033f/milestones/e00a9a2282f647598f1688ad83fd9070
+
+HTTP/1.0 201 Created
+Content-Type: application/json
+Location: http://lb-api-sandbox.prozorro.gov.ua/api/2.5/plans/1be4169566db4d9d931b6056c5814240/milestones/38af1af8923e4f2ab7bdda3b7d94c002
+
 {
-  "access": {
-    "token": "6e455ae5f2a8451b9732a2e3c32260c3"
-  }, 
   "data": {
-    "status": "scheduled", 
-    "description": "Узагальнення та аналіз отриманної інформації щодо проведення закупівель товарів, послуг (крім поточного ремонту) в інтересах замовників", 
+    "status": "scheduled",
+    "dueDate": "2023-10-10T01:00:04+03:00",
+    "title": "Підготовка до проведення процедури",
+    "description": "Узагальнення та аналіз отриманної інформації щодо проведення закупівель товарів, послуг (крім поточного ремонту) в інтересах замовників",
+    "type": "approval",
     "author": {
+      "id": "f2aa390c3e55435d92d2b920e099369c",
+      "name": "ЦЗО №1",
       "identifier": {
-        "scheme": "UA-EDR", 
-        "id": "111111", 
+        "scheme": "UA-EDR",
+        "id": "111111",
         "legalName": "ДП Центральний закупівельний орган №1"
-      }, 
-      "name": "ЦЗО №1"
-    }, 
-    "dueDate": "2019-05-15T13:00:00+02:00", 
-    "title": "Підготовка до проведення процедури", 
-    "dateModified": "2019-05-02T05:00:00+03:00", 
-    "owner": "broker", 
-    "type": "approval", 
-    "id": "e00a9a2282f647598f1688ad83fd9070"
+      },
+      "address": {
+        "streetAddress": "вул. Банкова, 1",
+        "locality": "м. Київ",
+        "region": "м. Київ",
+        "postalCode": "01220",
+        "countryName": "Україна"
+      },
+      "kind": "central"
+    },
+    "id": "38af1af8923e4f2ab7bdda3b7d94c002",
+    "dateModified": "2023-10-10T01:00:03+03:00",
+    "owner": "broker"
+  },
+  "access": {
+    "token": "583e6285b176451ab4f7fd7c9196bd43"
   }
 }
 

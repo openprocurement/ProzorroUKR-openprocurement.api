@@ -1,56 +1,75 @@
-PATCH /api/2.5/tenders/26b780552e084bbcb2b53c5383a6e976/awards/3d3e484cb2eb4d3386377ed2c400d926?acc_token=df3d7d3c62c74918a4905630dbce126b HTTP/1.0
+PATCH /api/2.5/tenders/f082eef1f646440d9089b9620ea0bb9a/awards/c41959de1f2c4c9086d1ee34dc990c11?acc_token=876109ab3fbf46ca81bae8f2e668687a HTTP/1.0
 Authorization: Bearer broker
-Content-Length: 49
 Content-Type: application/json
 Host: lb-api-sandbox.prozorro.gov.ua
-DATA:
+
 {
   "data": {
-    "status": "active", 
+    "status": "active",
     "qualified": true
   }
 }
 
-Response: 200 OK
-Content-Type: application/json; charset=UTF-8
+
+HTTP/1.0 200 OK
+Content-Type: application/json
+
 {
   "data": {
-    "status": "active", 
-    "complaintPeriod": {
-      "startDate": "2020-05-15T01:00:00+03:00", 
-      "endDate": "2020-05-21T00:00:00+03:00"
-    }, 
+    "id": "c41959de1f2c4c9086d1ee34dc990c11",
+    "qualified": true,
+    "status": "active",
+    "date": "2023-10-10T01:00:00+03:00",
+    "value": {
+      "amount": 475000.0,
+      "valueAddedTaxIncluded": false,
+      "currency": "UAH"
+    },
     "suppliers": [
       {
-        "contactPoint": {
-          "email": "soleksuk@gmail.com", 
-          "telephone": "+380 (432) 21-69-30", 
-          "name": "Сергій Олексюк"
-        }, 
-        "scale": "micro", 
-        "name": "ДКП «Школяр»", 
+        "name": "ДКП «Школяр»",
         "identifier": {
-          "scheme": "UA-EDR", 
-          "id": "00137256", 
+          "scheme": "UA-EDR",
+          "id": "00137256",
+          "legalName": "Державне комунальне підприємство громадського харчування «Школяр»",
           "uri": "http://www.sc.gov.ua/"
-        }, 
+        },
         "address": {
-          "postalCode": "21100", 
-          "countryName": "Україна", 
-          "streetAddress": "вул. Островського, 33", 
-          "region": "Вінницька область", 
-          "locality": "м. Вінниця"
-        }
+          "streetAddress": "вул. Островського, 33",
+          "locality": "м. Вінниця",
+          "region": "Вінницька область",
+          "postalCode": "21100",
+          "countryName": "Україна"
+        },
+        "contactPoint": {
+          "name": "Сергій Олексюк",
+          "email": "soleksuk@gmail.com",
+          "telephone": "+380432216930"
+        },
+        "scale": "micro"
       }
-    ], 
-    "value": {
-      "currency": "UAH", 
-      "amount": 475000.0, 
-      "valueAddedTaxIncluded": false
-    }, 
-    "qualified": true, 
-    "date": "2020-05-15T01:00:00+03:00", 
-    "id": "3d3e484cb2eb4d3386377ed2c400d926"
+    ],
+    "documents": [
+      {
+        "confidentiality": "public",
+        "documentType": "notice",
+        "id": "7acfb16603784a4a8527357160347ea1",
+        "datePublished": "2023-10-10T01:00:00+03:00",
+        "hash": "md5:00000000000000000000000000000000",
+        "title": "sign.p7s",
+        "format": "sign/pkcs7-signature",
+        "url": "http://public-docs-sandbox.prozorro.gov.ua/get/090eb78164424bc3a6a8ef1a626b3d2b?Signature=B6%2BcFjyOPTR4c462I8pPvrco92DE%2FASdfjMCJf1Io%2FBY0KBYvBmjMeHVzWh7644li65XKJbHJVX59GLHUGolDg%3D%3D&KeyID=a8968c46",
+        "documentOf": "tender",
+        "dateModified": "2023-10-10T01:00:00+03:00",
+        "author": "tender_owner",
+        "language": "uk"
+      }
+    ],
+    "lotID": "dcc3f8f1b92b47128900eacef2094061",
+    "complaintPeriod": {
+      "startDate": "2023-10-10T01:00:00+03:00",
+      "endDate": "2023-10-16T00:00:00+03:00"
+    }
   }
 }
 
